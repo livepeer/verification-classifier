@@ -92,3 +92,30 @@ ms-ssim, psnr-y, psnr-u, psnr-v
 0.985460, 32.521368, 43.338460, 42.580399
 0.985896, 32.670122, 43.325404, 42.529248
 ```
+
+In order to work, this script needs a version of avconv that contains the ms-ssim which can be found 
+[here](https://github.com/lu-zero/libav/tree/mea) and the livepeer 
+[TranscodingVerification](https://github.com/livepeer/TranscodingVerification) 
+
+Some basics steps to build it in mac osx
+
+### TranscodingVerification
+
+```
+brew install meson
+git clone https://github.com/livepeer/TranscodingVerification.git
+cd TranscodingVerification
+meson .build
+ninja -C .build install
+```
+
+### libav
+
+```
+brew install pkgconfig
+git clone https://github.com/lu-zero/libav.git
+cd libav
+git checkout mea
+./configure --enable-libmea
+make && make install
+```
