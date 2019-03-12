@@ -52,17 +52,15 @@ This notebook expects a file `metrics.csv` in the output folder
 
 ## Multi scale ssim
 
-There is a script `evaluate-ms-ssim.sh` in order to calculate the multiscale ssim. This scripts receives one parameter
+There is a script `evaluate-ms-ssim.sh` in order to calculate the multiscale ssim. This script receives one parameter
 which is the path where the videos are with the same structure as mentioned in [Compare_videos notebook](#Compare_videos notebook).
-
-For example:
 
 ```
 bash evaluate-ms-ssim.sh /path/to/videos
 
 ```
 
-The script will produce in the output folder a structure like this
+The script will produce the following folder structure:
 
 ```
 mssim
@@ -80,8 +78,8 @@ mssim
         └── -8ygLPzgpsg_720.log 
 ```
 
-Where the folder indicate the rendition we are using to compare against the original (1080). 
-A folder inside this folder contains the name of the asset and finally the file containing the log.
+Where the folder indicates the rendition we are using to compare against the original (1080). 
+A subfolder of this folder contains the name of the asset and finally the file containing the log.
 
 The log is a csv file, with the following structure:
 
@@ -117,5 +115,75 @@ git clone https://github.com/lu-zero/libav.git
 cd libav
 git checkout mea
 ./configure --enable-libmea
+make && make install
+```
+
+
+## Vmaf
+
+There is a script `evaluate-vmaf.sh` in order to calculate the vmaf score. This script receives one parameter
+which is the path where the videos are with the same structure as mentioned in [Compare_videos notebook](#Compare_videos notebook).
+
+```
+bash evaluate-vmaf.sh /path/to/videos
+
+```
+
+The script will produce the following folder structure:
+
+```
+output/vmaf
+├── 240
+│   ├── -8ygLPzgpsg
+│   │   ├── -8ygLPzgpsg_240.log
+│   │   └── -8ygLPzgpsg_240.log.out
+├── 360
+│   ├── -8ygLPzgpsg
+│   │   ├── -8ygLPzgpsg_360.log
+│   │   └── -8ygLPzgpsg_360.log.out
+├── 480
+│   ├── -8ygLPzgpsg
+│   │   ├── -8ygLPzgpsg_480.log
+│   │   └── -8ygLPzgpsg_480.log.out
+└── 720
+    ├── -8ygLPzgpsg
+        ├── -8ygLPzgpsg_720.log
+        └── -8ygLPzgpsg_720.log.out
+```
+
+Where the folder indicates the rendition we are using to compare against the original (1080). 
+A subfolder of this folder contains the name of the asset and finally two files: One containing the result 
+(videoname_rendition.log) and other containing the output from the ffmpeg (videoname_rendition.log.out).
+
+The log file contains the following information:
+
+```
+Start calculating VMAF score...
+Exec FPS: 158.922597
+VMAF score = 90.566873
+```
+
+The interesting line is the third one, containing the vmaf score.
+
+The .out file is not worth analyzing as it is the standard ffmpeg output
+
+In order to function, this script needs [vmaf](https://github.com/Netflix/vmaf.git) and 
+[ffmpeg](https://git.ffmpeg.org/ffmpeg.git) installed. 
+
+Some basics steps to build it in mac osx
+
+### vmaf
+```
+git clone https://github.com/Netflix/vmaf.git
+cd vmaf
+make && make install
+```
+
+
+### ffmpeg
+```
+git clone https://git.ffmpeg.org/ffmpeg.git
+cd ffmpeg
+./configure --enable-libvmaf --enable-version3
 make && make install
 ```
