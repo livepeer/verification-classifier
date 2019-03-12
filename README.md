@@ -38,7 +38,7 @@ data
 
 Where
 
-7 is the folder for the 1080p rendition
+7 is the folder for the 1080p rendition (the original to compare against)
 6 is the folder for the 720p rendition
 5 is the folder for the 480p rendition
 4 is the folder for the 360p rendition
@@ -48,4 +48,47 @@ The result will be in the output folder
 
 ### Metric analysis notebook
 
-This notebook expect a file `metrics.csv` in the output folder
+This notebook expects a file `metrics.csv` in the output folder
+
+## Multi scale ssim
+
+There is a script `evaluate-ms-ssim.sh` in order to calculate the multiscale ssim. This scripts receives one parameter
+which is the path where the videos are with the same structure as mentioned in [Compare_videos notebook](#Compare_videos notebook).
+
+For example:
+
+```
+bash evaluate-ms-ssim.sh /path/to/videos
+
+```
+
+The script will produce in the output folder a structure like this
+
+```
+mssim
+├── 240
+│   ├── -8ygLPzgpsg
+│   │   └── -8ygLPzgpsg_240.log
+├── 360
+│   ├── -8ygLPzgpsg
+│   │   └── -8ygLPzgpsg_360.log
+├── 480
+│   ├── -8ygLPzgpsg
+│   │   └── -8ygLPzgpsg_480.log
+└── 720
+    ├── -8ygLPzgpsg
+        └── -8ygLPzgpsg_720.log 
+```
+
+Where the folder indicate the rendition we are using to compare against the original (1080). 
+A folder inside this folder contains the name of the asset and finally the file containing the log.
+
+The log is a csv file, with the following structure:
+
+```
+ms-ssim, psnr-y, psnr-u, psnr-v
+0.986889, 32.866684, 43.274622, 42.429359
+0.985558, 32.394349, 43.344157, 42.658971
+0.985460, 32.521368, 43.338460, 42.580399
+0.985896, 32.670122, 43.325404, 42.529248
+```
