@@ -187,3 +187,48 @@ cd ffmpeg
 ./configure --enable-libvmaf --enable-version3
 make && make install
 ```
+
+## Tools
+
+Inside this repository there is a folder tools, where different tools are placed.
+
+### Watermarks
+
+Watermark folder contains 2 files and 1 folder:
+
+`watermark` folder which contains `livepeer.png`. `livepeer.png` is going to be used as the watermark for the videos.  
+`yt8m_data.csv` file which is a csv containing info (resolutions, bitrates, etc.) about the dataset.  
+`watermark.py` script that takes an input folder containing 1080p videos and an output folder to store the processed videos with the watermarks.
+
+The output looks like
+
+```
+├── 2.1
+│   ├── -8ygLPzgpsg.mp4
+├── 3.1
+│   ├── -8ygLPzgpsg.mp4
+├── 4.1
+│   ├── -8ygLPzgpsg.mp4
+├── 5.1
+│   ├── -8ygLPzgpsg.mp4
+├── 6.1
+│   ├── -8ygLPzgpsg.mp4
+├── 7.1
+│   ├── -8ygLPzgpsg.mp4
+```
+
+Where 
+
+7.1 is the 1080 output folder
+6.1 is the 720 output folder
+5.1 is the 480 output folder
+4.1 is the 360 output folder
+3.1 is the 240 output folder
+2.1 is the 144 output folder
+
+
+Usage sample
+
+```
+python watermark.py -i /PATH/TO/1080VIDEOS -o /PATH/TO/DESIRED/OUTPUT
+```
