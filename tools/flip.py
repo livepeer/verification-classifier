@@ -22,7 +22,7 @@ arg_output_path = args.output
 vertical_flip = args.vflip
 horizontal_flip = args.hflip
 clockwise_flip = args.clockflip
-counterclockwise_flip = args.clockflip
+counterclockwise_flip = args.counterclockflip
 
 files = get_files(arg_input_path)
 
