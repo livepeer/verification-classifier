@@ -1,12 +1,13 @@
 import cv2
 import numpy as np
 import time
-import math
 from scipy.spatial import distance
 from skimage.measure import compare_ssim
 
+from video_metrics import video_metrics
+
 class video_asset_processor:
-    def __init__(self, source_path, renditions_paths):
+    def __init__(self, source_path, renditions_paths, metrics_list):
         print('Processing asset:', source_path)
         # Initialize global variables
         self.source = cv2.VideoCapture(source_path)
@@ -17,7 +18,8 @@ class video_asset_processor:
         self.hash_size = 16
         self.renditions = {}
         self.metrics = {}
-
+        self.metrics_list = metrics_list
+        self.video_metrics = video_metrics(self.metrics_list, self.skip_frames, self.hash_size)
         # Retrieve original rendition dimensions
         self.height = self.source.get(cv2.CAP_PROP_FRAME_HEIGHT)   
         self.width = self.source.get(cv2.CAP_PROP_FRAME_WIDTH) 
@@ -89,43 +91,6 @@ class video_asset_processor:
         resized_B = cv2.resize(img_B, (width, height))
 
         return resized_A, resized_B
-        
-    def psnr(self, img_A, img_B):
-        
-        mse = np.mean( (img_A - img_B) ** 2 )
-        if mse == 0:
-            return 100
-        PIXEL_MAX = 255.0
-        return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
-        
-    def dhash(self, image):
-        # Function to compute the perceptual hash of an image
-
-        # Resize the input image, adding a single column (width) so we
-        # can compute the horizontal gradient
-        resized = np.resize(image, (self.hash_size + 1, self.hash_size))
-        # compute the (relative) horizontal gradient between adjacent
-        # column pixels
-        diff = resized[:, 1:] > resized[:, :-1]
-        print(resized)
-        # convert the difference image to a hash
-        hash = sum([2 ** i for (i, v) in enumerate(diff.flatten()) if v])
-        hash_array = [int(x) for x in str(hash)]
-        # Return only the first 15 elements of the array
-        return hash_array[:15]
-
-    def evaluate_difference_instant(self, frame_list, position_frame):
-        # Grab the current frame        
-        current_frame = frame_list[position_frame]
-        # Grab the frame skip_frames ahead
-        next_frame = frame_list[position_frame + self.skip_frames]
-
-        # Compute the number of different pixels
-        total_pixels = current_frame.shape[0] * current_frame.shape[1]
-
-        difference_ratio = np.count_nonzero(np.array(next_frame - current_frame)) / total_pixels
-
-        return difference_ratio
 
     def compare_renditions_instant(self, position_frame):
         # Iterate for each given comparable rendition
@@ -134,7 +99,7 @@ class video_asset_processor:
 
         reference_frame = self.source[position_frame]
         # Measure the instantaneous difference between frames
-        reference_difference_ratio = self.evaluate_difference_instant(self.source, position_frame)
+        reference_difference_ratio = self.video_metrics.evaluate_difference_instant(self.source, position_frame)
         # # Extract the dhash for the reference frame            
         # reference_hash = self.dhash(reference_frame)
         
@@ -144,32 +109,33 @@ class video_asset_processor:
             count += 1
             rendition_frame_list = rendition['frame_list']
             
-            rendition_frame = rendition_frame_list[position_frame]
-            
-            rendition_metrics = {}
-            start_time = time.time()
-            
-            # Compute the temporal inter frame difference
-            current_frame_ratio = self.evaluate_difference_instant(rendition_frame_list, position_frame)
-            if current_frame_ratio != 0:
-                rendition_metrics['temporal_difference'] = current_frame_ratio
+            if position_frame < len(rendition_frame_list):
+                rendition_frame = rendition_frame_list[position_frame]
 
-            # # Compute the hash of the target frame
-            # rendition_hash = self.dhash(rendition_frame)
+                rendition_metrics = {}
+                start_time = time.time()
+                
+                # Compute the temporal inter frame difference
+                current_frame_ratio = self.video_metrics.evaluate_difference_instant(rendition_frame_list, position_frame)
+                if current_frame_ratio != 0:
+                    rendition_metrics['temporal_difference'] = current_frame_ratio
 
-            # # Compute different distances with the hash
-            # rendition_metrics['euclidean'] = distance.euclidean(reference_hash, rendition_hash)
-            # rendition_metrics['hamming'] = distance.hamming(reference_hash, rendition_hash)
-            # rendition_metrics['cosine'] = distance.cosine(reference_hash, rendition_hash)
+                # # Compute the hash of the target frame
+                # rendition_hash = self.dhash(rendition_frame)
 
-            # # Compute SSIM and PSNR
-            # scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
-            # rendition_metrics['ssim'] = compare_ssim(scaled_reference, scaled_rendition)
-            # rendition_metrics['psnr'] = self.psnr(scaled_reference, scaled_rendition)
+                # # Compute different distances with the hash
+                # rendition_metrics['euclidean'] = distance.euclidean(reference_hash, rendition_hash)
+                # rendition_metrics['hamming'] = distance.hamming(reference_hash, rendition_hash)
+                # rendition_metrics['cosine'] = distance.cosine(reference_hash, rendition_hash)
 
-            # Collect processing time
-            elapsed_time = time.time() - start_time 
-            rendition_metrics['time'] = elapsed_time
+                # # Compute SSIM and PSNR
+                # scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
+                # rendition_metrics['ssim'] = compare_ssim(scaled_reference, scaled_rendition)
+                # rendition_metrics['psnr'] = self.psnr(scaled_reference, scaled_rendition)
+
+                # Collect processing time
+                elapsed_time = time.time() - start_time 
+                rendition_metrics['time'] = elapsed_time
 
             # Retrieve rendition dimensions for further evealuation
             rendition_metrics['dimensions'] = rendition['dimensions']
