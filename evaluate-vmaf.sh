@@ -1,11 +1,12 @@
 #!/bin/bash
 
 INPUT_FOLDER=$1
-INPUT_FOLDER_1080="$1/7"
-INPUT_FOLDER_720="$1/6"
-INPUT_FOLDER_480="$1/5"
-INPUT_FOLDER_360="$1/4"
-INPUT_FOLDER_240="$1/3"
+INPUT_FOLDER_1080="$1/1080p"
+INPUT_FOLDER_720="$1/720p"
+INPUT_FOLDER_480="$1/480p"
+INPUT_FOLDER_360="$1/360p"
+INPUT_FOLDER_240="$1/240p"
+INPUT_FOLDER_144="$1/240p"
 OUTPUT_SUFFIX=".out"
 
 export INPUT_FOLDER
@@ -27,6 +28,7 @@ create_folders(){
     mkdir -p output/vmaf/480/$1
     mkdir -p output/vmaf/360/$1
     mkdir -p output/vmaf/240/$1
+    mkdir -p output/vmaf/144/$1
 }
 
 export -f do_process
@@ -41,6 +43,7 @@ for main_file in $INPUT_FOLDER_1080/* ; do
     bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_480/$filenamewithextensiom\" \"output/vmaf/480/$filenamewithoutextension/$filenamewithoutextension\"\"_480.log\""
     bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_360/$filenamewithextensiom\" \"output/vmaf/360/$filenamewithoutextension/$filenamewithoutextension\"\"_360.log\""
     bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_240/$filenamewithextensiom\" \"output/vmaf/240/$filenamewithoutextension/$filenamewithoutextension\"\"_240.log\""
+    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_144/$filenamewithextensiom\" \"output/vmaf/144/$filenamewithoutextension/$filenamewithoutextension\"\"_144.log\""
 
     echo "Finished file $main_file `date`"
 done

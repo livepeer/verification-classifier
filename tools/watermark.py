@@ -18,12 +18,12 @@ output_path = args.output
 files = [f for f in listdir(input_path) if isfile(join(input_path, f)) and not f.startswith('.')]
 
 output_folders = {
-    '1080': '7.1',
-    '720': '6.1',
-    '480': '5.1',
-    '360': '4.1',
-    '240': '3.1',
-    '144': '2.1',
+    '1080': '1080p_watermark',
+    '720': '720p_watermark',
+    '480': '480p_watermark',
+    '360': '360p_watermark',
+    '240': '240p_watermark',
+    '144': '144p_watermark',
 }
 
 files_and_renditions = {}
