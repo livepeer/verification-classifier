@@ -38,11 +38,11 @@ for main_file in $INPUT_FOLDER_1080/* ; do
     filenamewithextensiom=$(basename -- "$main_file")
     filenamewithoutextension="${filenamewithextensiom%.*}"
     bash -c "create_folders \"$filenamewithoutextension\""
-    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_720/$filenamewithextensiom\" \"output/mssim/720/$filenamewithoutextension/$filenamewithoutextension\"\"_720.log\""
-    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_480/$filenamewithextensiom\" \"output/mssim/480/$filenamewithoutextension/$filenamewithoutextension\"\"_480.log\""
-    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_360/$filenamewithextensiom\" \"output/mssim/360/$filenamewithoutextension/$filenamewithoutextension\"\"_360.log\""
-    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_240/$filenamewithextensiom\" \"output/mssim/240/$filenamewithoutextension/$filenamewithoutextension\"\"_240.log\""
-    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_144/$filenamewithextensiom\" \"output/mssim/144/$filenamewithoutextension/$filenamewithoutextension\"\"_144.log\""
+    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_720/$filenamewithextensiom\" \"output/ms-ssim/720/$filenamewithoutextension/$filenamewithoutextension\"\"_720.log\""
+    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_480/$filenamewithextensiom\" \"output/ms-ssim/480/$filenamewithoutextension/$filenamewithoutextension\"\"_480.log\""
+    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_360/$filenamewithextensiom\" \"output/ms-ssim/360/$filenamewithoutextension/$filenamewithoutextension\"\"_360.log\""
+    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_240/$filenamewithextensiom\" \"output/ms-ssim/240/$filenamewithoutextension/$filenamewithoutextension\"\"_240.log\""
+    bash -c "do_process \"$main_file\" \"$INPUT_FOLDER_144/$filenamewithextensiom\" \"output/ms-ssim/144/$filenamewithoutextension/$filenamewithoutextension\"\"_144.log\""
 
     echo "Finished file $main_file `date`"
 done
