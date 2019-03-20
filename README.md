@@ -38,11 +38,11 @@ data
 
 Where
 
-7 is the folder for the 1080p rendition (the original to compare against)
-6 is the folder for the 720p rendition
-5 is the folder for the 480p rendition
-4 is the folder for the 360p rendition
-3 is the folder for the 240p rendition
+- 7 is the folder for the 1080p rendition (the original to compare against)
+- 6 is the folder for the 720p rendition
+- 5 is the folder for the 480p rendition
+- 4 is the folder for the 360p rendition
+- 3 is the folder for the 240p rendition
 
 The result will be in the output folder
 
@@ -219,12 +219,12 @@ The output looks like
 
 Where 
 
-7.1 is the 1080 output folder
-6.1 is the 720 output folder
-5.1 is the 480 output folder
-4.1 is the 360 output folder
-3.1 is the 240 output folder
-2.1 is the 144 output folder
+- 7.1 is the 1080 output folder
+- 6.1 is the 720 output folder
+- 5.1 is the 480 output folder
+- 4.1 is the 360 output folder
+- 3.1 is the 240 output folder
+- 2.1 is the 144 output folder
 
 
 Usage sample
@@ -252,36 +252,36 @@ Different flip options generates different output folders.
 
 Where
 
-7.2 is the 1080 output folder with the videos flipped vertically
-6.2 is the 720 output folder with the videos flipped vertically
-5.2 is the 480 output folder with the videos flipped vertically
-4.2 is the 360 output folder with the videos flipped vertically
-3.2 is the 240 output folder with the videos flipped vertically
-2.2 is the 144 output folder with the videos flipped vertically
+- 7.2 is the 1080 output folder with the videos flipped vertically
+- 6.2 is the 720 output folder with the videos flipped vertically
+- 5.2 is the 480 output folder with the videos flipped vertically
+- 4.2 is the 360 output folder with the videos flipped vertically
+- 3.2 is the 240 output folder with the videos flipped vertically
+- 2.2 is the 144 output folder with the videos flipped vertically
 
 
-7.3 is the 1080 output folder with the videos flipped horizontally
-6.3 is the 720 output folder with the videos flipped horizontally
-5.3 is the 480 output folder with the videos flipped horizontally
-4.3 is the 360 output folder with the videos flipped horizontally
-3.3 is the 240 output folder with the videos flipped horizontally
-2.3 is the 144 output folder with the videos flipped horizontally
+- 7.3 is the 1080 output folder with the videos flipped horizontally
+- 6.3 is the 720 output folder with the videos flipped horizontally
+- 5.3 is the 480 output folder with the videos flipped horizontally
+- 4.3 is the 360 output folder with the videos flipped horizontally
+- 3.3 is the 240 output folder with the videos flipped horizontally
+- 2.3 is the 144 output folder with the videos flipped horizontally
 
 
-7.4 is the 1080 output folder with the videos rotated 90 degrees clockwise
-6.4 is the 720 output folder with the videos rotated 90 degrees clockwise
-5.4 is the 480 output folder with the videos rotated 90 degrees clockwise
-4.4 is the 360 output folder with the videos rotated 90 degrees clockwise
-3.4 is the 240 output folder with the videos rotated 90 degrees clockwise
-2.4 is the 144 output folder with the videos rotated 90 degrees clockwise
+- 7.4 is the 1080 output folder with the videos rotated 90 degrees clockwise
+- 6.4 is the 720 output folder with the videos rotated 90 degrees clockwise
+- 5.4 is the 480 output folder with the videos rotated 90 degrees clockwise
+- 4.4 is the 360 output folder with the videos rotated 90 degrees clockwise
+- 3.4 is the 240 output folder with the videos rotated 90 degrees clockwise
+- 2.4 is the 144 output folder with the videos rotated 90 degrees clockwise
 
 
-7.4 is the 1080 output folder with the videos rotated 90 degrees counterclockwise
-6.4 is the 720 output folder with the videos rotated 90 degrees counterclockwise
-5.4 is the 480 output folder with the videos rotated 90 degrees counterclockwise
-4.4 is the 360 output folder with the videos rotated 90 degrees counterclockwise
-3.4 is the 240 output folder with the videos rotated 90 degrees counterclockwise
-2.4 is the 144 output folder with the videos rotated 90 degrees counterclockwise
+- 7.5 is the 1080 output folder with the videos rotated 90 degrees counterclockwise
+- 6.5 is the 720 output folder with the videos rotated 90 degrees counterclockwise
+- 5.5 is the 480 output folder with the videos rotated 90 degrees counterclockwise
+- 4.5 is the 360 output folder with the videos rotated 90 degrees counterclockwise
+- 3.5 is the 240 output folder with the videos rotated 90 degrees counterclockwise
+- 2.5 is the 144 output folder with the videos rotated 90 degrees counterclockwise
 
 Usage sample
 
