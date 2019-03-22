@@ -72,32 +72,26 @@ class video_asset_processor:
     def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
         # Iterate for each given comparable rendition
         frame_metrics = {}
-        count = 0
 
         reference_frame = self.source[frame_pos]       
-        
-        count += 1
-        
-        
-        if frame_pos < len(frame_list):
 
-            start_time = time.time()
-            
-            rendition_metrics = self.video_metrics.compute_metrics(frame_pos, frame_list, reference_frame)
+        start_time = time.time()
+        
+        rendition_metrics = self.video_metrics.compute_metrics(frame_pos, frame_list, reference_frame)
 
-            # Collect processing time
-            elapsed_time = time.time() - start_time 
-            rendition_metrics['time'] = elapsed_time
+        # Collect processing time
+        elapsed_time = time.time() - start_time 
+        rendition_metrics['time'] = elapsed_time
 
         # Retrieve rendition dimensions for further evaluation
         rendition_metrics['dimensions'] = dimensions
         # Retrieve rendition ID for further identification
         rendition_metrics['ID'] = path.split('/')[-2]
+
         # Identify rendition uniquely by its ID and store metric data in frame_metrics dict
         frame_metrics[path] = rendition_metrics
 
         return rendition_metrics
-#        self.metrics[frame_pos] = frame_metrics
 
     def process(self):
         # Iterate through renditions
@@ -115,7 +109,8 @@ class video_asset_processor:
             frame_pos = 0
             while frame_pos + self.skip_frames < len(self.source):
                 # Compare the original source against its renditions
-                rendition_metrics[frame_pos] = self.compare_renditions_instant(frame_pos, frame_list, dimensions, path)
+                if frame_pos < len(frame_list):
+                    rendition_metrics[frame_pos] = self.compare_renditions_instant(frame_pos, frame_list, dimensions, path)
                 frame_pos += 1
             self.metrics[path] = rendition_metrics
         return(self.metrics)
