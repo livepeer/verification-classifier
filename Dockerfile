@@ -12,6 +12,7 @@ RUN apt-get update && \
     pkg-config \
     x264 \
     libx264-dev \
+    zlib1g-dev \
     ninja-build \
     nasm && \
     rm -rf /var/lib/apt/lists/*

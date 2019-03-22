@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import subprocess
 from os import makedirs
 from utils import *
@@ -8,6 +9,7 @@ parser.add_argument('-i', '--input', action='store', help='Folder where the 1080
                     required=True)
 parser.add_argument('-o', '--output', action='store', help='Folder where the fliped renditions will be',
                     type=str, required=True)
+parser.add_argument('-m', "--metadata", action='store', help='File where the metadata is', type=str, required=True)
 
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument('-vf', '--vflip', action='store_true', help='Flip video vertically')
@@ -23,6 +25,7 @@ vertical_flip = args.vflip
 horizontal_flip = args.hflip
 clockwise_flip = args.clockflip
 counterclockwise_flip = args.counterclockflip
+metadata_file = args.metadata
 
 files = get_files(arg_input_path)
 
@@ -80,7 +83,7 @@ def selected_bool_to_str():
         return 'counterclockwise'
 
 
-files_and_renditions = get_files_and_reinditions('yt8m_data.csv')
+files_and_renditions = get_files_and_reinditions(metadata_file)
 
 selected_option = selected_bool_to_str()
 
@@ -114,13 +117,13 @@ def format_command(orig_file_name, codec, bitrate_1080, bitrate_720, bitrate_480
                '-vf', 'scale=-2:144,{}'.format(modifier), '-c:v', codec, '-b:v', bitrate_144 + 'K', '-f', video_format,
                '"' + output_path + '/' + output_folders[selected_option]['144'] + '/{}'.format(orig_file_name + '"'),
                ]
-    print(' '.join(command))
     return command
 
 
 crete_folders()
 
 for file in files:
+    print(str(datetime.datetime.now()) + "Processing " + file)
     file_name = file.split('.mp4')[0]
     bitrates = get_renditions(files_and_renditions[file_name])
     try:

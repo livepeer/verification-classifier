@@ -9,3 +9,4 @@
 /.doit.db.dir
 data
 *.out
+out.log

@@ -1,5 +1,6 @@
 import argparse
 import csv
+import datetime
 import subprocess
 from os import listdir, makedirs
 from os.path import isfile, join, exists
@@ -9,11 +10,15 @@ parser.add_argument('-i', "--input", action='store', help='Folder where the 1080
                     required=True)
 parser.add_argument('-o', "--output", action='store', help='Folder where the renditions with watermarks will be',
                     type=str, required=True)
+parser.add_argument('-m', "--metadata", action='store', help='File where the metadata is', type=str, required=True)
+parser.add_argument('-w', "--watermark", action='store', help='Watermark file', type=str, required=True)
 
 args = parser.parse_args()
 
 input_path = args.input
 output_path = args.output
+metadata_file = args.metadata
+watermark_file = args.watermark
 
 files = [f for f in listdir(input_path) if isfile(join(input_path, f)) and not f.startswith('.')]
 
@@ -28,7 +33,7 @@ output_folders = {
 
 files_and_renditions = {}
 
-with open('yt8m_data.csv') as csv_file:
+with open(metadata_file) as csv_file:
     csv_reader = csv.reader(csv_file, delimiter=',')
     next(csv_reader, None)
     for row in csv_reader:
@@ -71,7 +76,7 @@ def format_command(orig_file_name, codec, bitrate_1080, bitrate_720, bitrate_480
     input_path_with_slash = input_path + '/'
 
     command = ['ffmpeg', '-y', '-i', '"' + input_path_with_slash + orig_file_name + '"', '-i',
-               '"' + './watermark/livepeer.png' + '"',
+               '"' + watermark_file + '"',
                '-filter_complex',
                '"[0:v]overlay=10:10,split=6[in1][in2][in3][in4][in5][in6];'
                '[in1]scale=-2:1080[out1];[in2]scale=-2:720[out2];[in3]scale=-2:480[out3];[in4]scale=-2:360[out4];'
@@ -89,13 +94,13 @@ def format_command(orig_file_name, codec, bitrate_1080, bitrate_720, bitrate_480
                '-map', '"[out6]"', '-c:v', codec, '-b:v', bitrate_144 + 'K', '-f', video_format,
                '"' + output_path + '/' + output_folders['144'] + '/{}'.format(orig_file_name + '"')
                ]
-    print(' '.join(command))
     return command
 
 
 crete_folders()
 
 for file in files:
+    print(str(datetime.datetime.now()) + "Processing " + file)
     file_name = file.split('.mp4')[0]
     bitrates = get_renditions(files_and_renditions[file_name])
     try:
