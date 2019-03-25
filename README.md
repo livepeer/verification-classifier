@@ -45,7 +45,7 @@ The notebook can be found [here](notebooks/Tools.ipynb)
 
 ### 3.2.- Compare_videos.ipynb
 
-We have taken a number of assets from Youtube’s YT8M dataset and encoded a few renditions from there. Specifically, we have taken about 140 videos from this dataset, established the 1080p rendition as original, and encoded 10 seconds of each to 720p, 480p, 360p and 240p. For the sake of simplicity, we have reduced the respective bitrates to be equal to those used by YouTube for each rendition (you can find a more detailed article on how this can be done here).
+We have taken a number of assets from Youtube’s YT8M dataset and encoded a few renditions from there. Specifically, we have taken about 140 videos from this dataset, established the 1080p rendition as original, and encoded 10 seconds of each to 720p, 480p, 360p and 240p. For the sake of simplicity, we have reduced the respective bitrates to be equal to those used by YouTube for each rendition (you can find a more detailed article on how this can be done [here](https://github.com/epiclabs-io/YT8M).
 
 We have also invited a few more full reference metrics to the party, namely cosine, euclidean and hamming distances, so we add more diversity to the analysis.
 
