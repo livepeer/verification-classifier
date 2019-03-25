@@ -74,10 +74,11 @@ class video_asset_processor:
         frame_metrics = {}
 
         reference_frame = self.source[frame_pos]       
+        next_reference_frame = self.source[frame_pos + self.skip_frames]
 
         start_time = time.time()
         
-        rendition_metrics = self.video_metrics.compute_metrics(frame_pos, frame_list, reference_frame)
+        rendition_metrics = self.video_metrics.compute_metrics(frame_pos, frame_list, reference_frame, next_reference_frame)
 
         # Collect processing time
         elapsed_time = time.time() - start_time 

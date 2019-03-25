@@ -13,11 +13,11 @@ class video_metrics:
 
     def rescale_pair(self, img_A, img_B):
         # Limit the scale to the minimum of the dimensions
-        width = min(img_A.shape[1], img_B.shape[1])
-        height = min(img_A.shape[0], img_B.shape[0])
+        width = min(img_A.shape[0], img_B.shape[0])
+        height = min(img_A.shape[1], img_B.shape[1])
 
-        resized_A = cv2.resize(img_A, (width, height))
-        resized_B = cv2.resize(img_B, (width, height))
+        resized_A = cv2.resize(img_A, (height, width))
+        resized_B = cv2.resize(img_B, (height, width))
 
         return resized_A, resized_B
 
@@ -71,12 +71,48 @@ class video_metrics:
 
         return difference_ratio
     
+    def evaluate_difference_canny_instant(self, reference_frame, next_reference_frame, frame_list, frame_pos):
+        # Function to compute the instantaneous difference between a frame
+        # and its subsequent, applying a Canny filter
+        # Grab the frame skip_frames ahead of the present rendition
+        next_frame = frame_list[frame_pos + self.skip_frames]
+        scale_width = next_frame.shape[0]
+        scale_height = next_frame.shape[1]
+        # Rescale input images to fit the rendition's size
+        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_frame)   
+        scaled_reference_next, scaled_rendition = self.rescale_pair(next_reference_frame, next_frame)  
+        
+        # Compute the number of different pixels
+        total_pixels = scale_width * scale_height
+
+        # Compute the Canny edges for the reference frame, its next frame and the next frame of the rendition
+        current_reference_edges = cv2.Canny(scaled_reference,100,200)
+        next_reference_edges = cv2.Canny(scaled_reference_next,100,200)
+        next_rendition_edges = cv2.Canny(scaled_rendition,100,200)
+        
+        # Compute the difference between reference frame and its next frame
+        reference_difference = np.array(next_reference_edges - current_reference_edges)
+
+        # Compute the difference between reference frame and its corresponding next frame in the rendition
+        rendition_difference = np.array(next_rendition_edges - current_reference_edges)
+
+         # Create a kernel for eroding the Canny filtered images
+        kernel = np.ones((int(scale_width*0.15), int(scale_height*0.15)), np.uint8)
+        # Apply the kernel to dilate and highlight the differences
+        reference_dilation = cv2.dilate(reference_difference, kernel, iterations=1)
+        rendition_dilation = cv2.dilate(rendition_difference, kernel, iterations=1)
+
+        # Compute the difference ratio between reference and its next
+        difference_reference_ratio = np.count_nonzero(reference_dilation) / total_pixels
+        # Compute the difference ratio between reference and its next in the rendition
+        difference_rendition_ratio = np.count_nonzero(rendition_dilation) / total_pixels
+
+        return difference_rendition_ratio / difference_reference_ratio
+    
     def evaluate_psnr_instant(self, reference_frame, frame_list, frame_pos):
         # Function to compute the instantaneous PSNR between a frame
-        # and its subsequent
+        # and its subsequent within a rendition
 
-        # Grab the current frame        
-        current_frame = frame_list[frame_pos]
         # Grab the frame skip_frames ahead
         next_frame = frame_list[frame_pos + self.skip_frames]
 
@@ -88,8 +124,6 @@ class video_metrics:
         # Function to compute the instantaneous difference between a frame
         # and its subsequent
 
-        # Grab the current frame        
-        current_frame = frame_list[frame_pos]
         # Grab the frame skip_frames ahead
         next_frame = frame_list[frame_pos + self.skip_frames]
 
@@ -97,20 +131,24 @@ class video_metrics:
         difference_mse = self.mse(scaled_reference, scaled_rendition)
         return difference_mse
 
-    def compute_metrics(self, frame_pos, rendition_frame_list, reference_frame):
+    def compute_metrics(self, frame_pos, rendition_frame_list, reference_frame, next_reference_frame):
         rendition_metrics = {}
         for metric in self.metrics_list:
             if metric == 'temporal_difference':
                 # Compute the temporal inter frame difference                
-                rendition_metrics['temporal_difference'] = self.evaluate_difference_instant(rendition_frame_list, frame_pos)
+                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame_list, frame_pos)
             
             if metric == 'temporal_psnr':
                 # Compute the temporal inter frame psnr                
-                rendition_metrics['temporal_psnr'] = self.evaluate_psnr_instant(reference_frame, rendition_frame_list, frame_pos)
+                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame, rendition_frame_list, frame_pos)
             
             if metric == 'temporal_mse':
                 # Compute the temporal inter frame psnr                
-                rendition_metrics['temporal_mse'] = self.evaluate_mse_instant(reference_frame, rendition_frame_list, frame_pos)
+                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame, rendition_frame_list, frame_pos)
+
+            if metric == 'temporal_canny':
+                # Compute the temporal inter frame difference of the canny version of the frame
+                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame, next_reference_frame, rendition_frame_list, frame_pos)
 
             rendition_frame = rendition_frame_list[frame_pos]
             
