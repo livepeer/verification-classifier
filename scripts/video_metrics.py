@@ -21,6 +21,9 @@ class video_metrics:
 
         return resized_A, resized_B
 
+    def mse(self, img_A, img_B):
+        return np.mean( (img_A - img_B) ** 2 )
+
     def psnr(self, img_A, img_B):
         # Function to compute the Peak to Signal Noise Ratio (PSNR)
         # of a pair of images. img_A is considered the original and img_B
@@ -69,7 +72,7 @@ class video_metrics:
         return difference_ratio
     
     def evaluate_psnr_instant(self, reference_frame, frame_list, frame_pos):
-        # Function to compute the instantaneous difference between a frame
+        # Function to compute the instantaneous PSNR between a frame
         # and its subsequent
 
         # Grab the current frame        
@@ -81,6 +84,19 @@ class video_metrics:
         difference_psnr = self.psnr(scaled_reference, scaled_rendition)
         return difference_psnr
 
+    def evaluate_mse_instant(self, reference_frame, frame_list, frame_pos):
+        # Function to compute the instantaneous difference between a frame
+        # and its subsequent
+
+        # Grab the current frame        
+        current_frame = frame_list[frame_pos]
+        # Grab the frame skip_frames ahead
+        next_frame = frame_list[frame_pos + self.skip_frames]
+
+        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_frame)
+        difference_mse = self.mse(scaled_reference, scaled_rendition)
+        return difference_mse
+
     def compute_metrics(self, frame_pos, rendition_frame_list, reference_frame):
         rendition_metrics = {}
         for metric in self.metrics_list:
@@ -90,7 +106,11 @@ class video_metrics:
             
             if metric == 'temporal_psnr':
                 # Compute the temporal inter frame psnr                
-                rendition_metrics['temporal_psnr'] = self.evaluate_difference_instant(rendition_frame_list, frame_pos)
+                rendition_metrics['temporal_psnr'] = self.evaluate_psnr_instant(reference_frame, rendition_frame_list, frame_pos)
+            
+            if metric == 'temporal_mse':
+                # Compute the temporal inter frame psnr                
+                rendition_metrics['temporal_mse'] = self.evaluate_mse_instant(reference_frame, rendition_frame_list, frame_pos)
 
             rendition_frame = rendition_frame_list[frame_pos]
             
