@@ -25,11 +25,11 @@ do_process(){
 }
 
 create_folders(){
-    mkdir -p $OUTPUT_FOLDER/mssim/720/$1
-    mkdir -p $OUTPUT_FOLDER/mssim/480/$1
-    mkdir -p $OUTPUT_FOLDER/mssim/360/$1
-    mkdir -p $OUTPUT_FOLDER/mssim/240/$1
-    mkdir -p $OUTPUT_FOLDER/mssim/144/$1
+    mkdir -p $OUTPUT_FOLDER/ms-sim/720/$1
+    mkdir -p $OUTPUT_FOLDER/ms-sim/480/$1
+    mkdir -p $OUTPUT_FOLDER/ms-sim/360/$1
+    mkdir -p $OUTPUT_FOLDER/ms-sim/240/$1
+    mkdir -p $OUTPUT_FOLDER/ms-sim/144/$1
 }
 
 export -f do_process
