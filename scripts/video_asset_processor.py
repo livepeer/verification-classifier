@@ -1,156 +1,119 @@
 import cv2
 import numpy as np
 import time
-import math
-from scipy.spatial import distance
-from skimage.measure import compare_ssim
+
+from video_metrics import video_metrics
 
 class video_asset_processor:
-    
-    def __init__(self, source_path, renditions_paths):
+    def __init__(self, source_path, renditions_paths, metrics_list):
+        
+        # Initialize global variables
         self.source = cv2.VideoCapture(source_path)
-        self.display = False
-        self.hash_size = 16
         self.chunk_length = 4 * self.source.get(cv2.CAP_PROP_FPS)
         self.asset_length = int(self.source.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.skip_frames = 1
+        self.hash_size = 16
         self.renditions = {}
         self.metrics = {}
+        self.metrics_list = metrics_list
+        self.video_metrics = video_metrics(self.metrics_list, self.skip_frames, self.hash_size)
+        self.renditions_paths = renditions_paths
+        
+        # Retrieve original rendition dimensions
+        self.height = self.source.get(cv2.CAP_PROP_FRAME_HEIGHT)   
+        self.width = self.source.get(cv2.CAP_PROP_FRAME_WIDTH) 
+        dimensions = '{}:{}'.format(int(self.width), int(self.height))
+        
+        # Convert OpenCV video captures of original to list
+        # of numpy arrays for better performance of numerical computations
+        self.source = self.capture_to_list(self.source)
 
-        print('Processing asset:', source_path)
-        for path in renditions_paths:
-            rendition_ID = path
-            capture = cv2.VideoCapture(path)
-            
-            width = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)   
-            height = capture.get(cv2.CAP_PROP_FRAME_WIDTH) 
-            dimensions = '{}:{}'.format(int(width), int(height))
-
-            self.renditions[rendition_ID] = {'capture': capture,
-                                            'dimensions': dimensions}
+        self.renditions['original'] = {'frame_list': self.source,
+                                        'dimensions': dimensions,
+                                        'ID': source_path.split('/')[-2]}
+        
     
     def __del__(self):
         print('Cleaning up')
-        self.source.release()
-        for key, rendition in self.renditions.items():
-            rendition['capture'].release()
-        # Closes all the frames
+        # Closes all the frames, in case any were opened by the 'display' flag
         cv2.destroyAllWindows()
 
-    def rescale_pair(self, img_A, img_B):
-        # Limit the scale to the minimum of the dimensions
-        width = min(img_A.shape[1], img_B.shape[1])
-        height = min(img_A.shape[0], img_B.shape[0])
+    def capture_to_list(self, capture):
+        # Initialize 
+        width = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))   
+        height = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_list = []
+        frame_count = 0
+        frame = np.empty(shape=(width, height), dtype=np.float64)
 
-        resized_A = cv2.resize(img_A, (width, height))
-        resized_B = cv2.resize(img_B, (width, height))
+        # Iterate through each frame in the video
+        while capture.isOpened():
+            
+            # Read the frame from the capture
+            ret_frame, frame = capture.read()
 
-        return resized_A, resized_B
-        
-    def psnr(self, img_A, img_B):
-        
-        mse = np.mean( (img_A - img_B) ** 2 )
-        if mse == 0:
-            return 100
-        PIXEL_MAX = 255.0
-        return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
-        
-    def dhash(self, image):
-        # Function to compute the perceptual hash of an image
+            # If read successful, then append the retrieved numpy array to a python list
+            if ret_frame:
+                # Ensure we are using the luminance space for measuring the reference source
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                
+                # Add the frame to the list
+                frame_list.append(gray)
+                frame_count += 1
+            # Break the loop when frames cannot be taken from source
+            else:
+                break
+        # Clean up memory 
+        capture.release()
 
-        # Resize the input image, adding a single column (width) so we
-        # can compute the horizontal gradient
-        resized = cv2.resize(image, (self.hash_size + 1, self.hash_size))
-        # compute the (relative) horizontal gradient between adjacent
-        # column pixels
-        diff = resized[:, 1:] > resized[:, :-1]
+        return frame_list
 
-        # convert the difference image to a hash
-        hash = sum([2 ** i for (i, v) in enumerate(diff.flatten()) if v])
-        hash_array = [int(x) for x in str(hash)]
-        # Return only the first 15 elements of the array
-        return hash_array[:15]
 
-    def compare_renditions(self, position_frame, reference_frame, reference_hash):
+    def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
         # Iterate for each given comparable rendition
         frame_metrics = {}
-        count = 0
-        for rendition_ID, rendition in self.renditions.items():
 
-            count += 1
-            rendition_capture = rendition['capture']
-            rendition_capture.set(cv2.CAP_PROP_POS_FRAMES, position_frame)
-            ret_rendition, rendition_frame = rendition_capture.read()
-            
-            # Ensure we are hashing the luminance space
-            rendition_frame = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2GRAY)
+        reference_frame = self.source[frame_pos]       
+        next_reference_frame = self.source[frame_pos + self.skip_frames]
 
-            if ret_rendition:
-                
-                rendition_metrics = {}
-                start_time = time.time()
+        start_time = time.time()
+        
+        rendition_metrics = self.video_metrics.compute_metrics(frame_pos, frame_list, reference_frame, next_reference_frame)
 
-                # Compute the hash of the target frame
-                rendition_hash = self.dhash(rendition_frame)
+        # Collect processing time
+        elapsed_time = time.time() - start_time 
+        rendition_metrics['time'] = elapsed_time
 
-                # Compute different distances with the hash
-                rendition_metrics['euclidean'] = distance.euclidean(reference_hash, rendition_hash)
-                rendition_metrics['hamming'] = distance.hamming(reference_hash, rendition_hash)
-                rendition_metrics['cosine'] = distance.cosine(reference_hash, rendition_hash)
+        # Retrieve rendition dimensions for further evaluation
+        rendition_metrics['dimensions'] = dimensions
+        # Retrieve rendition ID for further identification
+        rendition_metrics['ID'] = path.split('/')[-2]
 
-                # Compute SSIM and PSNR
-                scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
-                rendition_metrics['ssim'] = compare_ssim(scaled_reference, scaled_rendition)
-                rendition_metrics['psnr'] = self.psnr(scaled_reference, scaled_rendition)
+        # Identify rendition uniquely by its ID and store metric data in frame_metrics dict
+        frame_metrics[path] = rendition_metrics
 
-                elapsed_time = time.time() - start_time 
-                rendition_metrics['time'] = elapsed_time
-                rendition_metrics['dimensions'] = rendition['dimensions']
-
-                frame_metrics[rendition['dimensions']] = rendition_metrics
-
-                if self.display:
-                    cv2.imshow(str(count),rendition_frame)
-            else:
-                print('Rendition not found')
-        self.metrics[position_frame] = frame_metrics
-
+        return rendition_metrics
 
     def process(self):
-        # Check if video source opened successfully
-        frame_count = 0
-        if (self.source.isOpened()): 
-            position_frame = self.asset_length / 2
-            self.source.set(cv2.CAP_PROP_POS_FRAMES, position_frame)
-        else:
-            print("Error opening video stream or file")
+        # Iterate through renditions
+        for path in self.renditions_paths:
+            rendition_metrics = {}
+            capture = cv2.VideoCapture(path)
+            height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)   
+            width = capture.get(cv2.CAP_PROP_FRAME_WIDTH) 
+            dimensions = '{}:{}'.format(int(width), int(height))
 
-        while(self.source.isOpened() and frame_count < self.chunk_length):
-            position_frame = self.source.get(cv2.CAP_PROP_POS_FRAMES) 
-            ret, frame = self.source.read()
+            # Turn openCV capture to a list of numpy arrays
+            frame_list = self.capture_to_list(capture)
 
-            # Ensure we are using the luminance space for measuring the reference source
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            # Extract the dhash for the reference frame            
-            reference_hash = self.dhash(frame)
-
-            if ret:
+            # Iterate frame by frame
+            frame_pos = 0
+            while frame_pos + self.skip_frames < len(self.source):
                 # Compare the original source against its renditions
-                self.compare_renditions(position_frame, frame, reference_hash)
-
-                if self.display:
-                    # Display the frame on the screen
-                    cv2.imshow('Frame',frame)
-                # Exit the process if q is pressed
-                if cv2.waitKey(25) & 0xFF == ord('q'):
-                    print('Exit forced by user. Q pressed')
-                    break
-            
-            # Break the loop when frames cannot be taken from source
-            else: 
-                print('Finished stream')
-                break
-            frame_count += 1
+                if frame_pos < len(frame_list):
+                    rendition_metrics[frame_pos] = self.compare_renditions_instant(frame_pos, frame_list, dimensions, path)
+                frame_pos += 1
+            self.metrics[path] = rendition_metrics
         return(self.metrics)
         
         
