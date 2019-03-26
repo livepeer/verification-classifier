@@ -103,7 +103,10 @@ class video_metrics:
         rendition_dilation = cv2.dilate(rendition_difference, kernel, iterations=1)
 
         # Compute the difference ratio between reference and its next
-        difference_reference_ratio = np.count_nonzero(reference_dilation) / total_pixels
+        if np.count_nonzero(reference_dilation) != 0:
+            difference_reference_ratio = np.count_nonzero(reference_dilation) / total_pixels
+        else:
+            difference_reference_ratio = 0.00000001
         # Compute the difference ratio between reference and its next in the rendition
         difference_rendition_ratio = np.count_nonzero(rendition_dilation) / total_pixels
 
