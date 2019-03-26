@@ -30,6 +30,16 @@ This will run the image on the port 8888 and mount a volume with the contents of
 Copy, paste (and ammend by removing spurious information) the URL provided in the console and navigate to the work folder to access the notebooks.
 Alternatively, navigate to http://127.0.0.1:8888 and copy / paste the provided token in the console into the Password or token input box to log in.
 
+If you are using symbolic links to point the videos from the data folder to other folder, you need to mount the other folder to be visible in the cointainer.
+
+For example if we have symbolic links in the `data` folder pointing to `/videos/` folder we need a new volume as follows:
+
+```
+docker run -d -p 8888:8888 --volume="$(pwd)":/home/jovyan/work/ --volume=/videos/:/videos/ epicjupiter:v1
+```
+
+Also it is important to have read and write permissions in the output folder in order to be able to store the results.
+
 ## 3.- Notebooks
 
 The notebooks used in the experiments are inside the folder work/notebooks
