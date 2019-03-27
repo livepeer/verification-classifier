@@ -1,6 +1,7 @@
 # Compile
 FROM jupyter/datascience-notebook
 COPY requirements.txt .
+COPY ./scripts /scripts
 RUN pip install -r requirements.txt
 USER root
 RUN apt-get update && \

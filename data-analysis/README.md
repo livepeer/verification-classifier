@@ -10,9 +10,9 @@ A series of articles on the topic can be found [here](https://medium.com/@epicla
 This folder contains a Dockerfile to enable the interaction with the experiments and the necessary instructions.
 
 ## 1.- Build the image
-To build the image, we have to type the following in the same folder of the repo:
+To build the image, we have to run the following shell script that lies in the same folder of the repo:
 ```
-docker build -t epicjupiter:v1 .
+bash build_docker.sh
 ```
 
 This will create a image based on `jupyter/datascience-notebook` but adding the needed python dependencies. This image 
