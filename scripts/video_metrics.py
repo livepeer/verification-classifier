@@ -1,7 +1,6 @@
 import numpy as np
 import math
 from scipy.spatial import distance
-from skimage.measure import compare_ssim
 import cv2
 
 class video_metrics:
@@ -169,13 +168,5 @@ class video_metrics:
             if metric == 'hash_cosine':
                 rendition_metrics['hash_cosine'] = distance.cosine(reference_hash, rendition_hash)
 
-            # Scale the reference and the rendition so they have exactly the same dimensions in order to compare
-            # PSNR and SSIM
-            scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
-
-            # Compute SSIM and PSNR            
-            if metric == 'ssim':
-                rendition_metrics['ssim'] = compare_ssim(scaled_reference, scaled_rendition)
-            if metric == 'psnr':
-                rendition_metrics['psnr'] = self.psnr(scaled_reference, scaled_rendition)
+            
         return rendition_metrics
