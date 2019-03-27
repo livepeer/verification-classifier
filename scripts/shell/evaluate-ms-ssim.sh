@@ -95,46 +95,46 @@ do_process(){
 }
 
 create_folders(){
-    mkdir -p $OUTPUT_FOLDER/ms-sim/720/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/480/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/360/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/240/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/144/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/720/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/480/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/360/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/240/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/144/$1
 
-    mkdir -p $OUTPUT_FOLDER/ms-sim/1080_watermark/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/720_watermark/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/480_watermark/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/360_watermark/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/240_watermark/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/144_watermark/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/1080_watermark/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/720_watermark/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/480_watermark/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/360_watermark/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/240_watermark/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/144_watermark/$1
 
-    mkdir -p $OUTPUT_FOLDER/ms-sim/1080_flip_vertical/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/720_flip_vertical/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/480_flip_vertical/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/360_flip_vertical/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/240_flip_vertical/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/144_flip_vertical/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/1080_flip_vertical/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/720_flip_vertical/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/480_flip_vertical/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/360_flip_vertical/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/240_flip_vertical/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/144_flip_vertical/$1
 
-    mkdir -p $OUTPUT_FOLDER/ms-sim/1080_flip_horizontal/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/720_flip_horizontal/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/480_flip_horizontal/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/360_flip_horizontal/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/240_flip_horizontal/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/144_flip_horizontal/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/1080_flip_horizontal/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/720_flip_horizontal/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/480_flip_horizontal/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/360_flip_horizontal/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/240_flip_horizontal/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/144_flip_horizontal/$1
 
-    mkdir -p $OUTPUT_FOLDER/ms-sim/1080_rotate_90_clockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/720_rotate_90_clockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/480_rotate_90_clockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/360_rotate_90_clockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/240_rotate_90_clockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/144_rotate_90_clockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/1080_rotate_90_clockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/720_rotate_90_clockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/480_rotate_90_clockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/360_rotate_90_clockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/240_rotate_90_clockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/144_rotate_90_clockwise/$1
 
-    mkdir -p $OUTPUT_FOLDER/ms-sim/1080_rotate_90_counterclockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/720_rotate_90_counterclockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/480_rotate_90_counterclockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/360_rotate_90_counterclockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/240_rotate_90_counterclockwise/$1
-    mkdir -p $OUTPUT_FOLDER/ms-sim/144_rotate_90_counterclockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/1080_rotate_90_counterclockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/720_rotate_90_counterclockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/480_rotate_90_counterclockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/360_rotate_90_counterclockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/240_rotate_90_counterclockwise/$1
+    mkdir -p $OUTPUT_FOLDER/ms-ssim/144_rotate_90_counterclockwise/$1
 
 }
 
