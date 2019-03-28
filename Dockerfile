@@ -4,3 +4,4 @@ COPY /cli /src
 COPY /scripts /src
 COPY requirements.txt .
 RUN pip install -r requirements.txt
+CMD /bin/bash
