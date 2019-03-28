@@ -18,7 +18,7 @@ class video_asset_processor:
         self.metrics_list = metrics_list
         self.video_metrics = video_metrics(self.metrics_list, self.skip_frames, self.hash_size)
         self.renditions_paths = renditions_paths
-        
+       
         # Retrieve original rendition dimensions
         self.height = self.source.get(cv2.CAP_PROP_FRAME_HEIGHT)   
         self.width = self.source.get(cv2.CAP_PROP_FRAME_WIDTH) 
@@ -26,8 +26,9 @@ class video_asset_processor:
         
         # Convert OpenCV video captures of original to list
         # of numpy arrays for better performance of numerical computations
+        
         self.source = self.capture_to_list(self.source)
-
+       
         self.renditions['original'] = {'frame_list': self.source,
                                         'dimensions': dimensions,
                                         'ID': source_path.split('/')[-2]}
@@ -39,6 +40,8 @@ class video_asset_processor:
         cv2.destroyAllWindows()
 
     def capture_to_list(self, capture):
+        print('Converting {} to numpy arrays'.format(capture))
+        start_time = time.time()
         # Initialize 
         width = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))   
         height = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -66,6 +69,9 @@ class video_asset_processor:
         # Clean up memory 
         capture.release()
 
+        # Collect processing time
+        elapsed_time = time.time() - start_time 
+        print('Elapsed time: {}'.format(elapsed_time))
         return frame_list
 
 
@@ -106,6 +112,8 @@ class video_asset_processor:
             # Turn openCV capture to a list of numpy arrays
             frame_list = self.capture_to_list(capture)
 
+            print('Comparing {}'.format(path))
+            start_time = time.time()
             # Iterate frame by frame
             frame_pos = 0
             while frame_pos + self.skip_frames < len(self.source):
@@ -114,6 +122,9 @@ class video_asset_processor:
                     rendition_metrics[frame_pos] = self.compare_renditions_instant(frame_pos, frame_list, dimensions, path)
                 frame_pos += 1
             self.metrics[path] = rendition_metrics
+                    # Collect processing time
+            elapsed_time = time.time() - start_time 
+            print('Comparison elapsed time: {}'.format(elapsed_time))
         return(self.metrics)
         
         
