@@ -1,13 +1,7 @@
-# Context
+# Data Analysis Jupyter notebooks
 
-This contribution involves research and attempt to tackle the problem of verifying that 
-the transcoded content itself is a reasonable match for the original source given a good-faith effort at transcoding.
-
-Eventually, the mission consists on developing a verification classifier that will give a pass / fail output (and with what confidence score), for a given segment of a given asset.
-
-A series of articles on the topic can be found [here](https://medium.com/@epiclabs.io/assessing-metrics-for-video-quality-verification-in-livepeers-ecosystem-f66f724b2aea).
-
-This folder contains a Dockerfile to enable the interaction with the experiments and the necessary instructions.
+Jupyter notebooks employed in the experiments are stored here. To interact with them, it is reccommended to build and launch
+Docker image as explained below.
 
 ## 1.- Build the image
 To build the image, we have to run the following shell script that lies in the same folder of the repo:
