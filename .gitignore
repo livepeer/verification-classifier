@@ -11,4 +11,5 @@ data
 output
 *.out
 out.log
-settings.json
+*.log
+*settings.json
