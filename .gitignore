@@ -10,3 +10,5 @@
 data
 *.out
 out.log
+*.log
+*settings.json
