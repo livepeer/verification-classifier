@@ -18,6 +18,7 @@ def read_metric_log(path, metric):
         ms_ssim_df = pd.read_csv(path)
         return ms_ssim_df['ms-ssim'].mean()
 
+
 if __name__ == "__main__":
 
     metrics_list = ['temporal_difference', 'temporal_canny']
@@ -107,8 +108,6 @@ if __name__ == "__main__":
 
     dict_of_df = {k: pd.DataFrame(v) for k, v in metrics_dict.items()}
     metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
-    metrics_df = pd.read_csv('../output/metrics.csv')
-    metrics_df = metrics_df.drop(['Unnamed: 0'], axis=1)
     metrics_path = '../output'
     real_path = os.path.realpath(metrics_path)
     extra_metrics = ['vmaf', 'ms-ssim']

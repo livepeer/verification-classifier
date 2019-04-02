@@ -69,7 +69,6 @@ class video_asset_processor:
         print('Elapsed time: {}'.format(elapsed_time))
         return frame_list
 
-
     def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
         # Iterate for each given comparable rendition
         frame_metrics = {}
@@ -93,7 +92,7 @@ class video_asset_processor:
         # Identify rendition uniquely by its ID and store metric data in frame_metrics dict
         frame_metrics[path] = rendition_metrics
 
-        return rendition_metrics
+        return rendition_metrics, frame_pos
 
     def compute(self, path):
         rendition_metrics = {}
@@ -109,11 +108,20 @@ class video_asset_processor:
         start_time = time.time()
         # Iterate frame by frame
         frame_pos = 0
+        frames_to_process = []
         while frame_pos + self.skip_frames < len(self.source):
             # Compare the original source against its renditions
             if frame_pos < len(frame_list):
-                rendition_metrics[frame_pos] = self.compare_renditions_instant(frame_pos, frame_list, dimensions, path)
+                frames_to_process.append(frame_pos)
             frame_pos += 1
+
+        with ThreadPoolExecutor() as executor:
+            future_list = {executor.submit(self.compare_renditions_instant, i, frame_list, dimensions, path): i for i in frames_to_process}
+
+        for future in future_list:
+            result_rendition_metrics, frame_pos = future.result()
+            rendition_metrics[frame_pos] = result_rendition_metrics
+
         self.metrics[path] = rendition_metrics
         # Collect processing time
         elapsed_time = time.time() - start_time
@@ -121,7 +129,6 @@ class video_asset_processor:
 
     def process(self):
         # Iterate through renditions
-        with ThreadPoolExecutor() as executor:
-            for path in self.renditions_paths:
-                executor.submit(self.compute, path)
+        for path in self.renditions_paths:
+            self.compute(path)
         return self.metrics
