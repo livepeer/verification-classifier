@@ -7,17 +7,46 @@ import pandas as pd
 from scipy.spatial import distance
 from video_asset_processor import video_asset_processor
 
+
+def read_metric_log(path, metric):
+    if metric == 'vmaf':
+        with open(path) as f:
+            for line in f:
+                if '= ' in line:
+                    return float(line.split('= ')[-1])
+    if metric == 'ms-ssim':
+        ms_ssim_df = pd.read_csv(path)
+        return ms_ssim_df['ms-ssim'].mean()
+
 if __name__ == "__main__":
 
     metrics_list = ['temporal_difference', 'temporal_canny']
 
     renditions_folders = [
         '1080p',
+        #'1080p_watermark',
+        #'1080p_flip_vertical',
+        #'1080p_rotate_90_clockwise',
         '720p',
+        #'720p_watermark',
+        #'720p_flip_vertical',
+        #'720p_rotate_90_clockwise',
         '480p',
+        #'480p_watermark',
+        #'480p_flip_vertical',
+        #'480p_rotate_90_clockwise',
         '360p',
+        #'360p_watermark',
+        #'360p_flip_vertical',
+        #'360p_rotate_90_clockwise',
         '240p',
-        '144p'
+        #'240p_watermark',
+        #'240p_flip_vertical',
+        #'240p_rotate_90_clockwise',
+        '144p',
+        #'144p_watermark',
+        #'144p_flip_vertical',
+        #'144p_rotate_90_clockwise',
     ]
     originals_path = '../data/{}/'
 
@@ -75,3 +104,38 @@ if __name__ == "__main__":
             total_time += elapsed_time
             print('Elapsed time:', elapsed_time)
     print('Total time:', total_time)
+
+    dict_of_df = {k: pd.DataFrame(v) for k, v in metrics_dict.items()}
+    metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
+    metrics_df = pd.read_csv('../output/metrics.csv')
+    metrics_df = metrics_df.drop(['Unnamed: 0'], axis=1)
+    metrics_path = '../output'
+    real_path = os.path.realpath(metrics_path)
+    extra_metrics = ['vmaf', 'ms-ssim']
+
+    for index, row in metrics_df.iterrows():
+        for metric in extra_metrics:
+
+            asset_name = row['level_0'].split('/')[-1].split('.')[0]
+            attack = row['level_1'].split('/')[2]
+            dimension = row['level_1'].split('/')[2].split('_')[0].replace('p', '')
+            attack_name = attack.replace('{}p'.format(dimension), dimension)
+            log_path = '{}/{}/{}/{}/{}_{}.log'.format(metrics_path, metric, attack_name, asset_name, asset_name,
+                                                      dimension)
+
+            print('LEVEL 0', row['level_0'])
+            print('LEVEL 1:', row['level_1'])
+            print('ASSET NAME:', asset_name)
+            print('ATTACK:', attack)
+            print('DIMENSION', dimension)
+            print('ATTACK NAME', attack_name)
+            print('PATH:', log_path)
+
+            if os.path.isfile(log_path):
+                print('ADDING:', log_path)
+                print('*****************************')
+                metric_value = read_metric_log(log_path, metric)
+                metrics_df.at[index, metric] = metric_value
+
+    metrics_df.to_csv('../output/metrics.csv')
+    metrics_df.head()
