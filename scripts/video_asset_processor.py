@@ -126,5 +126,8 @@ class video_asset_processor:
     def process(self):
         # Iterate through renditions
         for path in self.renditions_paths:
-            self.compute(path)
+            try:
+                self.compute(path)
+            except:
+                print('Unable to compute metrics for {}'.format(path))
         return self.metrics
