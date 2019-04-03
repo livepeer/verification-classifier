@@ -37,9 +37,6 @@ class video_asset_processor:
     def capture_to_list(self, capture):
         print('Converting {} to numpy arrays'.format(capture))
         start_time = time.time()
-        # Initialize 
-        width = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))   
-        height = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_list = []
         frame_count = 0
 
@@ -66,7 +63,7 @@ class video_asset_processor:
         # Collect processing time
         elapsed_time = time.time() - start_time 
         print('Elapsed time: {}'.format(elapsed_time))
-        return frame_list
+        return np.array(frame_list)
 
     def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
         # Iterate for each given comparable rendition
