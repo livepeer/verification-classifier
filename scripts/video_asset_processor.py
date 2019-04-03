@@ -42,7 +42,6 @@ class video_asset_processor:
         height = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_list = []
         frame_count = 0
-        frame = np.empty(shape=(width, height), dtype=np.uint8)
 
         # Iterate through each frame in the video
         while capture.isOpened():
@@ -54,7 +53,7 @@ class video_asset_processor:
             if ret_frame:
                 # Ensure we are using the luminance space for measuring the reference source
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                
+
                 # Add the frame to the list
                 frame_list.append(gray)
                 frame_count += 1
