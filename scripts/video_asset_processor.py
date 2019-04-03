@@ -42,7 +42,7 @@ class video_asset_processor:
         height = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_list = []
         frame_count = 0
-        frame = np.empty(shape=(width, height), dtype=np.float64)
+        frame = np.empty(shape=(width, height), dtype=np.uint8)
 
         # Iterate through each frame in the video
         while capture.isOpened():
