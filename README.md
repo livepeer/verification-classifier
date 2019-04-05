@@ -12,6 +12,7 @@ Further insight about how this works can be gained by interacting with the data-
 
 ## 1.- Build the image
 To build the image, we have to run the following command line:
+
 ```
 docker build -t verifier:v1 .
 ```
@@ -21,10 +22,10 @@ contains OpenCV, numpy, pandas and sklearn, among others
 
 ## 2.- Run the image
 To run the image, we have to type:
-```
-docker run --rm -it  --volume="$(pwd)/data-analysis/data":/data-analysis/data --ipc=host verifier:v1
-```
 
+```
+docker run --rm -it --volume="$(pwd)/data-analysis/data":/data-analysis/data --ipc=host verifier:v1
+```
 
 This will run the image and mount a volume with the contents of the folder data-analysis/data from this repo in the folder 
 `/data-analysis/data` of the Docker image. If you have your videos and their assets located elsewhere, it is recommended that you 
@@ -36,11 +37,10 @@ For example if we have symbolic links in the `data` folder pointing to `/videos/
 
 
 ## 3.- Usage
-
 Once inside the Docker image, the python script has the following structure:
 
 ```
-python3 src/cli.py path-to-original-asset -rendition path-to-original-asset -rendition path-to-rendition -rendition path-to-rendition ...
+python3 src/cli.py path-to-original-asset -rendition path-to-rendition -rendition path-to-rendition ...
 ```
 Note that you can add as many -rendition arguments as you want. 
 

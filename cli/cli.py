@@ -21,18 +21,17 @@ def cli(asset, renditions):
     original_asset = asset
 
     renditions_list = renditions
+    renditions_list = [original_asset] + list(renditions_list)
     metrics_list = ['temporal_canny']
     
     asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list)
-    
-    
+
     asset_metrics_dict = asset_processor.process()
     dict_of_df = {k: pd.DataFrame(v) for k,v in asset_metrics_dict.items()}
     metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
     metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
     displayed_metric = 'temporal_canny'
 
-    renditions_df = pd.DataFrame()
     frames = []
     for rendition in renditions_list:
         
@@ -60,9 +59,10 @@ def cli(asset, renditions):
     distances_raw_df = pd.DataFrame.from_dict(distances,orient='index')
 
     print(distances_raw_df)
-     # Collect processing time
+    #Collect processing time
     elapsed_time = time.time() - start_time 
     print('Total procesing time: {} s'.format(elapsed_time))
- 
+
+
 if __name__ == '__main__':
     cli()
