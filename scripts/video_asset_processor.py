@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import time
-
+import os
 from video_metrics import video_metrics
 from concurrent.futures.thread import ThreadPoolExecutor
 
@@ -20,7 +20,6 @@ class video_asset_processor:
         self.metrics_list = metrics_list
         self.video_metrics = video_metrics(self.metrics_list, self.skip_frames, self.hash_size)
         self.renditions_paths = renditions_paths
-
         # Retrieve original rendition dimensions
         self.height = self.source.get(cv2.CAP_PROP_FRAME_HEIGHT)   
         self.width = self.source.get(cv2.CAP_PROP_FRAME_WIDTH) 
@@ -48,6 +47,7 @@ class video_asset_processor:
 
             # If read successful, then append the retrieved numpy array to a python list
             if ret_frame:
+                frame = cv2.resize(frame,(256, 144), interpolation = cv2.INTER_LINEAR)
                 # Add the frame to the list
                 frame_list.append(frame)
             # Break the loop when frames cannot be taken from source
@@ -124,6 +124,8 @@ class video_asset_processor:
         for path in self.renditions_paths:
             try:
                 self.compute(path)
-            except:
+                print('PATH:',os.path.abspath(path))
+            except Exception as err:
                 print('Unable to compute metrics for {}'.format(path))
+                print(err)
         return self.metrics
