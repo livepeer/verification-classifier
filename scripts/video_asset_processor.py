@@ -39,11 +39,10 @@ class video_asset_processor:
         print('Converting {} to numpy arrays'.format(capture))
         start_time = time.time()
         frame_list = []
-        frame_count = 0
 
         # Iterate through each frame in the video
         while capture.isOpened():
-            
+
             # Read the frame from the capture
             ret_frame, frame = capture.read()
 
@@ -51,7 +50,6 @@ class video_asset_processor:
             if ret_frame:
                 # Add the frame to the list
                 frame_list.append(frame)
-                frame_count += 1
             # Break the loop when frames cannot be taken from source
             else:
                 break
@@ -59,7 +57,7 @@ class video_asset_processor:
         capture.release()
 
         # Collect processing time
-        elapsed_time = time.time() - start_time 
+        elapsed_time = time.time() - start_time
         print('Elapsed time: {}'.format(elapsed_time))
         return np.array(frame_list)
 

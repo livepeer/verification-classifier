@@ -138,24 +138,28 @@ class video_metrics:
         difference_mse = self.mse(scaled_reference, scaled_rendition)
         return difference_mse
 
-    def histogram_distance(self, reference_frame, frame_list, frame_pos, bins=[8, 8, 8], eps=1e-10):
+    def histogram_distance(self, reference_frame, frame_list, frame_pos, bins=None, eps=1e-10):
         # compute a 3D histogram in the RGB colorspace,
         # then normalize the histogram so that images
         # with the same content, but either scaled larger
         # or smaller will have (roughly) the same histogram
-        histA = cv2.calcHist([reference_frame], [0, 1, 2],
-                             None, bins, [0, 256, 0, 256, 0, 256])
-        histA = cv2.normalize(histA, histA)
-        histB = cv2.calcHist([frame_list[frame_pos]], [0, 1, 2],
-                             None, bins, [0, 256, 0, 256, 0, 256])
-        histB = cv2.normalize(histB, histB)
+
+        if bins is None:
+            bins = [8, 8, 8]
+
+        hist_a = cv2.calcHist([reference_frame], [0, 1, 2],
+                              None, bins, [0, 256, 0, 256, 0, 256])
+        hist_a = cv2.normalize(hist_a, hist_a)
+        hist_b = cv2.calcHist([frame_list[frame_pos]], [0, 1, 2],
+                              None, bins, [0, 256, 0, 256, 0, 256])
+        hist_b = cv2.normalize(hist_b, hist_b)
 
         # return out 3D histogram as a flattened array
-        histA = histA.flatten()
-        histB = histB.flatten()
+        hist_a = hist_a.flatten()
+        hist_b = hist_b.flatten()
 
         # Return the chi squared distance of the histograms
-        d = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(histA, histB)])
+        d = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(hist_a, hist_b)])
         return d
 
     def compute_metrics(self, frame_pos, rendition_frame_list, reference_frame, next_reference_frame):
