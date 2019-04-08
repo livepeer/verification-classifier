@@ -5,6 +5,7 @@ import time
 from video_metrics import video_metrics
 from concurrent.futures.thread import ThreadPoolExecutor
 
+
 class video_asset_processor:
     def __init__(self, source_path, renditions_paths, metrics_list):
         
@@ -19,7 +20,7 @@ class video_asset_processor:
         self.metrics_list = metrics_list
         self.video_metrics = video_metrics(self.metrics_list, self.skip_frames, self.hash_size)
         self.renditions_paths = renditions_paths
-       
+
         # Retrieve original rendition dimensions
         self.height = self.source.get(cv2.CAP_PROP_FRAME_HEIGHT)   
         self.width = self.source.get(cv2.CAP_PROP_FRAME_WIDTH) 
@@ -38,22 +39,17 @@ class video_asset_processor:
         print('Converting {} to numpy arrays'.format(capture))
         start_time = time.time()
         frame_list = []
-        frame_count = 0
 
         # Iterate through each frame in the video
         while capture.isOpened():
-            
+
             # Read the frame from the capture
             ret_frame, frame = capture.read()
 
             # If read successful, then append the retrieved numpy array to a python list
             if ret_frame:
-                # Ensure we are using the luminance space for measuring the reference source
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
                 # Add the frame to the list
-                frame_list.append(gray)
-                frame_count += 1
+                frame_list.append(frame)
             # Break the loop when frames cannot be taken from source
             else:
                 break
@@ -61,7 +57,7 @@ class video_asset_processor:
         capture.release()
 
         # Collect processing time
-        elapsed_time = time.time() - start_time 
+        elapsed_time = time.time() - start_time
         print('Elapsed time: {}'.format(elapsed_time))
         return np.array(frame_list)
 
