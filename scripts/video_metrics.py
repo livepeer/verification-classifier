@@ -112,7 +112,10 @@ class video_metrics:
         difference_reference_ratio = np.count_nonzero(reference_dilation) / total_pixels
         
         # Compute the difference ratio between reference and its next in the rendition
-        difference_rendition_ratio = np.count_nonzero(rendition_dilation) / total_pixels
+        if np.count_nonzero(rendition_dilation) == 0:
+            difference_rendition_ratio = 1 / total_pixels
+        else:
+            difference_rendition_ratio = np.count_nonzero(rendition_dilation) / total_pixels
 
         difference = difference_reference_ratio / difference_rendition_ratio
        
