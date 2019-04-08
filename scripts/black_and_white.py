@@ -7,7 +7,7 @@ import multiprocessing
 parser = argparse.ArgumentParser(description='Generate renditions ')
 parser.add_argument('-i', "--input", action='store', help='Folder where the renditions are', type=str,
                     required=True)
-parser.add_argument('-o', "--output", action='store', help='Folder where the back and white renditions will be',
+parser.add_argument('-o', "--output", action='store', help='Folder where the black and white renditions will be',
                     type=str, required=True)
 
 args = parser.parse_args()
