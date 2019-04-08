@@ -3,12 +3,12 @@ import math
 from scipy.spatial import distance
 import cv2
 
+
 class video_metrics:
     def __init__(self, metrics_list, skip_frames, hash_size):
         self.hash_size = hash_size
         self.skip_frames = skip_frames
         self.metrics_list = metrics_list
-
 
     def rescale_pair(self, img_A, img_B):
         # Limit the scale to the minimum of the dimensions
@@ -77,6 +77,11 @@ class video_metrics:
         next_frame = frame_list[frame_pos + self.skip_frames]
         scale_width = next_frame.shape[0]
         scale_height = next_frame.shape[1]
+
+        # use the luminance channel
+        reference_frame = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2GRAY)
+        next_frame = cv2.cvtColor(next_frame, cv2.COLOR_BGR2GRAY)
+
         # Rescale input images to fit the rendition's size
         scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_frame)   
         scaled_reference_next, scaled_rendition = self.rescale_pair(next_reference_frame, next_frame)  
@@ -133,6 +138,26 @@ class video_metrics:
         difference_mse = self.mse(scaled_reference, scaled_rendition)
         return difference_mse
 
+    def histogram_distance(self, reference_frame, frame_list, frame_pos, bins=[8, 8, 8], eps=1e-10):
+        # compute a 3D histogram in the RGB colorspace,
+        # then normalize the histogram so that images
+        # with the same content, but either scaled larger
+        # or smaller will have (roughly) the same histogram
+        histA = cv2.calcHist([reference_frame], [0, 1, 2],
+                             None, bins, [0, 256, 0, 256, 0, 256])
+        histA = cv2.normalize(histA, histA)
+        histB = cv2.calcHist([frame_list[frame_pos]], [0, 1, 2],
+                             None, bins, [0, 256, 0, 256, 0, 256])
+        histB = cv2.normalize(histB, histB)
+
+        # return out 3D histogram as a flattened array
+        histA = histA.flatten()
+        histB = histB.flatten()
+
+        # Return the chi squared distance of the histograms
+        d = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(histA, histB)])
+        return d
+
     def compute_metrics(self, frame_pos, rendition_frame_list, reference_frame, next_reference_frame):
         rendition_metrics = {}
         for metric in self.metrics_list:
@@ -152,6 +177,9 @@ class video_metrics:
                 # Compute the temporal inter frame difference of the canny version of the frame
                 rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame, next_reference_frame, rendition_frame_list, frame_pos)
 
+            if metric == 'histogram_distance':
+                rendition_metrics[metric] = self.histogram_distance(reference_frame, rendition_frame_list, frame_pos)
+
             rendition_frame = rendition_frame_list[frame_pos]
             
             # Compute the hash of the target frame
@@ -168,5 +196,4 @@ class video_metrics:
             if metric == 'hash_cosine':
                 rendition_metrics['hash_cosine'] = distance.cosine(reference_hash, rendition_hash)
 
-            
         return rendition_metrics
