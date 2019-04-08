@@ -9,7 +9,7 @@ class video_metrics:
         self.hash_size = hash_size
         self.skip_frames = skip_frames
         self.metrics_list = metrics_list
-
+        
     def rescale_pair(self, img_A, img_B):
         # Limit the scale to the minimum of the dimensions
         width = min(img_A.shape[0], img_B.shape[0])
@@ -83,38 +83,40 @@ class video_metrics:
         next_frame = cv2.cvtColor(next_frame, cv2.COLOR_BGR2GRAY)
 
         # Rescale input images to fit the rendition's size
-        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_frame)   
-        scaled_reference_next, scaled_rendition = self.rescale_pair(next_reference_frame, next_frame)  
-        
+       
         # Compute the number of different pixels
         total_pixels = scale_width * scale_height
 
         # Compute the Canny edges for the reference frame, its next frame and the next frame of the rendition
-        current_reference_edges = cv2.Canny(scaled_reference,100,200)
-        next_reference_edges = cv2.Canny(scaled_reference_next,100,200)
-        next_rendition_edges = cv2.Canny(scaled_rendition,100,200)
+        lower = 100
+        upper = 200
+
+        current_reference_edges = cv2.Canny(reference_frame, lower, upper)
+        next_reference_edges = cv2.Canny(next_reference_frame, lower, upper)
+        next_rendition_edges = cv2.Canny(next_frame, lower, upper)
         
         # Compute the difference between reference frame and its next frame
-        reference_difference = np.array(next_reference_edges - current_reference_edges)
-
+        reference_difference = np.array(next_reference_edges - current_reference_edges, dtype='uint8')
+        
         # Compute the difference between reference frame and its corresponding next frame in the rendition
-        rendition_difference = np.array(next_rendition_edges - current_reference_edges)
+        rendition_difference = np.array(next_rendition_edges - current_reference_edges, dtype='uint8')
 
-         # Create a kernel for eroding the Canny filtered images
-        kernel = np.ones((int(scale_width*0.15), int(scale_height*0.15)), np.uint8)
+        # Create a kernel for dilating the Canny filtered images
+        kernel = np.ones((int(scale_width * 0.1), int(scale_height * 0.1)),'uint8')
+
         # Apply the kernel to dilate and highlight the differences
         reference_dilation = cv2.dilate(reference_difference, kernel, iterations=1)
         rendition_dilation = cv2.dilate(rendition_difference, kernel, iterations=1)
 
         # Compute the difference ratio between reference and its next
-        if np.count_nonzero(reference_dilation) != 0:
-            difference_reference_ratio = np.count_nonzero(reference_dilation) / total_pixels
-        else:
-            difference_reference_ratio = 0.00000001
+        difference_reference_ratio = np.count_nonzero(reference_dilation) / total_pixels
+        
         # Compute the difference ratio between reference and its next in the rendition
         difference_rendition_ratio = np.count_nonzero(rendition_dilation) / total_pixels
 
-        return difference_rendition_ratio / difference_reference_ratio
+        difference = difference_reference_ratio / difference_rendition_ratio
+       
+        return difference
     
     def evaluate_psnr_instant(self, reference_frame, frame_list, frame_pos):
         # Function to compute the instantaneous PSNR between a frame
