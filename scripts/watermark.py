@@ -1,12 +1,13 @@
 import argparse
 import csv
-import datetime
+import multiprocessing
 import subprocess
 from os import listdir, makedirs
 from os.path import isfile, join, exists
+from utils import *
 
 parser = argparse.ArgumentParser(description='Generate renditions with watermarks')
-parser.add_argument('-i', "--input", action='store', help='Folder where the 1080 renditions are', type=str,
+parser.add_argument('-i', "--input", action='store', help='Folder where the 1080p renditions are', type=str,
                     required=True)
 parser.add_argument('-o', "--output", action='store', help='Folder where the renditions with watermarks will be',
                     type=str, required=True)
@@ -31,6 +32,10 @@ output_folders = {
     '144': '144p_watermark',
 }
 
+cpu_count = multiprocessing.cpu_count()
+cpu_to_use = int(round(cpu_count / len(output_folders)))
+codec_to_use = 'libx264'
+
 files_and_renditions = {}
 
 with open(metadata_file) as csv_file:
@@ -40,30 +45,6 @@ with open(metadata_file) as csv_file:
         files_and_renditions[row[3]] = row[5]
 
 
-def get_renditions(renditions):
-    resolutions = {144, 240, 360, 480, 720, 1080}
-    ids = {160, 133, 134, 135, 136, 137}
-    ladder = {}
-    renditions = renditions.replace('[', '')
-    renditions = renditions.replace(']', '')
-    renditions = renditions.replace('}', '')
-    renditions = renditions.replace('{', '')
-    renditions = renditions.replace("'", '')
-    renditions = renditions.strip()
-    data = renditions.split(',')
-    for step in data:
-        try:
-            id = int(step.split('-')[0].strip())
-            resolution = int(step.split('x')[1].split(' ')[0])
-            bitrate = float(step.split(':')[1])
-
-            if resolution in resolutions and id in ids:
-                ladder[resolution] = bitrate
-        except:
-            print('There was an error')
-    return ladder
-
-
 def crete_folders():
     for key, value in output_folders.items():
         folder = output_path + '/' + value
@@ -71,44 +52,59 @@ def crete_folders():
             makedirs(folder)
 
 
-def format_command(orig_file_name, codec, bitrate_1080, bitrate_720, bitrate_480, bitrate_360, bitrate_240, bitrate_144,
-                   video_format, input_path, output_path):
-    input_path_with_slash = input_path + '/'
+def format_command(full_input_file, codec, bitrates, output_files):
+    print('processing {}'.format(full_input_file))
 
-    command = ['ffmpeg', '-y', '-i', '"' + input_path_with_slash + orig_file_name + '"', '-i',
+    command = ['ffmpeg', '-y', '-i', '"' + full_input_file + '"', '-i',
                '"' + watermark_file + '"',
                '-filter_complex',
                '"[0:v]overlay=10:10,split=6[in1][in2][in3][in4][in5][in6];'
                '[in1]scale=-2:1080[out1];[in2]scale=-2:720[out2];[in3]scale=-2:480[out3];[in4]scale=-2:360[out4];'
                '[in5]scale=-2:240[out5];[in6]scale=-2:144[out6]"',
-               '-map', '"[out1]"', '-c:v', codec, '-b:v', bitrate_1080 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders['1080'] + '/{}'.format(orig_file_name + '"'),
-               '-map', '"[out2]"', '-c:v', codec, '-b:v', bitrate_720 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders['720'] + '/{}'.format(orig_file_name + '"'),
-               '-map', '"[out3]"', '-c:v', codec, '-b:v', bitrate_480 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders['480'] + '/{}'.format(orig_file_name + '"'),
-               '-map', '"[out4]"', '-c:v', codec, '-b:v', bitrate_360 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders['360'] + '/{}'.format(orig_file_name + '"'),
-               '-map', '"[out5]"', '-c:v', codec, '-b:v', bitrate_240 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders['240'] + '/{}'.format(orig_file_name + '"'),
-               '-map', '"[out6]"', '-c:v', codec, '-b:v', bitrate_144 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders['144'] + '/{}'.format(orig_file_name + '"')
+               '-map', '"[out1]"', '-c:v', codec, '-b:v', str(bitrates[1080]) + 'K', '"' + output_files['1080'] + '"',
+               '-map', '"[out2]"', '-c:v', codec, '-b:v', str(bitrates[720]) + 'K', '"' + output_files['720'] + '"',
+               '-map', '"[out3]"', '-c:v', codec, '-b:v', str(bitrates[480]) + 'K', '"' + output_files['480'] + '"',
+               '-map', '"[out4]"', '-c:v', codec, '-b:v', str(bitrates[360]) + 'K', '"' + output_files['360'] + '"',
+               '-map', '"[out5]"', '-c:v', codec, '-b:v', str(bitrates[240]) + 'K', '"' + output_files['240'] + '"',
+               '-map', '"[out6]"', '-c:v', codec, '-b:v', str(bitrates[144]) + 'K', '"' + output_files['144'] + '"'
                ]
     return command
 
 
-crete_folders()
+def get_input_output_jobs():
+    ffmpeg_jobs = []
+    job_files = [f for f in listdir(input_path) if isfile(join(input_path, f)) and not f.startswith('.')]
+    for file in job_files:
+        bitrates = get_renditions(files_and_renditions[file.split('.mp4')[0]])
+        full_input_file = join(input_path, file)
+        job_output_folders = {}
+        for output_key, output_value in output_folders.items():
+            output_folder = join(output_path, output_value)
+            full_output_file = join(output_folder, file)
+            job_output_folders[output_key] = full_output_file
+        ffmpeg_jobs.append((full_input_file, codec_to_use, bitrates, job_output_folders))
+    return ffmpeg_jobs
 
-for file in files:
-    print(str(datetime.datetime.now()) + "Processing " + file)
-    file_name = file.split('.mp4')[0]
-    bitrates = get_renditions(files_and_renditions[file_name])
+
+def worker(full_input_file, codec, bitrates, output_files):
+    ffmpeg_command = []
     try:
-        ffmpeg_command = format_command(file, 'libx264', str(bitrates[1080]), str(bitrates[720]), str(bitrates[480]),
-                                        str(bitrates[360]), str(bitrates[240]), str(bitrates[144]), 'mp4', input_path,
-                                        output_path)
+        ffmpeg_command = format_command(full_input_file, codec, bitrates, output_files)
         ffmpeg = subprocess.Popen(' '.join(ffmpeg_command), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
         out, err = ffmpeg.communicate()
+        if not err:
+            print('FFMPEG ERROR')
+            print('Out ', out)
+            print('Error', err)
     except Exception as e:
-        print(file)
-        print(e)
+        print('Error processing ', full_input_file)
+        print('The error was ', e)
+        print('Executing ', ffmpeg_command)
+
+
+if __name__ == "__main__":
+    crete_folders()
+    jobs = get_input_output_jobs()
+
+    with multiprocessing.Pool(cpu_to_use) as pool:
+        pool.starmap(worker, jobs)
