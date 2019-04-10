@@ -54,14 +54,9 @@ class video_metrics:
         # Return only the first 15 elements of the array
         return hash_array[:15]
 
-    def evaluate_difference_instant(self, frame_list, frame_pos):
+    def evaluate_difference_instant(self, current_frame, next_frame):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent
-
-        # Grab the current frame        
-        current_frame = frame_list[frame_pos]
-        # Grab the frame skip_frames ahead
-        next_frame = frame_list[frame_pos + self.skip_frames]
 
         # Compute the number of different pixels
         total_pixels = current_frame.shape[0] * current_frame.shape[1]
@@ -70,30 +65,28 @@ class video_metrics:
 
         return difference_ratio
     
-    def evaluate_cross_correlation_instant(self, reference_frame, next_reference_frame, frame_list, frame_pos):
+    def evaluate_cross_correlation_instant(self, reference_frame, next_reference_frame, rendition_frame, next_rendition_frame):
         # Function that computes the matchTemplate function included in OpenCV and outputs the 
         # Maximum value
 
-        # Grab the frame skip_frames ahead of the present rendition
-        rendition_frame = frame_list[frame_pos]
         # Apply template Matching
         res = cv2.matchTemplate(reference_frame,rendition_frame, cv2.TM_CCORR_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
         return max_val
 
-    def evaluate_difference_canny_instant(self, reference_frame, next_reference_frame, frame_list, frame_pos):
+    def evaluate_difference_canny_instant(self, reference_frame, next_reference_frame,  rendition_frame, next_rendition_frame):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent, applying a Canny filter
 
         # Grab the frame skip_frames ahead of the present rendition
-        next_frame = frame_list[frame_pos + self.skip_frames]
-        scale_width = next_frame.shape[0]
-        scale_height = next_frame.shape[1]
+        
+        scale_width = next_rendition_frame.shape[0]
+        scale_height = next_rendition_frame.shape[1]
 
         # use the luminance channel
         reference_frame = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2GRAY)
-        next_frame = cv2.cvtColor(next_frame, cv2.COLOR_BGR2GRAY)
+        next_frame = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2GRAY)
 
         # Rescale input images to fit the rendition's size
        
@@ -114,6 +107,7 @@ class video_metrics:
         # Compute the difference between reference frame and its corresponding next frame in the rendition
         rendition_difference = np.array(next_rendition_edges - current_reference_edges, dtype='uint8')
 
+    
         # Create a kernel for dilating the Canny filtered images
         kernel = np.ones((int(scale_width * 0.1), int(scale_height * 0.1)),'uint8')
 
@@ -131,32 +125,26 @@ class video_metrics:
             difference_rendition_ratio = np.count_nonzero(rendition_dilation) / total_pixels
 
         difference = difference_reference_ratio / difference_rendition_ratio
-       
+
         return difference
     
-    def evaluate_psnr_instant(self, reference_frame, frame_list, frame_pos):
+    def evaluate_psnr_instant(self, reference_frame,  next_rendition_frame):
         # Function to compute the instantaneous PSNR between a frame
         # and its subsequent within a rendition
 
-        # Grab the frame skip_frames ahead
-        next_frame = frame_list[frame_pos + self.skip_frames]
-
-        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_frame)
+        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_rendition_frame)
         difference_psnr = self.psnr(scaled_reference, scaled_rendition)
         return difference_psnr
 
-    def evaluate_mse_instant(self, reference_frame, frame_list, frame_pos):
+    def evaluate_mse_instant(self, reference_frame, next_rendition_frame):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent
 
-        # Grab the frame skip_frames ahead
-        next_frame = frame_list[frame_pos + self.skip_frames]
-
-        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_frame)
+        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_rendition_frame)
         difference_mse = self.mse(scaled_reference, scaled_rendition)
         return difference_mse
 
-    def histogram_distance(self, reference_frame, frame_list, frame_pos, bins=None, eps=1e-10):
+    def histogram_distance(self, reference_frame, rendition_frame, bins=None, eps=1e-10):
         # compute a 3D histogram in the RGB colorspace,
         # then normalize the histogram so that images
         # with the same content, but either scaled larger
@@ -168,7 +156,7 @@ class video_metrics:
         hist_a = cv2.calcHist([reference_frame], [0, 1, 2],
                               None, bins, [0, 256, 0, 256, 0, 256])
         hist_a = cv2.normalize(hist_a, hist_a)
-        hist_b = cv2.calcHist([frame_list[frame_pos]], [0, 1, 2],
+        hist_b = cv2.calcHist([rendition_frame], [0, 1, 2],
                               None, bins, [0, 256, 0, 256, 0, 256])
         hist_b = cv2.normalize(hist_b, hist_b)
 
@@ -183,33 +171,35 @@ class video_metrics:
     def compute_metrics(self, frame_pos, rendition_frame_list, reference_frame, next_reference_frame):
         rendition_metrics = {}
         for metric in self.metrics_list:
+            rendition_frame = rendition_frame_list[frame_pos]
+            next_rendition_frame = rendition_frame_list[frame_pos + self.skip_frames]
+
             if metric == 'temporal_difference':
                 # Compute the temporal inter frame difference                
-                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame_list, frame_pos)
+                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame, next_rendition_frame)
             
             if metric == 'temporal_psnr':
                 # Compute the temporal inter frame psnr                
-                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame, rendition_frame_list, frame_pos)
+                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame, next_rendition_frame)
             
             if metric == 'temporal_mse':
                 # Compute the temporal inter frame psnr                
-                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame, rendition_frame_list, frame_pos)
+                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame, next_reference_frame)
 
             if metric == 'temporal_canny':
                 # Compute the temporal inter frame difference of the canny version of the frame
-                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame, next_reference_frame, rendition_frame_list, frame_pos)
+                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame, next_reference_frame, rendition_frame, next_rendition_frame)
 
             if metric == 'temporal_histogram_distance':
-                rendition_metrics[metric] = self.histogram_distance(reference_frame, rendition_frame_list, frame_pos)
+                rendition_metrics[metric] = self.histogram_distance(reference_frame, rendition_frame)
 
             if metric == 'temporal_cross_correlation':
-                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame, next_reference_frame, rendition_frame_list, frame_pos)
+                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame, next_reference_frame, rendition_frame, next_rendition_frame)
 
-            rendition_frame = rendition_frame_list[frame_pos]
             
+
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)
-
             # Extract the dhash for the reference frame            
             reference_hash = self.dhash(reference_frame)
             
