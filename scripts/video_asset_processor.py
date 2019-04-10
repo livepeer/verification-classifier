@@ -29,14 +29,12 @@ class video_asset_processor:
         # of numpy arrays for better performance of numerical computations
         
         self.source = self.capture_to_list(self.source)
-       
+
         self.renditions['original'] = {'frame_list': self.source,
-                                        'dimensions': dimensions,
-                                        'ID': source_path.split('/')[-2]}
+                                       'dimensions': dimensions,
+                                       'ID': source_path.split('/')[-2]}
 
     def capture_to_list(self, capture):
-        print('Converting {} to numpy arrays'.format(capture))
-        start_time = time.time()
         frame_list = []
 
         # Iterate through each frame in the video
@@ -56,9 +54,6 @@ class video_asset_processor:
         # Clean up memory 
         capture.release()
 
-        # Collect processing time
-        elapsed_time = time.time() - start_time
-        print('Elapsed time: {}'.format(elapsed_time))
         return np.array(frame_list)
 
     def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
@@ -96,8 +91,6 @@ class video_asset_processor:
         # Turn openCV capture to a list of numpy arrays
         frame_list = self.capture_to_list(capture)
 
-        print('Comparing {}'.format(path))
-        start_time = time.time()
         # Iterate frame by frame
         frame_pos = 0
         frames_to_process = []
@@ -115,16 +108,12 @@ class video_asset_processor:
             rendition_metrics[frame_pos] = result_rendition_metrics
 
         self.metrics[path] = rendition_metrics
-        # Collect processing time
-        elapsed_time = time.time() - start_time
-        print('{} Comparison elapsed time: {}'.format(path, elapsed_time))
 
     def process(self):
         # Iterate through renditions
         for path in self.renditions_paths:
             try:
                 self.compute(path)
-                print('PATH:',os.path.abspath(path))
             except Exception as err:
                 print('Unable to compute metrics for {}'.format(path))
                 print(err)
