@@ -8,4 +8,8 @@
 /.doit.db.dat
 /.doit.db.dir
 data
+output
 *.out
+out.log
+*.log
+*settings.json
