@@ -70,9 +70,22 @@ class video_metrics:
 
         return difference_ratio
     
+    def evaluate_cross_correlation_instant(self, reference_frame, next_reference_frame, frame_list, frame_pos):
+        # Function that computes the matchTemplate function included in OpenCV and outputs the 
+        # Maximum value
+
+        # Grab the frame skip_frames ahead of the present rendition
+        rendition_frame = frame_list[frame_pos]
+        # Apply template Matching
+        res = cv2.matchTemplate(reference_frame,rendition_frame, cv2.TM_CCORR_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+
+        return max_val
+
     def evaluate_difference_canny_instant(self, reference_frame, next_reference_frame, frame_list, frame_pos):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent, applying a Canny filter
+
         # Grab the frame skip_frames ahead of the present rendition
         next_frame = frame_list[frame_pos + self.skip_frames]
         scale_width = next_frame.shape[0]
@@ -186,8 +199,11 @@ class video_metrics:
                 # Compute the temporal inter frame difference of the canny version of the frame
                 rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame, next_reference_frame, rendition_frame_list, frame_pos)
 
-            if metric == 'histogram_distance':
+            if metric == 'temporal_histogram_distance':
                 rendition_metrics[metric] = self.histogram_distance(reference_frame, rendition_frame_list, frame_pos)
+
+            if metric == 'temporal_cross_correlation':
+                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame, next_reference_frame, rendition_frame_list, frame_pos)
 
             rendition_frame = rendition_frame_list[frame_pos]
             
