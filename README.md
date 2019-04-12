@@ -40,7 +40,17 @@ For example if we have symbolic links in the `data` folder pointing to `/videos/
 Once inside the Docker image, the python script has the following structure:
 
 ```
-python3 src/cli.py path-to-original-asset -rendition path-to-rendition -rendition path-to-rendition ...
+python3 src/cli.py path-to-original-asset --renditions path-to-rendition --renditions path-to-rendition ... -metrics implemented-metric
 ```
-Note that you can add as many -rendition arguments as you want. 
+Note that you can add as many --rendition (-r) and --metrics (-m) arguments as you want.
+Metrics can be one of:
+
+- temporal_canny
+- temporal_difference
+- temporal_psnr
+- temporal_mse
+- histogram_distance
+- hash_euclidean
+- hash_hamming
+- hash_cosine
 
