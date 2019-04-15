@@ -97,14 +97,15 @@ def format_ffmpeg_command(full_input_file, full_output_file, start_time, end_tim
 
 
 def worker(url_to_download):
-    full_input_path, duration = download(url_to_download)
-    start_time, end_time = get_start_end_time(duration)
-    filename = full_input_path.split('/')[-1]
-    full_output_path = output_trim_folder_placeholder.format(filename)
-    ffmpeg_command = []
     out = None
     err = None
+    full_input_path = None
+    ffmpeg_command = []
     try:
+        full_input_path, duration = download(url_to_download)
+        start_time, end_time = get_start_end_time(duration)
+        filename = full_input_path.split('/')[-1]
+        full_output_path = output_trim_folder_placeholder.format(filename)
         ffmpeg_command = format_ffmpeg_command(full_input_path, full_output_path, start_time, end_time)
         ffmpeg = subprocess.Popen(' '.join(ffmpeg_command), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
         out, err = ffmpeg.communicate()
@@ -131,6 +132,8 @@ if __name__ == "__main__":
         os.makedirs(output_trim_folder)
 
     all_rows, ids_to_process = read_data()
+
+    print('{} videos to process'.format(len(ids_to_process)))
 
     with multiprocessing.Pool(int(NUMBER_OF_CPUS / 2)) as pool:
         pool.starmap(worker, ids_to_process)
