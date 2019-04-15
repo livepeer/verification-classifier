@@ -19,7 +19,12 @@ output_trim_folder = args.output + '/trim/1080p'
 output_trim_folder_placeholder = args.output + '/trim/1080p/{}'
 EXPECTED_RESOLUTIONS = 6
 YOUTUBE_URL = 'https://www.youtube.com/watch?v={}'
-current_path = os.path.dirname(os.path.abspath(__file__))
+CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
+NUMBER_OF_CPUS = multiprocessing.cpu_count()
+
+
+def trim_video_exist(video_id):
+    return os.path.isfile(output_trim_folder + '/' + video_id + '.mp4')
 
 
 def save_dict_to_file(dic):
@@ -73,12 +78,12 @@ def get_renditions(renditions: str) -> Dict:
 def read_data():
     read_rows = []
     read_ids = []
-    with open(current_path + '/' + 'yt8m_data.csv', newline='') as csv_file:
+    with open(CURRENT_PATH + '/' + 'yt8m_data.csv', newline='') as csv_file:
         reader = csv.reader(csv_file, delimiter=',', quotechar='"')
         next(reader)
         for row in reader:
             renditions = get_renditions(row[5])
-            if EXPECTED_RESOLUTIONS == len(renditions):
+            if EXPECTED_RESOLUTIONS == len(renditions) and not trim_video_exist(row[3]):
                 read_rows.append((row[3], renditions))
                 read_ids.append((row[3],))
     return read_rows, read_ids
@@ -127,5 +132,5 @@ if __name__ == "__main__":
 
     all_rows, ids_to_process = read_data()
 
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(int(NUMBER_OF_CPUS / 2)) as pool:
         pool.starmap(worker, ids_to_process)
