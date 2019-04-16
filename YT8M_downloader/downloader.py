@@ -41,7 +41,9 @@ def load_dict_from_file():
 def download(url):
     try:
         ydl_video = youtube_dl.YoutubeDL({'format': '137',
-                                          'outtmpl': output_folder + '/%(id)s.%(ext)s'})
+                                          'outtmpl': output_folder + '/%(id)s.%(ext)s',
+                                          'quiet': True}
+                                         )
 
         info_dict = ydl_video.extract_info(url, download=True)
         fn = ydl_video.prepare_filename(info_dict)
@@ -71,7 +73,8 @@ def get_renditions(renditions: str) -> Dict:
             if resolution in resolutions and resolution_id in ids:
                 ladder[resolution] = bitrate
         except:
-            print('There was an error')
+            print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), multiprocessing.current_process(),
+                  'There was an error getting the renditions')
     return ladder
 
 
@@ -97,6 +100,8 @@ def format_ffmpeg_command(full_input_file, full_output_file, start_time, end_tim
 
 
 def worker(url_to_download):
+    print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), multiprocessing.current_process(), 'Processing ',
+          url_to_download)
     out = None
     err = None
     full_input_path = None
@@ -109,12 +114,18 @@ def worker(url_to_download):
         ffmpeg_command = format_ffmpeg_command(full_input_path, full_output_path, start_time, end_time)
         ffmpeg = subprocess.Popen(' '.join(ffmpeg_command), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
         out, err = ffmpeg.communicate()
+        os.remove(full_input_path)
+        print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), multiprocessing.current_process(),
+              'End processing ', url_to_download)
     except Exception as e:
-        print('Error processing ', full_input_path)
-        print('The error was ', e)
-        print('Executing ', ffmpeg_command)
-        print('Out ', out)
-        print('Error ', err)
+        print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), multiprocessing.current_process(),
+              'Error processing ', full_input_path)
+        print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), multiprocessing.current_process(),
+              'The error was ', e)
+        print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), multiprocessing.current_process(), 'Executing ',
+              ffmpeg_command)
+        print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), multiprocessing.current_process(), 'Out ', out)
+        print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), multiprocessing.current_process(), 'Error ', err)
 
 
 def get_start_end_time(video_duration):
