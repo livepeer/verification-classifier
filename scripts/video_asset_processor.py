@@ -7,13 +7,13 @@ from concurrent.futures.thread import ThreadPoolExecutor
 
 
 class video_asset_processor:
-    def __init__(self, source_path, renditions_paths, metrics_list):
+    def __init__(self, source_path, renditions_paths, metrics_list, duration):
         
         # Initialize global variables
         self.source = cv2.VideoCapture(source_path)
         self.fps = int(self.source.get(cv2.CAP_PROP_FPS))
         self.asset_length = int(self.source.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.duration = int(self.asset_length / self.fps)
+        self.duration = duration
         self.skip_frames = 1
         self.hash_size = 16
         self.renditions = {}
@@ -62,7 +62,7 @@ class video_asset_processor:
                 break
             # Break the loop when seconds are longer than defined duration of analysis
             if seconds > self.duration:
-                print('Analysis made over {} seconds ({} frames)'.format(seconds, frame_count))
+                print('Captured {} seconds ({} frames)'.format(seconds, frame_count))
                 break
         # Clean up memory 
         capture.release()
@@ -78,10 +78,12 @@ class video_asset_processor:
 
         reference_frame = self.source[frame_pos]       
         next_reference_frame = self.source[frame_pos + self.skip_frames]
+        rendition_frame = frame_list[frame_pos]
+        next_rendition_frame = frame_list[frame_pos + self.skip_frames]
 
         start_time = time.time()
         
-        rendition_metrics = self.video_metrics.compute_metrics(frame_pos, frame_list, reference_frame, next_reference_frame)
+        rendition_metrics = self.video_metrics.compute_metrics(frame_pos, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame)
 
         # Collect processing time
         elapsed_time = time.time() - start_time 

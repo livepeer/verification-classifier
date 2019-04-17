@@ -69,6 +69,7 @@ class video_metrics:
         # Function that computes the matchTemplate function included in OpenCV and outputs the 
         # Maximum value
 
+        
         # Apply template Matching
         res = cv2.matchTemplate(reference_frame,rendition_frame, cv2.TM_CCORR_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
@@ -84,12 +85,6 @@ class video_metrics:
         scale_width = next_rendition_frame.shape[0]
         scale_height = next_rendition_frame.shape[1]
 
-        # use the luminance channel
-        reference_frame = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2GRAY)
-        next_frame = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2GRAY)
-
-        # Rescale input images to fit the rendition's size
-       
         # Compute the number of different pixels
         total_pixels = scale_width * scale_height
 
@@ -99,7 +94,7 @@ class video_metrics:
 
         current_reference_edges = cv2.Canny(reference_frame, lower, upper)
         next_reference_edges = cv2.Canny(next_reference_frame, lower, upper)
-        next_rendition_edges = cv2.Canny(next_frame, lower, upper)
+        next_rendition_edges = cv2.Canny(next_rendition_frame, lower, upper)
         
         # Compute the difference between reference frame and its next frame
         reference_difference = np.array(next_reference_edges - current_reference_edges, dtype='uint8')
@@ -168,33 +163,45 @@ class video_metrics:
         d = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(hist_a, hist_b)])
         return d
 
-    def compute_metrics(self, frame_pos, rendition_frame_list, reference_frame, next_reference_frame):
+    def compute_metrics(self, frame_pos, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
+
+        # Some metrics only need the luminance channel
+        reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2GRAY)
+        next_reference_frame_gray = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2GRAY) 
+        rendition_frame_gray = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2GRAY)
+        next_rendition_frame_gray = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2GRAY)            
+        
+
         for metric in self.metrics_list:
-            rendition_frame = rendition_frame_list[frame_pos]
-            next_rendition_frame = rendition_frame_list[frame_pos + self.skip_frames]
-
-            if metric == 'temporal_difference':
-                # Compute the temporal inter frame difference                
-                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame, next_rendition_frame)
             
-            if metric == 'temporal_psnr':
-                # Compute the temporal inter frame psnr                
-                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame, next_rendition_frame)
-            
-            if metric == 'temporal_mse':
-                # Compute the temporal inter frame psnr                
-                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame, next_reference_frame)
-
-            if metric == 'temporal_canny':
-                # Compute the temporal inter frame difference of the canny version of the frame
-                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame, next_reference_frame, rendition_frame, next_rendition_frame)
-
             if metric == 'temporal_histogram_distance':
                 rendition_metrics[metric] = self.histogram_distance(reference_frame, rendition_frame)
 
+            if metric == 'temporal_difference':
+                # Compute the temporal inter frame difference                
+                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame_gray, next_rendition_frame_gray)
+            
+            if metric == 'temporal_psnr':
+                # Compute the temporal inter frame psnr                
+                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame_gray, next_rendition_frame_gray)
+            
+            if metric == 'temporal_mse':
+                # Compute the temporal inter frame psnr                
+                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame_gray, next_reference_frame_gray)
+
+            if metric == 'temporal_canny':
+                # Compute the temporal inter frame difference of the canny version of the frame
+                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame_gray, 
+                                                                                    next_reference_frame_gray,
+                                                                                    rendition_frame_gray, 
+                                                                                    next_rendition_frame_gray)
+
             if metric == 'temporal_cross_correlation':
-                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame, next_reference_frame, rendition_frame, next_rendition_frame)
+                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray, 
+                                                                                    next_reference_frame_gray, 
+                                                                                    rendition_frame_gray, 
+                                                                                    next_rendition_frame_gray)
 
             
 
