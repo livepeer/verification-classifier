@@ -54,15 +54,15 @@ class video_metrics:
         # Return only the first 15 elements of the array
         return hash_array[:15]
 
-    def evaluate_difference_instant(self, current_frame, next_frame):
+    def evaluate_difference_instant(self, current_frame, next_frame, frame_pos):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent
 
         # Compute the number of different pixels
         total_pixels = current_frame.shape[0] * current_frame.shape[1]
+        difference = np.array(next_frame - current_frame)
+        difference_ratio = np.count_nonzero(difference) / total_pixels
         
-        difference_ratio = np.count_nonzero(np.array(next_frame - current_frame)) / total_pixels
-
         return difference_ratio
     
     def evaluate_dct_instant(self, reference_frame, rendition_frame, frame_pos):
