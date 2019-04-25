@@ -62,7 +62,7 @@ class video_metrics:
         total_pixels = current_frame.shape[0] * current_frame.shape[1]
         difference = np.array(next_frame - current_frame)
         difference_ratio = np.count_nonzero(difference) / total_pixels
-        
+    
         return difference_ratio
     
     def evaluate_dct_instant(self, reference_frame, rendition_frame, frame_pos):
@@ -184,7 +184,7 @@ class video_metrics:
 
     def compute_metrics(self, frame_pos, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
-
+        
         # Some metrics only need the luminance channel
         reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2HSV)[:,:,2]
         next_reference_frame_gray = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2HSV)[:,:,2]
@@ -222,7 +222,7 @@ class video_metrics:
 
             if metric == 'temporal_dct':
                 rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, 
-                                                                                    rendition_frame_gray, 
+                                                                      rendition_frame_gray,
                                                                       frame_pos)
 
             # Compute the hash of the target frame
