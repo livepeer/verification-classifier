@@ -199,7 +199,7 @@ class video_metrics:
 
             if metric == 'temporal_difference':
                 # Compute the temporal inter frame difference                
-                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame_gray, next_rendition_frame_gray)
+                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame_gray, next_rendition_frame_gray,frame_pos)
             
             if metric == 'temporal_psnr':
                 # Compute the temporal inter frame psnr                
