@@ -122,19 +122,23 @@ class video_metrics:
         kernel = np.ones((int(scale_width * 0.1), int(scale_height * 0.1)),'uint8')
 
         # Apply the kernel to dilate and highlight the differences
-        reference_dilation = cv2.dilate(reference_difference, kernel, iterations=1)
-        rendition_dilation = cv2.dilate(rendition_difference, kernel, iterations=1)
+        reference_difference_dilation = cv2.dilate(reference_difference, kernel, iterations=1)
+        rendition_difference_dilation = cv2.dilate(rendition_difference, kernel, iterations=1)
 
-        # Compute the difference ratio between reference and its next
-        difference_reference_ratio = np.count_nonzero(reference_dilation) / total_pixels
-        
-        # Compute the difference ratio between reference and its next in the rendition
-        if np.count_nonzero(rendition_dilation) == 0:
-            difference_rendition_ratio = 1 / total_pixels
+        # Compute the difference ratio between reference frame (of original asset) and its next frame
+        if np.count_nonzero(reference_difference_dilation) == 0:
+            reference_ratio = total_pixels
         else:
-            difference_rendition_ratio = np.count_nonzero(rendition_dilation) / total_pixels
+            reference_ratio = total_pixels / np.count_nonzero(reference_difference_dilation)
+        
+        # Compute the difference ratio between reference frame (of original asset) and its next frame
+        # in the rendition
+        if np.count_nonzero(rendition_difference_dilation) == 0:
+            rendition_ratio = total_pixels
+        else:
+            rendition_ratio = total_pixels / np.count_nonzero(rendition_difference_dilation) 
 
-        difference = difference_reference_ratio / difference_rendition_ratio
+        difference = abs(1 / reference_ratio - 1/ rendition_ratio)
 
         return difference
     
