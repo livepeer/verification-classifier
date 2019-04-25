@@ -79,9 +79,15 @@ class video_metrics:
         _, max_val, _, _ = cv2.minMaxLoc(reference_dct - rendition_dct)
 
         return max_val
+
+    def evaluate_cross_correlation_instant(self, reference_frame, rendition_frame):
+        # Function that computes the Discrete Cosine Trasnform function included in OpenCV and outputs the 
+        # Maximum value
+
+        
         # Apply template Matching
         res = cv2.matchTemplate(reference_frame,rendition_frame, cv2.TM_CCORR_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+        _, max_val, _, _ = cv2.minMaxLoc(res)
 
         return max_val
 
@@ -208,6 +214,8 @@ class video_metrics:
 
             if metric == 'temporal_cross_correlation':
                 rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray, 
+                                                                                    rendition_frame_gray)
+
             if metric == 'temporal_dct':
                 rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, 
                                                                                     rendition_frame_gray, 
