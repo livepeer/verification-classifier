@@ -52,6 +52,7 @@ class video_asset_processor:
             # If read successful, then append the retrieved numpy array to a python list
             if ret_frame:
                 frame = cv2.resize(frame,(256, 144), interpolation = cv2.INTER_LINEAR)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HLS)
                 # Add the frame to the list
                 frame_list.append(frame)
                 
