@@ -5,7 +5,7 @@ the transcoded content itself is a reasonable match for the original source give
 
 The mission consists on developing a verification classifier that will give a pass / fail output (and with what confidence score), for a given segment of a given asset's rendition.
 
-A series of articles on the topic can be found [here](https://medium.com/@epiclabs.io/assessing-metrics-for-video-quality-verification-in-livepeers-ecosystem-f66f724b2aea).
+A series of articles on the topic can be found [here](https://medium.com/@epiclabs.io/assessing-metrics-for-video-quality-verification-in-livepeers-ecosystem-f66f724b2aea) [here](https://medium.com/@epiclabs.io/assessing-metrics-for-video-quality-verification-in-livepeers-ecosystem-ii-6827d093a380).
 
 This folder contains a Dockerfile to enable the interaction with a CLI for computing an asset's renditions Euclidean distance values.
 Further insight about how this works can be gained by interacting with the data-analysis section and reading the aforementioned publications.
