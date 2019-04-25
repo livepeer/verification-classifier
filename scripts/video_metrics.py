@@ -65,11 +65,20 @@ class video_metrics:
 
         return difference_ratio
     
-    def evaluate_cross_correlation_instant(self, reference_frame, next_reference_frame, rendition_frame, next_rendition_frame):
+    def evaluate_dct_instant(self, reference_frame, rendition_frame, frame_pos):
         # Function that computes the matchTemplate function included in OpenCV and outputs the 
         # Maximum value
 
+        reference_frame_float = np.float32(reference_frame)/255.0  # float conversion/scale
+        reference_dct = cv2.dct(reference_frame_float)           # the dct
         
+        rendition_frame_float = np.float32(rendition_frame)/255.0  # float conversion/scale
+        rendition_dct = cv2.dct(rendition_frame_float)           # the dct
+        
+
+        _, max_val, _, _ = cv2.minMaxLoc(reference_dct - rendition_dct)
+
+        return max_val
         # Apply template Matching
         res = cv2.matchTemplate(reference_frame,rendition_frame, cv2.TM_CCORR_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
@@ -199,11 +208,10 @@ class video_metrics:
 
             if metric == 'temporal_cross_correlation':
                 rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray, 
-                                                                                    next_reference_frame_gray, 
+            if metric == 'temporal_dct':
+                rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, 
                                                                                     rendition_frame_gray, 
-                                                                                    next_rendition_frame_gray)
-
-            
+                                                                      frame_pos)
 
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)
