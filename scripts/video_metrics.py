@@ -186,10 +186,10 @@ class video_metrics:
         rendition_metrics = {}
 
         # Some metrics only need the luminance channel
-        reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2GRAY)
-        next_reference_frame_gray = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2GRAY) 
-        rendition_frame_gray = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2GRAY)
-        next_rendition_frame_gray = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2GRAY)            
+        reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2HSV)[:,:,2]
+        next_reference_frame_gray = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2HSV)[:,:,2]
+        rendition_frame_gray = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2HSV)[:,:,2]
+        next_rendition_frame_gray = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2HSV)[:,:,2]
         
 
         for metric in self.metrics_list:
