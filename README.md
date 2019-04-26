@@ -26,7 +26,7 @@ Once we have all the data, we want to generate different variations of the video
 
 To do this, there are several scripts in order to perform each variation.
 
-All the information and the scripts can be found inside the scripts folder [here](/scripts/README.md)
+All the information and the scripts can be found inside the scripts folder [here](scripts/README.md)
 
 Inside the data-analysis/notebooks folder is a Tools.ipynb notebook that helps in the usage in case a notebook wanted to be used to run that.
 
@@ -41,4 +41,4 @@ The scripts can be run separately as bash scripts.
 
 At this step we should have the required data and the data analysis done with the external tools which may be required by some of the notebooks.
 
-Information about this notebooks can be found [here](/data-analysis/README.md)
+Information about this notebooks can be found [here](data-analysis/README.md)
