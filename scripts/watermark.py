@@ -110,18 +110,20 @@ def get_input_output_jobs():
 
 def worker(full_input_file, codec, bitrates, output_files):
     ffmpeg_command = []
+    out = None
+    err = None
     try:
         ffmpeg_command = format_command(full_input_file, codec, bitrates, output_files)
         ffmpeg = subprocess.Popen(' '.join(ffmpeg_command), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
         out, err = ffmpeg.communicate()
-        if not err:
-            print('FFMPEG ERROR')
-            print('Out ', out)
-            print('Error', err)
+        status = ffmpeg.wait()
+        print('FFMPEG status {}'.format(status))
     except Exception as e:
         print('Error processing ', full_input_file)
         print('The error was ', e)
         print('Executing ', ffmpeg_command)
+        print('Out ', out)
+        print('Error', err)
 
 
 if __name__ == "__main__":
