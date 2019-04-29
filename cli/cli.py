@@ -6,7 +6,7 @@ from scipy.spatial import distance
 
 import sys
 
-sys.path.insert(0, 'scripts/')
+sys.path.insert(0, 'scripts/asset_processor')
 
 
 @click.command()
