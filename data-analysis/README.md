@@ -13,7 +13,7 @@ This will create a image based on `jupyter/datascience-notebook` but adding the 
 contains ffmpeg with VMAF and libav with ms-ssim.
 
 ## 2.- Run the image
-To run the image, we have to type:
+To run the image, we have to type the following IN THE ROOT FOLDER OF THE REPO:
 ```
 docker run -p 8888:8888 --volume="$(pwd)":/home/jovyan/work/ epicjupiter:v1
 ```
