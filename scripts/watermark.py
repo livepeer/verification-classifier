@@ -4,7 +4,6 @@ import multiprocessing
 import subprocess
 from os import listdir, makedirs
 from os.path import isfile, join, exists
-from pathlib import Path
 from utils import *
 
 parser = argparse.ArgumentParser(description='Generate renditions with watermarks')
@@ -83,11 +82,10 @@ def get_files_from_file(input_path, reprocess_file):
     with open(reprocess_file) as file_reprocess:
         for file_name in file_reprocess:
             full_file = join(input_path, file_name.strip())
-            my_file = Path(full_file)
             if isfile(full_file):
                 file_list.append(file_name.strip())
             else:
-                print('File not found {} {}'.format(full_file, my_file.is_file()))
+                print('File not found {}'.format(full_file))
     print('{} files to reprocess'.format(len(file_list)))
     return file_list
 
