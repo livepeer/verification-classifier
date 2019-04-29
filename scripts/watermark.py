@@ -4,6 +4,7 @@ import multiprocessing
 import subprocess
 from os import listdir, makedirs
 from os.path import isfile, join, exists
+from pathlib import Path
 from utils import *
 
 parser = argparse.ArgumentParser(description='Generate renditions with watermarks')
@@ -13,6 +14,8 @@ parser.add_argument('-o', "--output", action='store', help='Folder where the ren
                     type=str, required=True)
 parser.add_argument('-m', "--metadata", action='store', help='File where the metadata is', type=str, required=True)
 parser.add_argument('-w', "--watermark", action='store', help='Watermark file', type=str, required=True)
+parser.add_argument('-r', "--reprocess", action='store', help='input file with files to reprocess', type=str,
+                    required=False)
 
 args = parser.parse_args()
 
@@ -20,8 +23,12 @@ input_path = args.input
 output_path = args.output
 metadata_file = args.metadata
 watermark_file = args.watermark
+reprocess = False
+file_to_reprocess = None
 
-files = [f for f in listdir(input_path) if isfile(join(input_path, f)) and not f.startswith('.')]
+if args.reprocess is not None:
+    reprocess = True
+    file_to_reprocess = args.reprocess
 
 output_folders = {
     '1080': '1080p_watermark',
@@ -33,7 +40,7 @@ output_folders = {
 }
 
 cpu_count = multiprocessing.cpu_count()
-cpu_to_use = int(round(cpu_count / len(output_folders)))
+cpu_to_use = 1 if reprocess else int(round(cpu_count / len(output_folders)))
 codec_to_use = 'libx264'
 
 files_and_renditions = {}
@@ -71,9 +78,26 @@ def format_command(full_input_file, codec, bitrates, output_files):
     return command
 
 
+def get_files_from_file(input_path, reprocess_file):
+    file_list = []
+    with open(reprocess_file) as file_reprocess:
+        for file_name in file_reprocess:
+            full_file = join(input_path, file_name.strip())
+            my_file = Path(full_file)
+            if isfile(full_file):
+                file_list.append(file_name.strip())
+            else:
+                print('File not found {} {}'.format(full_file, my_file.is_file()))
+    print('{} files to reprocess'.format(len(file_list)))
+    return file_list
+
+
 def get_input_output_jobs():
     ffmpeg_jobs = []
-    job_files = [f for f in listdir(input_path) if isfile(join(input_path, f)) and not f.startswith('.')]
+    if reprocess:
+        job_files = get_files_from_file(input_path, file_to_reprocess)
+    else:
+        job_files = [f for f in listdir(input_path) if isfile(join(input_path, f)) and not f.startswith('.')]
     for file in job_files:
         bitrates = get_renditions(files_and_renditions[file.split('.mp4')[0]])
         full_input_file = join(input_path, file)
