@@ -1,12 +1,22 @@
-# Data generation
+# Data generation scripts
 
-This folder contains scripts in order to generate new data using the downloaded data from YT8M. So it is important check the YT8M_downloader first [here](../YT8M_downloader/README.md).
+This folder contains scripts used to generate video data from video assets.
 
-This scripts are referenced on the Tools.ipynb notebook from the data-analysis/notebooks folder and can be run there. In the data-analysis/notebooks folder it is a Dockerfile containing all necesary in order to run this scripts.
+It has three main steps:
 
-First script should be the one that generate the different renditions based on the downloaded renditions.
+* Raw video data generation 
+* Standard metrics data generation
+* Livepeer's research metrics data generation
 
-## encode_renditions.py
+## Raw video data generation
+
+These scripts are used to generate new video data using the downloaded segments from YT8M's dataset subsets. They compose the bulk of simulated "attacks". It is important to check the YT8M_downloader first [here](../YT8M_downloader/README.md) to obtain the original segments.
+
+Scripts hosted here are referenced on the [Tools.ipynb](https://github.com/livepeer/verification-classifier/blob/documentation_enhacements/data-analysis/notebooks/Tools.ipynb) notebook from the data-analysis/notebooks folder and can be run there. The data-analysis/notebooks folder contains a Dockerfile with all necessary settings.
+
+First script should be the one that generates the different renditions based on the downloaded renditions.
+
+### encode_renditions.py
 
 This script takes an input folder containing 1080p renditions and will encode them with the params in the metadata leaving them in the specified output folder. 
 
@@ -19,7 +29,7 @@ python enconde_renditions.py -i /path/to/1080pRenditions -o /path/to/renditions 
 After we have all renditions, we can use the other scripts. They are listed here without any special order
 
 
-## black_and_white.py 
+### black_and_white.py 
 
 This script makes the videos black and white.
 
@@ -32,7 +42,7 @@ A sample of usaage is:
 python black_and_white.py -i /path/to/renditions -o /path/to/renditions
 ```
 
-## chroma_subsampling.py
+### chroma_subsampling.py
 
 This script does a chroma subsampling of the video.
 
@@ -51,7 +61,7 @@ A sample of usaage is:
 python chroma_subsampling.py -i /path/to/1080pRenditions -o /path/to/renditions -m /path/to/metadatafile -s yuv422p
 ```
 
-## flip.py
+### flip.py
 
 This script does a flip / rotation of the video. It receives 3 parameters:
 
@@ -68,7 +78,7 @@ A sample of usaage is:
 python flip.py -i /path/to/renditions -o /path/to/renditions -vf
 ```
 
-## low_bitrate.py
+### low_bitrate.py
 
 This script lower the bitrate of a video.  It receives 4 parameters:
 - The input path (-i or --input) which is the folder containing the 1080p renditions are.
@@ -82,7 +92,7 @@ A sample of usaage is:
 python low_bitrate.py -i /path/to/1080pRenditions -o /path/to/renditions -d 4
 ```
 
-## vignette.py
+### vignette.py
 
 This script performs a vignette in the video. It has 3 parameters (One is optional):
 - The input path (-i or --input) which is the folder containing the renditions.
@@ -96,7 +106,7 @@ A sample of usaage is:
 python vignette.py -i /path/to/1080pRenditions -o /path/to/renditions
 ```
 
-## watermark.py
+### watermark.py
 
 This script puts a watermark in the video. It has 4 parameters:
 - The input path (-i or --input) which is the folder containing 1080p.
@@ -109,16 +119,16 @@ python watermark.py -i /path/to/1080pRenditions -o /path/to/renditions -m /path/
 ```
 
 
-# Data analysis with external tools
+## Standard metrics data generation
 
-In this folder, it is a subfolder shell containing shell scripts in order to compute different metrics 
+In this folder resides the subfolder [shell](https://github.com/livepeer/verification-classifier/tree/neural_net/scripts/shell) containing shell scripts useful to compute different metrics throughout all the generated assets. It uses external libraries (ffmpeg and libav) that are compiled in the build step of the Docker container.
 
 
-## evaluate-ms-ssim.sh
+### evaluate-ms-ssim.sh
 
-This script evaluates the ms ssim (multiscale ssim) metric. It expect two parameters which are the folder containing the renditions and the folder where the output is going to be stored.
+This script evaluates the ms-ssim (multiscale ssim) metric. It expects two parameters which are the folder containing the video renditions (attacks) and the folder where the output logs are going to be stored for later processing.
 
-This script compute the ms ssim metric of the original rendition against:
+This script computes the psnr and ssim metrics of the original rendition against all the resolutions of:
 
 - watermark
 - flip vertical
@@ -127,12 +137,13 @@ This script compute the ms ssim metric of the original rendition against:
 - rotate 90 counterclockwise
 
 In the output folder a ms-ssim folder is going to be created containing one subfolder per resolution and attack to compare to. Inside those folders there will be a file per rendition containing the result.
+Further forms of attack can be easily expanded by adding more lines to the bash file.
 
-## evaluate-psnr-ssim.sh
+### evaluate-psnr-ssim.sh
 
 This script evaluates the psnr and ssim metrics. It expect two parameters which are the folder containing the renditions and the folder where the output is going to be stored.
 
-This script compute the psnr and ssim metrics of the original rendition against:
+This script computes the psnr and ssim metrics of the original rendition against all the resolutions of:
 
 - watermark
 - flip vertical
@@ -141,13 +152,13 @@ This script compute the psnr and ssim metrics of the original rendition against:
 - rotate 90 counterclockwise
 
 In the output folder a ssim and psnr folders are going to be created containing one subfolder per resolution and attack to compare to. Inside those folders there will be a file per rendition containing the result.
+Further forms of attack can be easily expanded by adding more lines to the bash file.
 
-
-## evaluate-vmaf.sh
+### evaluate-vmaf.sh
 
 This script evaluates the vmaf metric. It expect two parameters which are the folder containing the renditions and the folder where the output is going to be stored.
 
-This script compute the vmaf metric of the original rendition against:
+This script computes the psnr and ssim metrics of the original rendition against all the resolutions of:
 
 - watermark
 - flip vertical
@@ -156,3 +167,9 @@ This script compute the vmaf metric of the original rendition against:
 - rotate 90 counterclockwise
 
 In the output folder a vmaf folder is going to be created containing one subfolder per resolution and attack to compare to. Inside those folders there will be a file per rendition containing the result.
+
+## Livepeer's research metrics data generation
+
+As part of the research involved in this project, a series of metrics have been developed to account for video features that enable their classification.
+This process is documented in subsequent articles published [here](https://medium.com/@epiclabs.io/assessing-metrics-for-video-quality-verification-in-livepeers-ecosystem-f66f724b2aea) and [here](https://medium.com/@epiclabs.io/assessing-metrics-for-video-quality-verification-in-livepeers-ecosystem-ii-6827d093a380).
+These scripts are also need by the [CLI](https://github.com/livepeer/verification-classifier/tree/neural_net/cli) module as part of the inference process previous to classification.
