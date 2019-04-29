@@ -8,7 +8,10 @@
 /.doit.db.dat
 /.doit.db.dir
 data
-output
+output/ms-ssim
+output/psnr
+output/ssim
+output/vmaf
 *.out
 out.log
 *.log
