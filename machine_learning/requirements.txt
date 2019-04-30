@@ -1,0 +1,8 @@
+plotly==3.6.1
+sklearn
+seaborn==0.9.0
+opencv-python==4.0.0.21
+meson==0.50.0
+tensorflow==1.10.0
+Keras==2.2.4
+xgboost==0.82

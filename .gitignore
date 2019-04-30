@@ -12,6 +12,7 @@ output/ms-ssim
 output/psnr
 output/ssim
 output/vmaf
+*-large.*
 *.out
 out.log
 *.log
