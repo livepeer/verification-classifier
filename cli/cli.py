@@ -5,7 +5,7 @@ from scipy.spatial import distance
 
 import sys
 
-sys.path.insert(0, 'src/asset_processor')
+sys.path.insert(0, 'scripts/asset_processor')
 
 from video_asset_processor import video_asset_processor
 
@@ -34,7 +34,7 @@ def cli(asset, renditions, metrics):
 
     renditions_list = [original_asset] + list(renditions)
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics)
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics,4)
 
     asset_metrics_dict = asset_processor.process()
     dict_of_df = {k: pd.DataFrame(v) for k, v in asset_metrics_dict.items()}
