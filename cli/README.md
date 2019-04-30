@@ -12,12 +12,11 @@ contains OpenCV, numpy, pandas and sklearn, among others
 To run the image, we have to type:
 
 ```
-docker run --rm -it --volume="$(pwd)/data-analysis/data":/data-analysis/data --ipc=host verifier:v1
+docker run --rm -it --volume="$(pwd)/data":/data --ipc=host verifier:v1
 ```
 
-This will run the image and mount a volume with the contents of the folder data-analysis/data from this repo in the folder 
-`/data-analysis/data` of the Docker image. If you have your videos and their assets located elsewhere, it is recommended that you 
-copy them in this structure for simplicity.
+This will run the image and mount a volume with the contents of the folder /data from this repo in the folder 
+`/data` of the Docker image. If you have your videos and their assets and attacks located elsewhere, it is recommended that you copy them in this structure for simplicity.
 
 If you are using symbolic links to point the videos from the data folder to other folder, you need to mount the other folder to be visible in the cointainer.
 
