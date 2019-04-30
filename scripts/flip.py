@@ -15,6 +15,8 @@ group.add_argument('-vf', '--vflip', action='store_true', help='Flip video verti
 group.add_argument('-hf', '--hflip', action='store_true', help='Flip video horizontally')
 group.add_argument('-cf', '--clockflip', action='store_true', help='Rotate 90 degrees clockwise')
 group.add_argument('-ccf', '--counterclockflip', action='store_true', help='Rotate 90 degrees counterclockwise')
+parser.add_argument('-r', "--reprocess", action='store', help='Input file with files to reprocess', type=str,
+                    required=False)
 
 args = parser.parse_args()
 
@@ -33,6 +35,13 @@ input_folders = [
     '240p',
     '144p',
 ]
+
+reprocess = False
+file_to_reprocess = None
+
+if args.reprocess is not None:
+    reprocess = True
+    file_to_reprocess = args.reprocess
 
 output_folders = {
     'vertical_flip': {
@@ -90,6 +99,10 @@ def selected_bool_to_str():
 
 selected_option = selected_bool_to_str()
 
+cpu_count = multiprocessing.cpu_count()
+cpu_to_use = 1 if reprocess else int(round(cpu_count / len(output_folders[selected_option])))
+
+
 def crete_folders():
     for key, value in output_folders[selected_option].items():
         folder = arg_output_path + '/' + value
@@ -105,12 +118,30 @@ def format_command(full_input_file, full_output_file):
     return command
 
 
+def get_files_from_file(input_path, reprocess_file):
+    file_list = []
+    with open(reprocess_file) as file_reprocess:
+        for file_name in file_reprocess:
+            full_file = join(input_path, file_name.strip())
+            if isfile(full_file):
+                file_list.append(file_name.strip())
+            else:
+                print('File not found {}'.format(full_file))
+    print('{} files to reprocess in {}'.format(len(file_list), input_path))
+    return file_list
+
+
 def get_input_output_jobs():
     ffmpeg_jobs = []
     for input_folder in input_folders:
         job_input_folder = join(arg_input_path, input_folder)
         job_output_folder = join(arg_output_path, output_folders[selected_option][input_folder])
-        files = [f for f in listdir(job_input_folder) if isfile(join(job_input_folder, f)) and not f.startswith('.')]
+
+        if reprocess:
+            files = get_files_from_file(job_input_folder, file_to_reprocess)
+        else:
+            files = [f for f in listdir(job_input_folder) if
+                     isfile(join(job_input_folder, f)) and not f.startswith('.')]
         for file in files:
             full_input_file = join(job_input_folder, file)
             full_output_file = join(job_output_folder, file)
@@ -138,5 +169,5 @@ if __name__ == "__main__":
     crete_folders()
     jobs = get_input_output_jobs()
 
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(cpu_to_use) as pool:
         pool.starmap(worker, jobs)
