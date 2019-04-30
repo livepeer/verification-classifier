@@ -1,4 +1,3 @@
-from video_asset_processor import video_asset_processor
 import click
 import pandas as pd
 import numpy as np
@@ -6,8 +5,9 @@ from scipy.spatial import distance
 
 import sys
 
-sys.path.insert(0, 'scripts/asset_processor')
+sys.path.insert(0, 'src/asset_processor')
 
+from video_asset_processor import video_asset_processor
 
 @click.command()
 @click.argument('asset')
