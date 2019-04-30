@@ -19,10 +19,12 @@ Previous work with this dataset can be found [here](https://github.com/epiclabs-
 
 All the information and the scripts to create the assets reside inside the [YT8M_downloader](YTM8_downloader) folder and are explained in [this](YT8M_downloader/README.md) document.
 
-# 2. Video data analysis: data_analysis
+# 2. Video data analysis: data_analytics
+
+From the raw video dataset created we obtain different features out of the analysis made with different tools.
 
 ## 2.1. Generation of renditions
-Once we have all the data, we want to generate different variations of the videos including different renditions, flipped videos, etc. These variations constitute the bulk of what we refer to as "attacks".
+As part of the feature extraction, we want to generate different variations of the videos including different renditions, flipped videos, etc. Some of these variations constitute the bulk of what we label as "attacks". Other constitute "good" renditions where no distortions are included.
 
 To obtain the different "attacks", we provide several scripts in order to perform each variation.
 
@@ -47,4 +49,8 @@ Further information about this notebooks can be found [here](data-analysis/READM
 
 # 3. Command Line Interface: cli
 
-Once models are trained and available, a command line interface to interact with them and
+Once models are trained and available, a command line interface to interact with them and obtain predictions is offered in the cli folder.
+
+# 4. Common usage scripts: scripts
+
+Several utility scripts are hosted in this folder for convenience. They are needed at different stages of the process and for different Docker instances.
