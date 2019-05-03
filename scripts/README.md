@@ -119,6 +119,96 @@ python watermark.py -i /path/to/1080pRenditions -o /path/to/renditions -m /path/
 ```
 
 
+## Reprocess videos
+
+In the event of a failed encoded video, we added to the scripts the ability of process just the failed videos.
+
+To do that the scripts have a new parametter -r that receives a file containing a video name per line like:
+
+fmOwlwRugjU.mp4
+HZ_ZWbNTfWs.mp4
+
+Bad encoded videos can be spoted in the compare videos notebook in the second step by replacing the actual code by:
+
+```python
+metrics_dict = {}
+file = open('workfile','w') 
+list = os.listdir(originals_path.format('1080p')) # dir is your directory path
+number_assets = len(list)
+print ('Number of assets: {}'.format(number_assets))
+count = 0
+
+for original_asset in glob.iglob(originals_path.format('1080p') + '**', recursive=False):
+    count += 1
+    if os.path.isfile(original_asset): # filter dirs
+       
+        print('Processing asset {} of {}: {}'.format(count, number_assets, original_asset))
+        start_time = time.time()
+        renditions_list = []
+
+        for folder in renditions_folders:
+            rendition_folder = originals_path.format(folder)
+            renditions_list.append(rendition_folder + os.path.basename(original_asset))
+
+        asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list,4)
+
+        asset_metrics_dict = asset_processor.process()
+
+        dict_of_df = {k: pd.DataFrame(v) for k,v in asset_metrics_dict.items()}
+
+        metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
+        metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
+
+        renditions_dict = {}
+        for rendition in renditions_list:
+            try:
+                rendition_dict = {}
+                for metric in metrics_list:
+
+                    original_df = metrics_df[metrics_df['path']==original_asset][metric]
+                    original_df = original_df.reset_index(drop=True).transpose().dropna().astype(float)
+
+                    rendition_df = metrics_df[metrics_df['path']==rendition][metric]
+                    rendition_df = rendition_df.reset_index(drop=True).transpose().dropna().astype(float)
+
+                    if  'temporal' in metric:
+                        x_original = np.array(original_df[rendition_df.index].values)
+                        x_rendition = np.array(rendition_df.values)
+
+                        [[manhattan]] = 1/abs(1-distance.cdist(x_original.reshape(1,-1), x_rendition.reshape(1,-1), metric='cityblock'))
+
+                        rendition_dict['{}-euclidean'.format(metric)] = distance.euclidean(x_original, x_rendition)
+                        rendition_dict['{}-manhattan'.format(metric)] = manhattan
+                        rendition_dict['{}-cosine'.format(metric)] = distance.cosine(x_original, x_rendition)
+                        rendition_dict['{}-cross-correlation'.format(metric)] = np.correlate(x_original, x_rendition)
+                        rendition_dict['{}-mean'.format(metric)] = np.mean(x_rendition)
+                        rendition_dict['{}-max'.format(metric)] = np.max(x_rendition)
+                        rendition_dict['{}-std'.format(metric)] = np.std(x_rendition)
+                        rendition_dict['{}-series'.format(metric)] = x_rendition
+
+                    else:
+                        rendition_dict[metric] = rendition_df.mean()
+                    rendition_dict['size'] = os.path.getsize(rendition)
+                renditions_dict[rendition] = rendition_dict
+            except:
+                print('Unable to measure rendition:', rendition)
+                
+                file.write(rendition)
+
+                
+        metrics_dict[original_asset] = renditions_dict   
+
+        elapsed_time = time.time() - start_time 
+        print('Elapsed time:', elapsed_time)
+        print('***************************')
+
+file.close()     
+``` 
+
+This will create a file called `workfile` which can be feeded into `make_files_to_reprocess.py` which is going to split it in different files, one per attack and one for the original asset not processed as expected.
+
+This files can be the input of the scripts
+
 ## Standard metrics data generation
 
 In this folder resides the subfolder [shell](https://github.com/livepeer/verification-classifier/tree/neural_net/scripts/shell) containing shell scripts useful to compute different metrics throughout all the generated assets. It uses external libraries (ffmpeg and libav) that are compiled in the build step of the Docker container.

@@ -12,6 +12,8 @@ parser.add_argument('-o', "--output", action='store', help='Folder where the low
                     required=True)
 parser.add_argument('-d', "--divisor", action='store', help='Divisor of the current bitrate', type=int, required=True)
 parser.add_argument('-m', "--metadata", action='store', help='File where the metadata is', type=str, required=True)
+parser.add_argument('-r', "--reprocess", action='store', help='Input file with files to reprocess', type=str,
+                    required=False)
 
 args = parser.parse_args()
 
@@ -28,6 +30,13 @@ cpu_count = multiprocessing.cpu_count()
 
 codec_to_use = 'libx264'
 
+reprocess = False
+file_to_reprocess = None
+
+if args.reprocess is not None:
+    reprocess = True
+    file_to_reprocess = args.reprocess
+
 output_folders = {
     '1080p': '1080p_low_bitrate_{}'.format(bitrate_divisor),
     '720p': '720p_low_bitrate_{}'.format(bitrate_divisor),
@@ -37,7 +46,7 @@ output_folders = {
     '144p': '144p_low_bitrate_{}'.format(bitrate_divisor),
 }
 
-cpu_to_use = int(round(cpu_count / len(output_folders)))
+cpu_to_use = 1 if reprocess else int(round(cpu_count / len(output_folders)))
 
 files_and_renditions = get_files_and_reinditions(metadata_file)
 
@@ -49,9 +58,25 @@ def crete_folders():
             makedirs(output_folder)
 
 
+def get_files_from_file(input_path, reprocess_file):
+    file_list = []
+    with open(reprocess_file) as file_reprocess:
+        for file_name in file_reprocess:
+            full_file = join(input_path, file_name.strip())
+            if isfile(full_file):
+                file_list.append(file_name.strip())
+            else:
+                print('File not found {}'.format(full_file))
+    print('{} files to reprocess'.format(len(file_list)))
+    return file_list
+
+
 def get_input_output_jobs():
     ffmpeg_jobs = []
-    files = [f for f in listdir(input_path) if isfile(join(input_path, f)) and not f.startswith('.')]
+    if reprocess:
+        files = get_files_from_file(input_path, file_to_reprocess)
+    else:
+        files = [f for f in listdir(input_path) if isfile(join(input_path, f)) and not f.startswith('.')]
     for file in files:
         bitrates = get_renditions(files_and_renditions[file.split('.mp4')[0]])
         full_input_file = join(input_path, file)
