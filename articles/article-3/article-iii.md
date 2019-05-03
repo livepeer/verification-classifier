@@ -374,12 +374,26 @@ We will see their performance in a future story. Stay tuned!
 
 #### References
 
-[](https://github.com/livepeer)
+[Livepeer](https://github.com/livepeer)
 
-[](https://docs.opencv.org/2.4/doc/tutorials/imgproc/histograms/histogram_comparison/histogram_comparison.html)
+[Histogram Comparison](https://docs.opencv.org/2.4/doc/tutorials/imgproc/histograms/histogram_comparison/histogram_comparison.html)
 
-[](https://en.wikipedia.org/wiki/Canny_edge_detector)
+[Canny Edge detector](https://en.wikipedia.org/wiki/Canny_edge_detector)
 
-[](https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_template_matching/py_template_matching.html)
+[Template Matching](https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_template_matching/py_template_matching.html)
 
-[](https://en.wikipedia.org/wiki/Discrete_cosine_transform#Applications)
+[DCT](https://en.wikipedia.org/wiki/Discrete_cosine_transform#Applications)
+
+#### About the authors
+
+[Rabindranath](https://www.epiclabs.io/member/rabindranath/) is a PhD in
+Computational Physics by the UPC and AI researcher.
+[Dionisio](https://www.epiclabs.io/member/dionisio/) is a Computer
+Science Engineer by the UPM specialized in Media. Both are part of
+[Epic Labs](https://www.epiclabs.io/), is a software innovation center for
+Media and Blockchain technologies.
+
+[Livepeer](https://livepeer.org/) is sponsoring this project with Epic Labs
+to research ways to evaluate the quality of video transcoding happening
+throughout the Livepeer network. This article series helps summarize our
+research progress.
