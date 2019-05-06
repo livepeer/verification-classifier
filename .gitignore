@@ -12,7 +12,6 @@ feature_engineering/output/ms-ssim
 feature_engineering/output/psnr
 feature_engineering/output/ssim
 feature_engineering/output/vmaf
-machine_learning/output/models
 *-large.*
 *.out
 out.log
