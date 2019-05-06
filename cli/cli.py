@@ -1,6 +1,7 @@
 import os
 import click
 import pickle
+import time
 import pandas as pd
 import numpy as np
 import urllib.request
@@ -18,6 +19,8 @@ from video_asset_processor import video_asset_processor
 @click.option('-r', '--renditions', multiple=True)
 @click.option('-r', '--model_url')
 def cli(asset, renditions, model_url):
+    start_time = time.time()
+
     loaded_model = download_models(model_url)
     # load model from file
     #loaded_model = pickle.load(open("random_forest.pickle.dat", "rb"))
@@ -96,7 +99,8 @@ def cli(asset, renditions, model_url):
     y_pred = loaded_model.predict(X)
 
     print(y_pred)
-
+    elapsed_time = time.time() - start_time
+    print('Prediction time:', elapsed_time)
 
 def download_models(url):
 
