@@ -46,11 +46,7 @@ the rate of change at every instant. The image has 1280 x 720 (921600)
 pixels. The number of non-zero pixels is 543744. This basically means
 that 59% of the pixels of the frame 31 are different from the frame 32.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1i-IgUpsnOxnRTX1KfjUttQ_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1i-IgUpsnOxnRTX1KfjUttQ.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*i-IgUpsnOxnRTX1KfjUttQ.png)
+![image](images/1i-IgUpsnOxnRTX1KfjUttQ.png)
 
 Frame 31 of Big Buck Bunny, as the difference between itself and
 the next
@@ -63,11 +59,7 @@ with a non-zero value after subtraction of the next frame (see image
 above: the ratio between all the pixels of a frame and those which are
 not black, one frame at a time).
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1gDwlnAEcrvSCfRLqL59HSA_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1gDwlnAEcrvSCfRLqL59HSA.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*gDwlnAEcrvSCfRLqL59HSA.png)
+![image](images/1gDwlnAEcrvSCfRLqL59HSA.png)
 
 Time series for the evolution of the temporal pixel difference ratio for
 the first 50 seconds of Big Buck Bunny
@@ -85,11 +77,7 @@ So, wow, if we were to apply the above procedure to different encodings
 of the same asset, we could detect whether their rates of change have a
 similar march as that of the original, right?
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1O0_EKYj934hRqwnXJjyJ_w_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1O0_EKYj934hRqwnXJjyJ_w.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*O0_EKYj934hRqwnXJjyJ_w.png)
+![image](images/1O0_EKYj934hRqwnXJjyJ_w.png)
 
 Time series for the evolution of the temporal pixel difference ratio for
 50 seconds of Big Buck Bunny and different renditions
@@ -106,9 +94,9 @@ Instead of means, we will be using distances between vectors. The time
 series displayed above can also be treated as a sequence of values
 (which are basically vectors):
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1AoJah7PjqAtA9AZXxLgeKg.png)
+![image](images/1AoJah7PjqAtA9AZXxLgeKg.png)
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1QBHw_RnZ3jgYOA9MWvi_fw.png)
+![image](images/1QBHw_RnZ3jgYOA9MWvi_fw.png)
 
 From Wikipedia,
 
@@ -130,11 +118,7 @@ The advantage will become more evident in the charts below. For the sake
 of better visualization, let’s first reduce the noise introduced by the
 high frequencies of our plot and smooth our curves down a bit:
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/11yOQ69hI9JZYyD3Umq0PYQ_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/11yOQ69hI9JZYyD3Umq0PYQ.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*1yOQ69hI9JZYyD3Umq0PYQ.png)
+![image](images/11yOQ69hI9JZYyD3Umq0PYQ.png)
 
 Time series for the evolution of the temporal pixel difference ratio for
 the first 50 seconds of Big Buck Bunny and different renditions,
@@ -154,11 +138,7 @@ renditions with these new approach of counting non-zero pixels. Instead
 of Big Buck Bunny, now we will be using a different asset, a randomly
 picked specimen from our YT8M dataset:
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/167ZjkMifUisrJ5PyWB5FeA_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/167ZjkMifUisrJ5PyWB5FeA.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*67ZjkMifUisrJ5PyWB5FeA.png)
+![image](images/167ZjkMifUisrJ5PyWB5FeA.png)
 
 Temporal pixel difference time series for 300 frames of five renditions
 of YT8M’s videos. Green line corresponds to an outsider.
@@ -187,11 +167,7 @@ frame and its following from the beginning to the end of the asset
 segment. We show below results for Euclidean and Cosine distances for
 all the time series depicted above:
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1mavop6Z25Ev61_NVYAp77Q_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1mavop6Z25Ev61_NVYAp77Q.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*mavop6Z25Ev61_NVYAp77Q.png)
+![image](images/1mavop6Z25Ev61_NVYAp77Q.png)
 
 Cosine and Euclidean distances for each time series depicted above with
 respect to the original (Video-1–1080p). The stowaway rendition
@@ -216,11 +192,7 @@ our traditional VQA metrics. The average value for a good faith low
 bitrate encoding (240p) lies further away than a malicious watermark
 attack. Let’s take a closer look:
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1F2-jA27lIu1sgNnmC_VEAg_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1F2-jA27lIu1sgNnmC_VEAg.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*F2-jA27lIu1sgNnmC_VEAg.png)
+![image](images/1F2-jA27lIu1sgNnmC_VEAg.png)
 
 A closer look at five renditions of the same asset and an interloper (
 -8ygLPzgpsg.mp4). The orange line corresponds to a legitimate encoding.
@@ -238,11 +210,7 @@ frames were flipped, or rotated, they would still account for exactly
 the same amount of non-zero pixels (more or less, subject to slight
 fluctuations in the output bitrate selected by the encoder). Let’s see.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1yuUzDHdLv7kXLWPn1JDQSg_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1yuUzDHdLv7kXLWPn1JDQSg.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*yuUzDHdLv7kXLWPn1JDQSg.png)
+![image](images/1yuUzDHdLv7kXLWPn1JDQSg.png)
 
 Euclidean distances for a number of different attacks. Euclidean
 distance between original inter-frame difference time series spots with
@@ -263,11 +231,7 @@ summary than the simple pixel difference. What if we use it to measure
 how much distorted one copied frame is with respect to its original
 previous? Let’s picture the time series for it.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1YMhcD1GYKbfATDwB6ImV3A_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1YMhcD1GYKbfATDwB6ImV3A.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*YMhcD1GYKbfATDwB6ImV3A.png)
+![image](images/1YMhcD1GYKbfATDwB6ImV3A.png)
 
 Time series for the PSNR between original asset and its
 
@@ -275,11 +239,7 @@ There we go! Now not only interlopers are discriminated, but also other
 kinds of misdeeds such as flips and rotations. We can have a a look at
 the computed Euclidean distances between time series:
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1vuhOLKhpDamOCl6KNOZKRw_002.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem%20(II)_files/1vuhOLKhpDamOCl6KNOZKRw.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*vuhOLKhpDamOCl6KNOZKRw.png)
+![image](images/1vuhOLKhpDamOCl6KNOZKRw.png)
 
 Euclidean distances for each rendition measured over the time series
 vector of the PSNR. Now outliers and distorted renditions clearly
