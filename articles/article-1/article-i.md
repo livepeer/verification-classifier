@@ -1,4 +1,4 @@
-Assessing metrics for video quality verification in Livepeer’s ecosystem {#ecf0 .graf .graf--h3 .graf--leading .graf--title name="ecf0"}
+Assessing metrics for video quality verification in Livepeer’s ecosystem
 ========================================================================
 
 This is the first of a series of posts. The aim of these is to share
@@ -55,17 +55,11 @@ progress about improving people’s lives?
 
 * * * * *
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/11gRMpDxwJBdw9nbUTPdoHw.jpeg)
+![image](images/11gRMpDxwJBdw9nbUTPdoHw.jpeg)
 
-![](https://cdn-images-1.medium.com/max/800/1*1gRMpDxwJBdw9nbUTPdoHw.jpeg)
+![image](images/1kAtyMOo4KvLiCq6TD293fA.jpeg)
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1kAtyMOo4KvLiCq6TD293fA.jpeg)
-
-![](https://cdn-images-1.medium.com/max/800/1*kAtyMOo4KvLiCq6TD293fA.jpeg)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1_j6wyJqHryXQwcubCANilw.jpeg)
-
-![](https://cdn-images-1.medium.com/max/800/1*_j6wyJqHryXQwcubCANilw.jpeg)
+![image](images/1_j6wyJqHryXQwcubCANilw.jpeg)
 
 Above: two different lossly compressed versions of an original picture
 (a frame from Big Buck Bunny). Definition of a criterion on what is an
@@ -104,13 +98,9 @@ and distortions, as can be seen from the fact that the 250 kbps curve
 goes almost parallel to the one for 500 kbps, just with slightly lower
 values, and in some specific scenes.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/10-vB_DTG8so01lXLZM_voA.png)
+![image](images/10-vB_DTG8so01lXLZM_voA.png)
 
-![](https://cdn-images-1.medium.com/max/800/1*0-vB_DTG8so01lXLZM_voA.png)
-
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1pWEBVjakePUMrZWNPsKU_w.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*pWEBVjakePUMrZWNPsKU_w.png)
+![image](images/1pWEBVjakePUMrZWNPsKU_w.png)
 
 SSIM time evolution for the first 1240 frames (50 seconds) of Big Buck
 Bunny, encoded at 500 kbps (above) and 250 kbps (below)
@@ -118,9 +108,7 @@ Bunny, encoded at 500 kbps (above) and 250 kbps (below)
 Well, this looks promising. Let’s see how much the SSIM diverges by
 measuring the ratio between one another:
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1TYXYxvAgaHDVTNz35ugUjA.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*TYXYxvAgaHDVTNz35ugUjA.png)
+![image](images/1TYXYxvAgaHDVTNz35ugUjA.png)
 
 Time evolution of the ratio between SSIMs encoded at 500 kbps and 250
 kbps. First 1240 frames (50 seconds) of Big Buck Bunny
@@ -135,9 +123,7 @@ respect to the 500 kbps.
 Let’s see now what happens if, in a display of mischief, one includes a
 watermark in the 500 kbps rendition:
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1jj-2KgxqJgXKfoA9pM7rAQ.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*jj-2KgxqJgXKfoA9pM7rAQ.png)
+![image](images/1jj-2KgxqJgXKfoA9pM7rAQ.png)
 
 SSIM time evolution for the first 1240 frames (50 seconds) of Big Buck
 Bunny, encoded to 500 kbps with a watermark
@@ -151,9 +137,7 @@ Taking a look at the ratio between the 500 kbps and the watermarked
 rendition, we find something even more astonishing. Watermarks improve
 the SSIM!! (Well, in some segments at least).
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1KLVwaxjWILl3N3KPDo83_w.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*KLVwaxjWILl3N3KPDo83_w.png)
+![image](images/1KLVwaxjWILl3N3KPDo83_w.png)
 
 Time evolution of the ratio between SSIMs encoded at 500 kbps and with a
 watermark. In some segments (ratios below 1), watermarks seem to give
@@ -162,9 +146,7 @@ even better SSIM results than the ‘*bona fide*’ rendition at 500 kbps.
 Blast. Encodings with watermarks behave better than those with lower
 resolutions.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1-Mft49ZjPwnGCACWDjOG1g.jpeg)
-
-![](https://cdn-images-1.medium.com/max/800/1*-Mft49ZjPwnGCACWDjOG1g.jpeg)
+![image](images/1-Mft49ZjPwnGCACWDjOG1g.jpeg)
 
 In practice, this basically means that if one were to use SSIM to
 establish a prescriptive threshold, this would be indeed arbitrary and
@@ -190,16 +172,12 @@ rendition and the 250 kbps rendition and the same between the 500 kbps
 with watermark. SSIM and PSNR are superimposed to see their respective
 contributions.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/10Abva3tgcoou3lW1XPSu8g.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*0Abva3tgcoou3lW1XPSu8g.png)
+![image](images/10Abva3tgcoou3lW1XPSu8g.png)
 
 Time evolution of the ratio between SSIMs and PSNRs for encodings at 500
 kbps and 250 kbps.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1b7LCuIAUZFSOQXBMydYy0A.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*b7LCuIAUZFSOQXBMydYy0A.png)
+![image](images/1b7LCuIAUZFSOQXBMydYy0A.png)
 
 Time evolution of the ratio between SSIMs and PSNRs, encoded at 500 kbps
 and at 500 kbps with a watermark.
@@ -262,9 +240,7 @@ present some degree of connection between them, and display a similar
 pattern as SSIM in their lower bound with regard to the hash distance
 metrics.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1eh4afaA2VTp2y9XGDf8Y1g.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*eh4afaA2VTp2y9XGDf8Y1g.png)
+![image](images/1eh4afaA2VTp2y9XGDf8Y1g.png)
 
 Pairs plot for our dataset of 140 Youtube clips. Distance metrics
 (cosine, euclidean and Hamming) are fairly linearly correlated, whereas
@@ -286,9 +262,7 @@ where +1 means total positive correlation (when one feature grows, so
 does the other) and -1 means total negative correlation (when one
 feature grows, the other decreases).
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1k2lccpWmBX4U4qgoQu_JlQ.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*k2lccpWmBX4U4qgoQu_JlQ.png)
+![image](images/1k2lccpWmBX4U4qgoQu_JlQ.png)
 
 Spearman correlation table for all seven metrics used in our analysis
 
@@ -328,41 +302,32 @@ rendition in the 426:240, 640:360, 854:480, 1280:720, but doesn’t make
 them outliers. We are interested in the metric value, not the
 dimensions.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1J5YOVxhnhiW1Koo0_5C0YA.png)
+![image](images/1J5YOVxhnhiW1Koo0_5C0YA.png)
 
-![](https://cdn-images-1.medium.com/max/800/1*J5YOVxhnhiW1Koo0_5C0YA.png)
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1naP9wBQkcNmKd7Stz1EEww.png)
+![image](images/1naP9wBQkcNmKd7Stz1EEww.png)
 
-![](https://cdn-images-1.medium.com/max/800/1*naP9wBQkcNmKd7Stz1EEww.png)
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1LdJfMMyILcfct58Bsd5xkQ.png)
+![image](images/1LdJfMMyILcfct58Bsd5xkQ.png)
 
-![](https://cdn-images-1.medium.com/max/800/1*LdJfMMyILcfct58Bsd5xkQ.png)
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1qAMeXqgKkK5mwWCAIxLQTA.png)
+![image](images/1qAMeXqgKkK5mwWCAIxLQTA.png)
 
-![](https://cdn-images-1.medium.com/max/800/1*qAMeXqgKkK5mwWCAIxLQTA.png)
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/15_EtDtVzaCV3oFC3UpN1LA.png)
+![image](images/15_EtDtVzaCV3oFC3UpN1LA.png)
 
-![](https://cdn-images-1.medium.com/max/800/1*5_EtDtVzaCV3oFC3UpN1LA.png)
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1ByI04G-IpiMt55eLPo53wA.png)
+![image](images/1ByI04G-IpiMt55eLPo53wA.png)
 
-![](https://cdn-images-1.medium.com/max/800/1*ByI04G-IpiMt55eLPo53wA.png)
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1118-1DMSi0mDTN08aIoCmA.png)
-
-![](https://cdn-images-1.medium.com/max/800/1*118-1DMSi0mDTN08aIoCmA.png)
+![image](images/1118-1DMSi0mDTN08aIoCmA.png)
 
 This allows us to locate outliers and inspect them further. In the
 Jupyter notebook provided in the repository, this can be easily done by
 means of Plotly and hovering the cursor over the points.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1CzxdDd27uK9Pjh06GrbbyQ.png)
+![image](images/1CzxdDd27uK9Pjh06GrbbyQ.png)
 
-![](https://cdn-images-1.medium.com/max/800/1*CzxdDd27uK9Pjh06GrbbyQ.png)
 
 …and here we go. One frame of one of the samples that lie outside of the
 crowd is presented below. This video shows people jumping form the rocks
@@ -370,9 +335,8 @@ into water and having their fun in what is seemingly a very complex
 asset, both in the dynamics through time as well as in the spatial
 relationships and pixel textures.
 
-![](Assessing%20metrics%20for%20video%20quality%20verification%20in%20Livepeer%E2%80%99s%20ecosystem_files/1o4-kE3BZJdL94_avI3qP7A.png)
+![image](images/1o4-kE3BZJdL94_avI3qP7A.png)
 
-![](https://cdn-images-1.medium.com/max/800/1*o4-kE3BZJdL94_avI3qP7A.png)
 
 Frame from one of the outliers. The video presents a high amount of
 motion and high detail hard to deal with for the codec in a reasonable
