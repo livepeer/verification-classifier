@@ -74,7 +74,6 @@ def cli(asset, renditions, model_url):
 
     metrics_df['title'] = metrics_df['level_0']
     attack_series = []
-    attack_IDs = []
     dimensions_series = []
     for _, row in metrics_df.iterrows():
         attack_series.append(row['level_1'].split('/')[-2])
@@ -102,7 +101,7 @@ def cli(asset, renditions, model_url):
 def download_models(url):
 
     print ("Model download started!")
-    filename, headers = urllib.request.urlretrieve(url, filename=url.split('/')[-1])
+    filename, _ = urllib.request.urlretrieve(url, filename=url.split('/')[-1])
 
     print("Model downladed")
     
