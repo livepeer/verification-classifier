@@ -35,24 +35,18 @@ for each, four more metrics in their time domain. 
 In the spatial, frame domain, we will be observing four aspects of a
 video: 
 
--   Inter-frame RGB histogram distance between original and rendition,
-    to observe color distortions
--   Inter-frame contour similarity between original and rendition, to
-    observe and highlight highly contrasted regions
--   Inter-frame normalized cross-correlation, to observe structural
-    distortions
--   Inter-frame Discrete Cosine Transform difference, to asses how much
-    energy is lost between renditions
+- Inter-frame RGB histogram distance between original and rendition, to observe color distortions
+- Inter-frame contour similarity between original and rendition, to observe and highlight highly contrasted regions
+- Inter-frame normalized cross-correlation, to observe structural distortions
+- Inter-frame Discrete Cosine Transform difference, to asses how much energy is lost between renditions
 
 Once those metrics are computed for each frame of a rendition, we will
-be able to assemble them in a time series. From this sequence of values
-we will extract four main values:
+be able to assemble them in a time series. From this sequence of values we will extract four main values:
 
--   Euclidean distance between the original’s sequence and that of the
-    rendition
--   Standard deviation
--   Maximum value
--   Mean value
+- Euclidean distance between the original’s sequence and that of the rendition
+- Standard deviation
+- Maximum value
+- Mean value
 
 This will give us enough information about an asset and its rendition as
 to be able to discriminate by means of a classifier whether we are
@@ -63,9 +57,9 @@ dealing with a legitimate encoding work or a cheating attempt.
 For this metric, we will be measuring the distance between the RGB
 histograms of the frames in the original from those in the rendition.
 Histograms are collected *counts* of data organized into a set of
-predefined *bins.*
+predefined *bins*.
 
-![histogram](https://cdn-images-1.medium.com/max/800/1*fhPLlImmXUw03fOAJDwFKA.png)
+![histogram](images/1fhPLlImmXUw03fOAJDwFKA.png)
 
 A histogram of the three RGB channels of a single frame. The picture has
 53940 (310x174) pixels, each with three values (R, G and B) ranging
@@ -79,7 +73,7 @@ valuable links are
 and
 [here](http://www.indjst.org/index.php/indjst/article/viewFile/86808/66579). 
 
-![Time series](https://cdn-images-1.medium.com/max/800/1*CqDnRBZLqCFxgD9hzh5EGw.png)
+![Time series](images/1CqDnRBZLqCFxgD9hzh5EGw.png)
 
 Time series for five renditions processed with our inter-frame
 histrogram distance metric (the original being the constant blue line in
@@ -122,9 +116,9 @@ filter](https://en.wikipedia.org/wiki/Canny_edge_detector). 
 As an example, the results of the filter applied to both the original as
 well as to the watermarked rendition are displayed below.
 
-![Shape contour original](https://cdn-images-1.medium.com/max/800/1*c5L1rERd1hshUM6bo_y2Ng.jpeg)
+![Shape contour original](images/1c5L1rERd1hshUM6bo_y2Ng.jpeg)
 
-![Shape contour rendition](https://cdn-images-1.medium.com/max/800/1*Z1ZsQlpYaX0MdKn36ZGQmw.jpeg)
+![Shape contour rendition](images/1Z1ZsQlpYaX0MdKn36ZGQmw.jpeg)
 
 Shape contour version of a frame of an original asset (above) and
 the next frame in the watermarked version (below). Watermarks have very
@@ -138,9 +132,9 @@ one in the copy. The arithmetic subtraction between pixel ratios (that
 of the original minus that of the rendition) accounts for how much a
 rendition is distorted.
 
-![Pixel difference original](https://cdn-images-1.medium.com/max/800/1*SkzWzSelrmLuDvdkFYm9sw.jpeg)
+![Pixel difference original](images/1SkzWzSelrmLuDvdkFYm9sw.jpeg)
 
-![Pixel difference rendition](https://cdn-images-1.medium.com/max/800/1*ZfJtZ5Gp2cyeF4bnYWFNWg.jpeg)
+![Pixel difference rendition](images/1ZfJtZ5Gp2cyeF4bnYWFNWg.jpeg)
 
 Pixel difference between a frame of an original asset and the next frame
 in the watermarked version (above), and its dilated version (below).
@@ -154,28 +148,28 @@ between original and rendition should be larger when watermarks are
 present. We can estimate this by computing the ratio of non-zero pixels
 between frames.
 
-![original](https://cdn-images-1.medium.com/max/800/1*b2mIpecwvxEH3C6w9seo2g.png)
+![original](images/1b2mIpecwvxEH3C6w9seo2g.png)
 
 ​(0) Get the original (frames n to n+5)
 
-![Original (frames n to n+5) with Canny](https://cdn-images-1.medium.com/max/800/1*GUSE117-F9Oj78_DIdAVIg.png)
+![Original (frames n to n+5) with Canny](images/1GUSE117-F9Oj78_DIdAVIg.png)
 
 ​(1) Original (frames n to n+5) with Canny filter applied
 
-![Original (frames n+1 to n+6) with Canny](https://cdn-images-1.medium.com/max/800/1*aJwmArpx0gh-vQerLK2prw.png)
+![Original (frames n+1 to n+6) with Canny](images/1aJwmArpx0gh-vQerLK2prw.png)
 
 ​(2) Original (frames n+1 to n+6) with Canny filter applied
 
-![Watermarked rendition (frames n+1 to n+6)](https://cdn-images-1.medium.com/max/800/1*JWylcUTGdFe4bypCGz3nkQ.png)
+![Watermarked rendition (frames n+1 to n+6)](images/1JWylcUTGdFe4bypCGz3nkQ.png)
 
 ​(3) Watermarked rendition (frames n+1 to n+6) with Canny filter applied
 
-![Difference between Canny A](https://cdn-images-1.medium.com/max/800/1*36vq_RCsDYMJdHDocbXQLg.png)
+![Difference between Canny A](images/136vq_RCsDYMJdHDocbXQLg.png)
 
 ​(4) Difference between Canny version of **original** **at n**and Canny
 version of **original at n+1, dilated**
 
-![Difference between Canny B](https://cdn-images-1.medium.com/max/800/1*5Xk62DQuRf0KBqxFQAy38w.png)
+![Difference between Canny B](images/15Xk62DQuRf0KBqxFQAy38w.png)
 
 ​(5) Difference between Canny version of**original at n** and Canny
 version of**watermarked rendition at n+1, dilated**
@@ -187,7 +181,7 @@ frame is the same all the time. When the rendition has watermarks, its
 time series diverges sensibly, given the magnification effect of the
 dilation filter. Do you spot it in the chart below?
 
-![Time series Canny](https://cdn-images-1.medium.com/max/800/1*DlBf9BOZjtpKKitDeg_YCg.png)
+![Time series Canny](images/1DlBf9BOZjtpKKitDeg_YCg.png)
 
 Time series for five renditions processed with our Canny inter-frame
 difference ratio metric (the original being the constant blue line in
@@ -232,7 +226,7 @@ it is computed can be found
 and
 [here](https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_template_matching/py_template_matching.html).
 
-![](https://cdn-images-1.medium.com/max/800/1*J5eWL2OM879CHumVJK-wKQ.png)
+![](images/1J5eWL2OM879CHumVJK-wKQ.png)
 
 Time series for five renditions processed with our cross-corrrelation
 similarity ratio metric (the original being the constant blue line in
@@ -274,7 +268,7 @@ compressing’ technique, from which we can compare the difference in
 energy between two frames: that of the rendition against that of the
 original.
 
-![DCT](https://cdn-images-1.medium.com/max/800/1*HMG3tL6ySPw9KYzq9KoaVA.png)
+![DCT](images/1HMG3tL6ySPw9KYzq9KoaVA.png)
 
 Again, in the chart above, we represent the evolution in time for the
 same segment as before, plotting our new metric. In this case, we can
@@ -313,23 +307,23 @@ the pictures. In all metrics, the watermarked rendition is notedly
 highlighted, only that they are displayed in a different scale given
 their different characteristics.
 
-![Histogram Distance](https://cdn-images-1.medium.com/max/800/1*vt4ZRPeDf_pQFECtjWG1ug.png)
+![Histogram Distance](images/1vt4ZRPeDf_pQFECtjWG1ug.png)
 
 Time series analytics for Inter-Frame Histogram Distance. Given that
 this is a distance, larger values imply higher distortion.
 
-![Contour Similarity](https://cdn-images-1.medium.com/max/800/1*4uv5XjRnccMnVK-iPQFMgQ.png)
+![Contour Similarity](images/14uv5XjRnccMnVK-iPQFMgQ.png)
 
 Time series analytics for Inter-Frame Contour Similarity. Given that
 this is a similarity metric, larger values imply less distortion.
 
-![Normalized cross-correlation](https://cdn-images-1.medium.com/max/800/1*fLFnOLad6ymrz_LwC3r4tA.png)
+![Normalized cross-correlation](images/1fLFnOLad6ymrz_LwC3r4tA.png)
 
 Time series analytics for Inter-Frame Normalized Cross-Correlation.
 Given that this is a similarity metric, larger values imply less
 distortion.
 
-![DCT Difference](https://cdn-images-1.medium.com/max/800/1*o4BA5BIToJXktQ3eKJf6sQ.png)
+![DCT Difference](images/1o4BA5BIToJXktQ3eKJf6sQ.png)
 
 Time series analytics for Inter-Frame DCT Difference. Given that this is
 a distance metric, larger values imply higher distortion.
