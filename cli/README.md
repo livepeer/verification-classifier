@@ -27,17 +27,13 @@ For example if we have symbolic links in the `data` folder pointing to `/videos/
 Once inside the Docker image, the python script has the following structure:
 
 ```
-python3 src/cli.py path-to-original-asset --renditions path-to-rendition --renditions path-to-rendition ... -metrics implemented-metric
+python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --renditions path-to-rendition ... --model_url url-to-model
 ```
-Note that you can add as many --rendition (-r) and --metrics (-m) arguments as you want.
-Metrics can be one of:
+Note that you can add as many --rendition (-r) as you want.
 
-- temporal_canny
-- temporal_difference
-- temporal_psnr
-- temporal_mse
-- histogram_distance
-- hash_euclidean
-- hash_hamming
-- hash_cosine
+For the models, you can try one of any [from the official repository of the verifier](https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models):
+* Random Forest: https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models/random_forest.pickle.dat
+* XGBoost: https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models/XGBoost.pickle.dat
+* AdaBoost: https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models/AdaBoost.pickle.dat
 
+This list is subject to extension.
