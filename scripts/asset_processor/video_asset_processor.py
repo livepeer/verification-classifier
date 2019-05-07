@@ -1,10 +1,11 @@
 import cv2
 import numpy as np
+import pandas as pd
 import time
 import os
 from video_metrics import video_metrics
 from concurrent.futures.thread import ThreadPoolExecutor
-
+from scipy.spatial import distance
 
 class video_asset_processor:
     def __init__(self, source_path, renditions_paths, metrics_list, duration):
@@ -106,6 +107,68 @@ class video_asset_processor:
 
         self.metrics[path] = rendition_metrics
 
+    def aggregate(self, metrics):
+        metrics_dict = {}
+
+        ## Aggregate dictionary with values into a Pandas DataFrame
+        dict_of_df = {k: pd.DataFrame(v) for k, v in metrics.items()}
+        metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
+        metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
+
+        renditions_dict = {}
+        for rendition in self.renditions_paths:
+            rendition_dict = {}
+            for metric in self.metrics_list:
+
+                original_df = metrics_df[metrics_df['path']==self.source_path][metric]
+                original_df = original_df.reset_index(drop=True).transpose().dropna().astype(float)
+
+                rendition_df = metrics_df[metrics_df['path']==rendition][metric]
+                rendition_df = rendition_df.reset_index(drop=True).transpose().dropna().astype(float)
+
+                if  'temporal' in metric:
+                    x_original = np.array(original_df[rendition_df.index].values)
+                    x_rendition = np.array(rendition_df.values)
+
+                    [[manhattan]] = 1/abs(1-distance.cdist(x_original.reshape(1,-1), x_rendition.reshape(1,-1), metric='cityblock'))
+
+                    rendition_dict['{}-euclidean'.format(metric)] = distance.euclidean(x_original, x_rendition)
+                    rendition_dict['{}-manhattan'.format(metric)] = manhattan
+                    rendition_dict['{}-mean'.format(metric)] = np.mean(x_rendition)
+                    rendition_dict['{}-max'.format(metric)] = np.max(x_rendition)
+                    rendition_dict['{}-std'.format(metric)] = np.std(x_rendition)
+                else:
+                    rendition_dict[metric] = rendition_df.mean()
+                rendition_dict['size'] = os.path.getsize(rendition)
+            renditions_dict[rendition] = rendition_dict
+
+        metrics_dict[self.source_path] = renditions_dict 
+
+        dict_of_df = {k: pd.DataFrame(v) for k,v in metrics_dict.items()}
+        metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
+        print(metrics_df)  
+
+        metrics_df['title'] = metrics_df['level_0']
+        attack_series = []
+        dimensions_series = []
+        for _, row in metrics_df.iterrows():
+            attack_series.append(row['level_1'].split('/')[-2])
+
+        metrics_df['attack'] = attack_series
+
+        for _, row in metrics_df.iterrows():
+            dimension = int(row['attack'].split('_')[0].replace('p',''))
+            dimensions_series.append(dimension)
+
+        metrics_df['dimension'] = dimensions_series
+
+        metrics_df = metrics_df.drop(['level_0',
+                            'title',
+                            'attack',
+                            'level_1'],
+                            axis=1)
+        return metrics_df
+
     def process(self):
 
         # Convert OpenCV video captures of original to list
@@ -132,4 +195,5 @@ class video_asset_processor:
             except Exception as err:
                 print('Unable to compute metrics for {}'.format(path))
                 print(err)
-        return self.metrics
+
+        return self.aggregate(self.metrics)
