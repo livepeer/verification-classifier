@@ -22,15 +22,13 @@ def cli(asset, renditions, model_url):
     start_time = time.time()
 
     loaded_model = download_models(model_url)
-    # load model from file
-    #loaded_model = pickle.load(open("random_forest.pickle.dat", "rb"))
     
     metrics_dict = {}
     metrics_list = ['temporal_difference', 'temporal_canny', 'temporal_histogram_distance', 'temporal_cross_correlation', 'temporal_dct']
 
     original_asset = asset
 
-    renditions_list = [original_asset] + list(renditions)
+    renditions_list = list(renditions)
 
     asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4)
 
@@ -41,6 +39,8 @@ def cli(asset, renditions, model_url):
     metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
     metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
 
+    elapsed_time = time.time() - start_time
+    print('Processing time:', elapsed_time)
 
     renditions_dict = {}
     for rendition in renditions_list:

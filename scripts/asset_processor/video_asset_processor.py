@@ -10,7 +10,8 @@ class video_asset_processor:
     def __init__(self, source_path, renditions_paths, metrics_list, duration):
         
         # Initialize global variables
-        self.source = cv2.VideoCapture(source_path)
+        self.source_path = source_path
+        self.source = cv2.VideoCapture(self.source_path)
         self.fps = int(self.source.get(cv2.CAP_PROP_FPS))
         self.asset_length = int(self.source.get(cv2.CAP_PROP_FRAME_COUNT))
         self.duration = duration
@@ -24,18 +25,7 @@ class video_asset_processor:
         # Retrieve original rendition dimensions
         self.height = self.source.get(cv2.CAP_PROP_FRAME_HEIGHT)   
         self.width = self.source.get(cv2.CAP_PROP_FRAME_WIDTH) 
-        
-        dimensions = '{}:{}'.format(int(self.width), int(self.height))
-        
-        # Convert OpenCV video captures of original to list
-        # of numpy arrays for better performance of numerical computations
-        
-        self.source = self.capture_to_list(self.source)
-
-        self.renditions['original'] = {'frame_list': self.source,
-                                       'dimensions': dimensions,
-                                       'ID': source_path.split('/')[-2]}
-
+        self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
 
     def capture_to_list(self, capture):
         frame_list = []
@@ -95,16 +85,9 @@ class video_asset_processor:
 
         return rendition_metrics, frame_pos
 
-    def compute(self, path):
+    def compute(self, frame_list, path, dimensions):
         rendition_metrics = {}
-        capture = cv2.VideoCapture(path)
-        height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        width = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-        dimensions = '{}:{}'.format(int(width), int(height))
-
-        # Turn openCV capture to a list of numpy arrays
-        frame_list = self.capture_to_list(capture)
-
+        
         # Iterate frame by frame
         frame_pos = 0
         frames_to_process = []
@@ -124,10 +107,28 @@ class video_asset_processor:
         self.metrics[path] = rendition_metrics
 
     def process(self):
+
+        # Convert OpenCV video captures of original to list
+        # of numpy arrays for better performance of numerical computations
+        self.source = self.capture_to_list(self.source)
+        # Compute its features
+        self.compute(self.source, self.source_path, self.dimensions)
+        # Store the value in the renditions dictionary
+        self.renditions['original'] = {'frame_list': self.source,
+                                       'dimensions': self.dimensions,
+                                       'ID': self.source_path.split('/')[-2]}
+
         # Iterate through renditions
         for path in self.renditions_paths:
             try:
-                self.compute(path)
+                capture = cv2.VideoCapture(path)
+                height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                width = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+                dimensions = '{}:{}'.format(int(width), int(height))
+
+                # Turn openCV capture to a list of numpy arrays
+                frame_list = self.capture_to_list(capture)
+                self.compute(frame_list, path, dimensions)
             except Exception as err:
                 print('Unable to compute metrics for {}'.format(path))
                 print(err)
