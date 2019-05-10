@@ -4,7 +4,10 @@ Dockerfile
 .gitignore
 README.md
 env.*
-data-analysis
+data_analytics
+YT8M_downloader
+machine_learning
+data
 # To prevent storing dev/temporary container data
 *.csv
 tmp

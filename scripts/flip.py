@@ -1,21 +1,22 @@
 import argparse
-import datetime
+import multiprocessing
 import subprocess
-from os import makedirs
-from utils import *
+from os import listdir, makedirs
+from os.path import isfile, join, exists
 
-parser = argparse.ArgumentParser(description='Generate fliped renditions')
-parser.add_argument('-i', '--input', action='store', help='Folder where the 1080 renditions are', type=str,
+parser = argparse.ArgumentParser(description='Generate flipped renditions')
+parser.add_argument('-i', '--input', action='store', help='Folder where the renditions are', type=str,
                     required=True)
 parser.add_argument('-o', '--output', action='store', help='Folder where the fliped renditions will be',
                     type=str, required=True)
-parser.add_argument('-m', "--metadata", action='store', help='File where the metadata is', type=str, required=True)
 
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument('-vf', '--vflip', action='store_true', help='Flip video vertically')
 group.add_argument('-hf', '--hflip', action='store_true', help='Flip video horizontally')
 group.add_argument('-cf', '--clockflip', action='store_true', help='Rotate 90 degrees clockwise')
 group.add_argument('-ccf', '--counterclockflip', action='store_true', help='Rotate 90 degrees counterclockwise')
+parser.add_argument('-r', "--reprocess", action='store', help='Input file with files to reprocess', type=str,
+                    required=False)
 
 args = parser.parse_args()
 
@@ -25,42 +26,55 @@ vertical_flip = args.vflip
 horizontal_flip = args.hflip
 clockwise_flip = args.clockflip
 counterclockwise_flip = args.counterclockflip
-metadata_file = args.metadata
 
-files = get_files(arg_input_path)
+input_folders = [
+    '1080p',
+    '720p',
+    '480p',
+    '360p',
+    '240p',
+    '144p',
+]
+
+reprocess = False
+file_to_reprocess = None
+
+if args.reprocess is not None:
+    reprocess = True
+    file_to_reprocess = args.reprocess
 
 output_folders = {
     'vertical_flip': {
-        '1080': '1080p_flip_vertical',
-        '720': '720p_flip_vertical',
-        '480': '480p_flip_vertical',
-        '360': '360p_flip_vertical',
-        '240': '240p_flip_vertical',
-        '144': '144p_flip_vertical',
+        '1080p': '1080p_flip_vertical',
+        '720p': '720p_flip_vertical',
+        '480p': '480p_flip_vertical',
+        '360p': '360p_flip_vertical',
+        '240p': '240p_flip_vertical',
+        '144p': '144p_flip_vertical',
     },
     'horizontal_flip': {
-        '1080': '1080p_flip_horizontal',
-        '720': '720p_flip_horizontal',
-        '480': '480p_flip_horizontal',
-        '360': '360p_flip_horizontal',
-        '240': '240p_flip_horizontal',
-        '144': '144p_flip_horizontal',
+        '1080p': '1080p_flip_horizontal',
+        '720p': '720p_flip_horizontal',
+        '480p': '480p_flip_horizontal',
+        '360p': '360p_flip_horizontal',
+        '240p': '240p_flip_horizontal',
+        '144p': '144p_flip_horizontal',
     },
     'clockwise': {
-        '1080': '1080p_rotate_90_clockwise',
-        '720': '720p_rotate_90_clockwise',
-        '480': '480p_rotate_90_clockwise',
-        '360': '360p_rotate_90_clockwise',
-        '240': '240p_rotate_90_clockwise',
-        '144': '144p_rotate_90_clockwise',
+        '1080p': '1080p_rotate_90_clockwise',
+        '720p': '720p_rotate_90_clockwise',
+        '480p': '480p_rotate_90_clockwise',
+        '360p': '360p_rotate_90_clockwise',
+        '240p': '240p_rotate_90_clockwise',
+        '144p': '144p_rotate_90_clockwise',
     },
     'counterclockwise': {
-        '1080': '1080p_rotate_90_counterclockwise',
-        '720': '720p_rotate_90_counterclockwise',
-        '480': '480p_rotate_90_counterclockwise',
-        '360': '360p_rotate_90_counterclockwise',
-        '240': '240p_rotate_90_counterclockwise',
-        '144': '144p_rotate_90_counterclockwise',
+        '1080p': '1080p_rotate_90_counterclockwise',
+        '720p': '720p_rotate_90_counterclockwise',
+        '480p': '480p_rotate_90_counterclockwise',
+        '360p': '360p_rotate_90_counterclockwise',
+        '240p': '240p_rotate_90_counterclockwise',
+        '144p': '144p_rotate_90_counterclockwise',
     }
 }
 
@@ -83,9 +97,10 @@ def selected_bool_to_str():
         return 'counterclockwise'
 
 
-files_and_renditions = get_files_and_reinditions(metadata_file)
-
 selected_option = selected_bool_to_str()
+
+cpu_count = multiprocessing.cpu_count()
+cpu_to_use = 1 if reprocess else int(round(cpu_count / len(output_folders[selected_option])))
 
 
 def crete_folders():
@@ -95,44 +110,64 @@ def crete_folders():
             makedirs(folder)
 
 
-def format_command(orig_file_name, codec, bitrate_1080, bitrate_720, bitrate_480, bitrate_360, bitrate_240, bitrate_144,
-                   video_format, input_path, output_path):
-    input_path_with_slash = input_path + '/'
-
+def format_command(full_input_file, full_output_file):
+    print('processing input {}'.format(full_input_file))
     modifier = command_modifier[selected_option]
 
-    command = ['ffmpeg', '-y',
-               '-i', '"' + input_path_with_slash + orig_file_name + '"',
-               '-vf', 'scale=-2:1080,{}'.format(modifier), '-c:v', codec, '-b:v', bitrate_1080 + 'K', '-f',
-               video_format,
-               '"' + output_path + '/' + output_folders[selected_option]['1080'] + '/{}'.format(orig_file_name + '"'),
-               '-vf', 'scale=-2:720,{}'.format(modifier), '-c:v', codec, '-b:v', bitrate_720 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders[selected_option]['720'] + '/{}'.format(orig_file_name + '"'),
-               '-vf', 'scale=-2:480,{}'.format(modifier), '-c:v', codec, '-b:v', bitrate_480 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders[selected_option]['480'] + '/{}'.format(orig_file_name + '"'),
-               '-vf', 'scale=-2:360,{}'.format(modifier), '-c:v', codec, '-b:v', bitrate_360 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders[selected_option]['360'] + '/{}'.format(orig_file_name + '"'),
-               '-vf', 'scale=-2:240,{}'.format(modifier), '-c:v', codec, '-b:v', bitrate_240 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders[selected_option]['240'] + '/{}'.format(orig_file_name + '"'),
-               '-vf', 'scale=-2:144,{}'.format(modifier), '-c:v', codec, '-b:v', bitrate_144 + 'K', '-f', video_format,
-               '"' + output_path + '/' + output_folders[selected_option]['144'] + '/{}'.format(orig_file_name + '"'),
-               ]
+    command = ['ffmpeg', '-y', '-i', '"' + full_input_file + '"', '-vf', modifier, '"' + full_output_file + '"']
     return command
 
 
-crete_folders()
+def get_files_from_file(input_path, reprocess_file):
+    file_list = []
+    with open(reprocess_file) as file_reprocess:
+        for file_name in file_reprocess:
+            full_file = join(input_path, file_name.strip())
+            if isfile(full_file):
+                file_list.append(file_name.strip())
+            else:
+                print('File not found {}'.format(full_file))
+    print('{} files to reprocess in {}'.format(len(file_list), input_path))
+    return file_list
 
-for file in files:
-    print(str(datetime.datetime.now()) + "Processing " + file)
-    file_name = file.split('.mp4')[0]
-    bitrates = get_renditions(files_and_renditions[file_name])
+
+def get_input_output_jobs():
+    ffmpeg_jobs = []
+    for input_folder in input_folders:
+        job_input_folder = join(arg_input_path, input_folder)
+        job_output_folder = join(arg_output_path, output_folders[selected_option][input_folder])
+
+        if reprocess:
+            files = get_files_from_file(job_input_folder, file_to_reprocess)
+        else:
+            files = [f for f in listdir(job_input_folder) if
+                     isfile(join(job_input_folder, f)) and not f.startswith('.')]
+        for file in files:
+            full_input_file = join(job_input_folder, file)
+            full_output_file = join(job_output_folder, file)
+            ffmpeg_jobs.append((full_input_file, full_output_file))
+    return ffmpeg_jobs
+
+
+def worker(full_input_file, full_output_file):
+    ffmpeg_command = []
+    out = None
+    err = None
     try:
-        ffmpeg_command = format_command(file, 'libx264', str(bitrates[1080]), str(bitrates[720]), str(bitrates[480]),
-                                        str(bitrates[360]), str(bitrates[240]), str(bitrates[144]), 'mp4',
-                                        arg_input_path,
-                                        arg_output_path)
+        ffmpeg_command = format_command(full_input_file, full_output_file)
         ffmpeg = subprocess.Popen(' '.join(ffmpeg_command), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
         out, err = ffmpeg.communicate()
     except Exception as e:
-        print(file)
-        print(e)
+        print('Error processing ', full_input_file)
+        print('The error was ', e)
+        print('Executing ', ffmpeg_command)
+        print('Out ', out)
+        print('Error', err)
+
+
+if __name__ == "__main__":
+    crete_folders()
+    jobs = get_input_output_jobs()
+
+    with multiprocessing.Pool(cpu_to_use) as pool:
+        pool.starmap(worker, jobs)

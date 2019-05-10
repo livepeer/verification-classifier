@@ -8,10 +8,11 @@
 /.doit.db.dat
 /.doit.db.dir
 data
-output/ms-ssim
-output/psnr
-output/ssim
-output/vmaf
+feature_engineering/output/ms-ssim
+feature_engineering/output/psnr
+feature_engineering/output/ssim
+feature_engineering/output/vmaf
+*-large.*
 *.out
 out.log
 *.log

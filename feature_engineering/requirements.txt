@@ -1,0 +1,5 @@
+plotly==3.6.1
+sklearn
+seaborn==0.9.0
+opencv-python==4.0.0.21
+meson==0.50.0
