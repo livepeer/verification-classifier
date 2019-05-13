@@ -73,7 +73,7 @@ class video_asset_processor:
 
         return np.array(frame_list)
 
-    def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path, fps):
+    def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
         # ************************************************************************
         # Function to compare pairs of numpy arrays extracting their corresponding metrics.
         # It basically takes the global original frame at frame_pos and its subsequent to
@@ -100,8 +100,7 @@ class video_asset_processor:
 
         # Retrieve rendition dimensions for further evaluation
         rendition_metrics['dimensions'] = dimensions
-        # Retrieve rendition fps for further evaluation
-        rendition_metrics['fps'] = fps
+    
         # Retrieve rendition ID for further identification
         rendition_metrics['ID'] = path.split('/')[-2]
 
@@ -112,7 +111,7 @@ class video_asset_processor:
         # frame_pos is needed for the ThreadPoolExecutor optimizations
         return rendition_metrics, frame_pos
 
-    def compute(self, frame_list, path, dimensions, fps):
+    def compute(self, frame_list, path, dimensions):
         # ************************************************************************
         # Function to compare lists of numpy arrays extracting their corresponding metrics.
         # It basically takes the global original list of frames and the input frame_list
@@ -139,7 +138,7 @@ class video_asset_processor:
         # future_list is a dictionary storing all computed values from each thread
         with ThreadPoolExecutor() as executor:
             # Compare the original asset against its renditions
-            future_list = {executor.submit(self.compare_renditions_instant, i, frame_list, dimensions, path, fps): i for i in frames_to_process}
+            future_list = {executor.submit(self.compare_renditions_instant, i, frame_list, dimensions, path): i for i in frames_to_process}
 
         # Once all frames in frame_list have been iterated, we can retrieve their values
         for future in future_list:
@@ -147,9 +146,9 @@ class video_asset_processor:
             result_rendition_metrics, frame_pos = future.result()
             # The computed values at a given frame
             rendition_metrics[frame_pos] = result_rendition_metrics
-
+        
         # Return the metrics for the currently processed rendition
-        self.metrics[path] = rendition_metrics
+        return rendition_metrics
 
     def aggregate(self, metrics):
         # ************************************************************************
@@ -209,6 +208,7 @@ class video_asset_processor:
                 # Size is an important feature of an asset, as it gives important information
                 # regarding the potential compression effect
                 rendition_dict['size'] = os.path.getsize(rendition)
+                rendition_dict['fps'] = self.fps
 
             # Store the rendition values in the dictionary of renditions for the present asset                
             renditions_dict[rendition] = rendition_dict
@@ -246,7 +246,7 @@ class video_asset_processor:
         # of numpy arrays for better performance of numerical computations
         self.original = self.capture_to_array(self.original)
         # Compute its features
-        self.compute(self.original, self.original_path, self.dimensions, self.fps)
+        self.metrics[self.original_path] = self.compute(self.original, self.original_path, self.dimensions)
         # Store the value in the renditions dictionary
         self.renditions['original'] = {'frame_list': self.original,
                                        'dimensions': self.dimensions,
@@ -259,10 +259,9 @@ class video_asset_processor:
                 height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
                 width = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
                 dimensions = '{}:{}'.format(int(width), int(height))
-                fps = int(capture.get(cv2.CAP_PROP_FPS))  
                 # Turn openCV capture to a list of numpy arrays
                 frame_list = self.capture_to_array(capture)
-                self.compute(frame_list, path, dimensions, fps)
+                self.metrics[path] = self.compute(frame_list, path, dimensions)
             except Exception as err:
                 print('Unable to compute metrics for {}'.format(path))
                 print(err)
