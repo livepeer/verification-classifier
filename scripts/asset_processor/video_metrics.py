@@ -21,6 +21,7 @@ class video_metrics:
         return resized_A, resized_B
 
     def mse(self, img_A, img_B):
+        # Function to compute the Mean Square Error (MSE) between two images
         return np.mean( (img_A - img_B) ** 2 )
 
     def psnr(self, img_A, img_B):
