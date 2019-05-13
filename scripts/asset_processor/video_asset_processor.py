@@ -200,6 +200,7 @@ class video_asset_processor:
                     rendition_dict['{}-mean'.format(metric)] = np.mean(x_rendition)
                     rendition_dict['{}-max'.format(metric)] = np.max(x_rendition)
                     rendition_dict['{}-std'.format(metric)] = np.std(x_rendition)
+                    rendition_dict['{}-series'.format(metric)] = x_rendition
 
                 # Other metrics do not need time evaluation
                 else:
@@ -232,11 +233,7 @@ class video_asset_processor:
 
         metrics_df['dimension'] = dimensions_series
 
-        metrics_df = metrics_df.drop(['level_0',
-                            'title',
-                            'attack',
-                            'level_1'],
-                            axis=1)
+        metrics_df = metrics_df.drop(['level_0', 'level_1'], axis=1)
         return metrics_df
 
     def process(self):
