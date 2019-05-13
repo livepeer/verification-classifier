@@ -73,9 +73,8 @@ class video_asset_processor:
 
         return np.array(frame_list)
 
-    def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
-        # Iterate for each given comparable rendition
-        frame_metrics = {}
+    def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path, fps):
+        # ************************************************************************
         # Function to compare pairs of numpy arrays extracting their corresponding metrics.
         # It basically takes the global original frame at frame_pos and its subsequent to
         # compare them against the corresponding ones in frame_list (a rendition).
@@ -101,6 +100,8 @@ class video_asset_processor:
 
         # Retrieve rendition dimensions for further evaluation
         rendition_metrics['dimensions'] = dimensions
+        # Retrieve rendition fps for further evaluation
+        rendition_metrics['fps'] = fps
         # Retrieve rendition ID for further identification
         rendition_metrics['ID'] = path.split('/')[-2]
 
@@ -111,8 +112,8 @@ class video_asset_processor:
         # frame_pos is needed for the ThreadPoolExecutor optimizations
         return rendition_metrics, frame_pos
 
-    def compute(self, frame_list, path, dimensions):
-        rendition_metrics = {}
+    def compute(self, frame_list, path, dimensions, fps):
+        # ************************************************************************
         # Function to compare lists of numpy arrays extracting their corresponding metrics.
         # It basically takes the global original list of frames and the input frame_list
         # of numpy arrrays to extract the metrics defined in the constructor.
@@ -138,7 +139,7 @@ class video_asset_processor:
         # future_list is a dictionary storing all computed values from each thread
         with ThreadPoolExecutor() as executor:
             # Compare the original asset against its renditions
-            future_list = {executor.submit(self.compare_renditions_instant, i, frame_list, dimensions, path): i for i in frames_to_process}
+            future_list = {executor.submit(self.compare_renditions_instant, i, frame_list, dimensions, path, fps): i for i in frames_to_process}
 
         # Once all frames in frame_list have been iterated, we can retrieve their values
         for future in future_list:
@@ -261,11 +262,10 @@ class video_asset_processor:
                 height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
                 width = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
                 dimensions = '{}:{}'.format(int(width), int(height))
-
+                fps = int(capture.get(cv2.CAP_PROP_FPS))  
                 # Turn openCV capture to a list of numpy arrays
                 frame_list = self.capture_to_array(capture)
-                frame_list = self.capture_to_list(capture)
-                self.compute(frame_list, path, dimensions)
+                self.compute(frame_list, path, dimensions, fps)
             except Exception as err:
                 print('Unable to compute metrics for {}'.format(path))
                 print(err)
