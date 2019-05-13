@@ -1,7 +1,10 @@
+import os
 import click
+import pickle
+import time
 import pandas as pd
 import numpy as np
-from scipy.spatial import distance
+import urllib.request
 
 import sys
 
@@ -12,63 +15,38 @@ from video_asset_processor import video_asset_processor
 @click.command()
 @click.argument('asset')
 @click.option('-r', '--renditions', multiple=True)
-@click.option('-m', '--metrics', multiple=True)
-def cli(asset, renditions, metrics):
-    implemented_metrics = {
-        'temporal_canny',
-        'temporal_difference',
-        'temporal_psnr',
-        'temporal_mse',
-        'histogram_distance',
-        'hash_euclidean',
-        'hash_hamming',
-        'hash_cosine'
-    }
+@click.option('-r', '--model_url')
+def cli(asset, renditions, model_url):
+    start_time = time.time()
 
-    for metric in metrics:
-        if metric not in implemented_metrics:
-            raise click.BadOptionUsage(metric,
-                                       '{} is not a valid metric, try with: {}'.format(metric, implemented_metrics))
-
+    loaded_model = download_models(model_url)
+    
     original_asset = asset
 
-    renditions_list = [original_asset] + list(renditions)
+    renditions_list = list(renditions)
+    metrics_list = ['temporal_difference', 'temporal_canny', 'temporal_histogram_distance', 'temporal_cross_correlation', 'temporal_dct']
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics,4)
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4)
 
-    asset_metrics_dict = asset_processor.process()
-    dict_of_df = {k: pd.DataFrame(v) for k, v in asset_metrics_dict.items()}
-    metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
-    metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
+    metrics_df = asset_processor.process()
 
-    distances_result = {}
-    for displayed_metric in metrics:
-        frames = []
-        for rendition in renditions_list:
-            rendition_df = metrics_df[metrics_df['path'] == rendition][displayed_metric]
 
-            rendition_df = rendition_df.reset_index(drop=True).transpose()
-            frames.append(rendition_df)
+    X = np.asarray(metrics_df)
+    # make predictions for given data
+    y_pred = loaded_model.predict(X)
 
-        renditions_df = pd.concat(frames, axis=1)
-        renditions_df.columns = renditions_list
-        renditions_df = renditions_df.astype(float)
+    print(y_pred)
+    elapsed_time = time.time() - start_time
+    print('Prediction time:', elapsed_time)
 
-        x_original = np.array(renditions_df[original_asset].values)
+def download_models(url):
 
-        distances = {}
+    print ("Model download started!")
+    filename, _ = urllib.request.urlretrieve(url, filename=url.split('/')[-1])
 
-        for rendition in renditions_list:
-            x = np.array(renditions_df[rendition].values)
-
-            euclidean = distance.euclidean(x_original, x)
-
-            distances[rendition] = {'Euclidean': euclidean}
-
-        distances_result[displayed_metric] = pd.DataFrame.from_dict(distances, orient='index').to_json(orient="index")
-
-    print(distances_result)
-
+    print("Model downladed")
+    
+    return pickle.load(open(filename, "rb"))
 
 if __name__ == '__main__':
     cli()
