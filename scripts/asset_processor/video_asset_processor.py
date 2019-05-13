@@ -166,7 +166,7 @@ class video_asset_processor:
         # First, we combine the frames
         dict_of_df = {k: pd.DataFrame(v) for k, v in metrics.items()}
         metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
-        # Pandas concat function creates a level_1 and level_2 extra columns. They need to be renamed
+        # Pandas concat function creates a level_0 and level_1 extra columns. They need to be renamed
         metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
 
         # Then we can combine each rendition        
@@ -209,6 +209,7 @@ class video_asset_processor:
                 # regarding the potential compression effect
                 rendition_dict['size'] = os.path.getsize(rendition)
                 rendition_dict['fps'] = self.fps
+                rendition_dict['path'] = rendition
 
             # Store the rendition values in the dictionary of renditions for the present asset                
             renditions_dict[rendition] = rendition_dict
