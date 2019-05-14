@@ -67,9 +67,9 @@ class video_metrics:
         return difference_ratio
     
     def evaluate_dct_instant(self, reference_frame, rendition_frame, frame_pos):
-        # Function that computes the matchTemplate function included in OpenCV and outputs the 
+        # Function that computes the Discrete Cosine Trasnform function included in OpenCV and outputs the 
         # Maximum value
-
+        
         reference_frame_float = np.float32(reference_frame)/255.0  # float conversion/scale
         reference_dct = cv2.dct(reference_frame_float)           # the dct
         
@@ -82,9 +82,8 @@ class video_metrics:
         return max_val
 
     def evaluate_cross_correlation_instant(self, reference_frame, rendition_frame):
-        # Function that computes the Discrete Cosine Trasnform function included in OpenCV and outputs the 
+        # Function that computes the matchTemplate function included in OpenCV and outputs the 
         # Maximum value
-
         
         # Apply template Matching
         res = cv2.matchTemplate(reference_frame,rendition_frame, cv2.TM_CCORR_NORMED)
