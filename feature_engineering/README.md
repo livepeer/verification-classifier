@@ -1,9 +1,45 @@
-# Data Analysis Jupyter notebooks
+# Feature engineering notebooks and cloud functions
+
+## Cloud functions
+
+Google's GCP Cloud Functions are a convenient way of generating training data. They allow for a synchronous execution of several atomized and short chunks of code.
+In the `/cloud_functions` folder we have included the neccessary tools for the generation of the training data.
+
+### GCP steps
+
+1.- In order to be able to make use of the Cloud Functions, one must have previously set up a [Google Cloud account](https://cloud.google.com/).
+
+2.- Enable Storge API.
+
+3.- Upload your rendition video data to a bucket named **verifier-renditions** and your original video data to another named **verifier-original**.
+
+4.- Enable Datastore API. Here is where the generated training data will be stored.
+
+### Local steps
+
+Once the above essential steps are done, browse to the `/cloud_functions` folder and execute:
+
+```
+bash deploy.sh
+```
+The bash script will output a:
+
+```
+Deploying function (may take a while - up to 2 minutes)...⠏
+```
+Once it is finished, and in case your video data is located in the `verification-classifier/data` folder, you can launch the script:
+```
+bash call_cloud_function.sh
+```
+This should iterate asset by asset through your `verication-classifier/data` and send a call to the cloud function, generating the needed inputs for further training of the models.
+
+## Jupyter notebooks
 
 Jupyter notebooks employed in the experiments are stored here. To interact with them, it is reccommended to build and launch
 Docker image as explained below.
 
-## 1.- Build the image
+### 1.- Build the image
+
 To build the image, we have to run the following shell script that lies in the same folder of the repo:
 ```
 bash build_docker.sh
@@ -12,7 +48,8 @@ bash build_docker.sh
 This will create a image based on `jupyter/datascience-notebook` but adding the needed python dependencies. This image 
 contains ffmpeg with VMAF and libav with ms-ssim.
 
-## 2.- Run the image
+### 2.- Run the image
+
 To run the image, we have to type the following IN THE ROOT FOLDER OF THE REPO:
 ```
 docker run -p 8888:8888 --volume="$(pwd)":/home/jovyan/work/ epicjupiter:v1
@@ -34,11 +71,11 @@ docker run -d -p 8888:8888 --volume="$(pwd)":/home/jovyan/work/ --volume=/videos
 
 Also it is important to have read and write permissions in the output folder in order to be able to store the results.
 
-## 3.- Notebooks
+### 3.- Notebooks
 
 The notebooks used in the experiments are inside the folder work/notebooks
 
-### 3.1.- Tools.ipynb
+#### 3.1.- Tools.ipynb
 
 In order to run experiments there is need for preparing some data.
 
@@ -46,8 +83,7 @@ This notebook contains different sections to generate different datasets or auxi
 
 The notebook can be found [here](notebooks/Tools.ipynb)
 
-
-### 3.2.- Compare_videos.ipynb
+#### 3.2.- Compare_videos.ipynb
 
 We have taken a number of assets from Youtube’s YT8M dataset and encoded a few renditions from there. Specifically, we have taken about 140 videos from this dataset, established the 1080p rendition as original, and encoded 10 seconds of each to 720p, 480p, 360p and 240p. For the sake of simplicity, we have reduced the respective bitrates to be equal to those used by YouTube for each rendition (you can find a more detailed article on how this can be done [here](https://github.com/epiclabs-io/YT8M).
 
