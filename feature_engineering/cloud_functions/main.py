@@ -50,7 +50,7 @@ def cli(asset, renditions):
 
 def add_asset_input(client, title, input_data):
     entity_name = 'asset_input'
-    key = client.key(entity_name, title, namespace = 'verifier-training')
+    key = client.key(entity_name, title, namespace = 'livepeer-verifier-training')
     video = datastore.Entity(key)
     #input_data['created'] = datetime.datetime.utcnow()
     video.update(input_data)
@@ -74,8 +74,8 @@ def measure_asset_http(request):
     elif request_args and 'name' in request_args:
         asset_name = request_args['name']
 
-    original_bucket = storage_client.get_bucket('verifier-original')
-    renditions_bucket = storage_client.get_bucket('verifier-renditions')
+    original_bucket = storage_client.get_bucket('livepeer-verifier-originals')
+    renditions_bucket = storage_client.get_bucket('livepeer-verifier-renditions')
     
     # Get the file that has been uploaded to GCS
     asset_path = '/tmp/{}'.format(asset_name)

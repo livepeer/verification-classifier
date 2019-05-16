@@ -9,9 +9,9 @@ In the `/cloud_functions` folder we have included the neccessary tools for the g
 
 1.- In order to be able to make use of the Cloud Functions, one must have previously set up a [Google Cloud account](https://cloud.google.com/).
 
-2.- Enable Storge API.
+2.- Enable Storage API.
 
-3.- Upload your rendition video data to a bucket named **verifier-renditions** and your original video data to another named **verifier-original**.
+3.- Upload your rendition video data to a bucket named **livepeer-verifier-renditions** and your original video data to another named **livepeer-verifier-originals**.
 
 4.- Enable Datastore API. Here is where the generated training data will be stored.
 
