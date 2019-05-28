@@ -1,4 +1,3 @@
-from google.cloud import storage
 from google.cloud import datastore
 
 import tarfile
@@ -20,8 +19,6 @@ sys.path.insert(0, 'imports')
 
 from imports.video_asset_processor import video_asset_processor
 
-
-storage_client = storage.Client()
 datastore_client = datastore.Client()
 
 def cli(asset, renditions):
@@ -35,8 +32,6 @@ def cli(asset, renditions):
     asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4)
 
     metrics_df = asset_processor.process()
-
-    X = np.asarray(metrics_df)
 
     for _,row in metrics_df.iterrows():
         line = row.to_dict()
@@ -74,15 +69,20 @@ def measure_asset_http(request):
     elif request_args and 'name' in request_args:
         asset_name = request_args['name']
 
-    original_bucket = storage_client.get_bucket('livepeer-verifier-originals')
-    renditions_bucket = storage_client.get_bucket('livepeer-verifier-renditions')
+    original_bucket = 'livepeer-verifier-originals'
+    renditions_bucket = 'livepeer-verifier-renditions'
     
     # Get the file that has been uploaded to GCS
     asset_path = '/tmp/{}'.format(asset_name)
     print(asset_path)
-    blob = original_bucket.get_blob(asset_name)
-    blob.download_to_filename(asset_path)
-    
+    url = 'https://storage.googleapis.com/{}/{}'.format(original_bucket, asset_name)
+    print('Downloading {}'.format(url))
+    try:
+        urllib.request.urlretrieve(url, asset_path)
+    except:
+        print('Unable to download {}'.format(url))
+        pass
+
     attacks_list = ['1080p_watermark',
                     '1080p_flip_vertical',
                     '1080p_rotate_90_clockwise',
@@ -129,14 +129,20 @@ def measure_asset_http(request):
     renditions_paths=[]
     for attack in attacks_list:
         remote_file = '{}/{}'.format(attack, asset_name)
-        blob = renditions_bucket.get_blob(remote_file)
+        url = 'https://storage.googleapis.com/{}/{}'.format(renditions_bucket, remote_file)
         
         local_folder = '/tmp/{}'.format(attack)
         local_file = '{}/{}'.format(local_folder, asset_name)
         
         if not os.path.exists(local_folder):
             os.makedirs(local_folder)
-        blob.download_to_filename(local_file)
-        renditions_paths.append(local_file)
+
+        print('Downloading {}'.format(url))
+        try:
+            urllib.request.urlretrieve (url, local_file)
+            renditions_paths.append(local_file)        
+        except:
+            print('Unable to download {}'.format(url))
+            pass
 
     cli(asset_path, renditions_paths)
