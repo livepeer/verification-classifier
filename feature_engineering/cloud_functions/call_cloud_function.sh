@@ -5,5 +5,5 @@ do
     filename="${filename##*/}"
     gcloud beta functions call measure_asset_http --data '{"name":"'"$filename"'"}' &
     echo "$filename launched"
-    sleep 5
+    sleep 6
 done;
