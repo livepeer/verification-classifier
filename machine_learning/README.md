@@ -36,7 +36,8 @@ Also it is important to have read and write permissions in the output folder in 
 ## 3.- Notebooks
 
 The notebooks used in the experiments are inside the folder work/notebooks. 
-The training data is obtained from the .csv files dropped in data_analytics/output folder.
+The training data is obtained from the .csv files dropped in machine_learning/cloud_functions folder.
+Given the large size of the csv file, it can also be downloaded from a GCP bucket [here](https://storage.googleapis.com/feature_dataset/data.csv)
 
 ### 3.1.- Supervised_predictive_model.ipynb
 
