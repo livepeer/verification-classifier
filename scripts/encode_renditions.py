@@ -31,7 +31,7 @@ output_folders = {
 
 cpu_to_use = int(round(cpu_count / len(output_folders)))
 
-files_and_renditions = get_files_and_reinditions(metadata_file)
+files_and_renditions = get_files_and_renditions(metadata_file)
 
 
 def crete_folders():

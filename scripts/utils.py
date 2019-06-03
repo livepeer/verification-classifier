@@ -8,7 +8,7 @@ def get_files(input_path: str) -> List[str]:
     return [f for f in listdir(input_path) if isfile(join(input_path, f)) and not f.startswith('.')]
 
 
-def get_files_and_reinditions(input_csv_file: str) -> Dict:
+def get_files_and_renditions(input_csv_file: str) -> Dict:
     files_and_renditions = {}
     with open(input_csv_file) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
