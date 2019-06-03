@@ -1,7 +1,6 @@
 import os
 import click
 import pickle
-import time
 import pandas as pd
 import numpy as np
 import urllib.request
@@ -17,8 +16,6 @@ from video_asset_processor import video_asset_processor
 @click.option('-r', '--renditions', multiple=True)
 @click.option('-r', '--model_url')
 def cli(asset, renditions, model_url):
-    start_time = time.time()
-
     loaded_model = download_models(model_url)
     
     original_asset = asset
@@ -54,10 +51,16 @@ def cli(asset, renditions, model_url):
     X = np.asarray(metrics_df)
     # make predictions for given data
     y_pred = loaded_model.predict(X)
+    i = 0
+    for rendition in renditions_list:
+        if y_pred[i] == 0:
+            attack = ''
+        else:
+            attack = 'not'
 
-    print(y_pred)
-    elapsed_time = time.time() - start_time
-    print('Prediction time:', elapsed_time)
+        print('{} is {} an attack'.format(rendition, attack))
+        i = i + 1
+
 
 def download_models(url):
 
