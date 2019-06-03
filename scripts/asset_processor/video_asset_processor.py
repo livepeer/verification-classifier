@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import pandas as pd
-import time
 import os
 from video_metrics import video_metrics
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -87,16 +86,11 @@ class video_asset_processor:
         next_reference_frame = self.original[frame_pos + self.skip_frames]                        # Original's subsequent frame
         rendition_frame = frame_list[frame_pos]                                                 # Rendition frame
         next_rendition_frame = frame_list[frame_pos + self.skip_frames]                         # Rendition's subsequent frame
-        start_time = time.time()                                                                # Profiling start time to assess efficiency of the process
         
         # Compute the metrics defined in the global metrics_list. Uses the global instance of video_metrics
         # Some metrics use a frame-to-frame comparison, but other require current and forward frames to extract
         # their comparative values.
         rendition_metrics = self.video_metrics.compute_metrics(frame_pos, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame)
-
-        # Collect processing time
-        elapsed_time = time.time() - start_time 
-        rendition_metrics['time'] = elapsed_time
 
         # Retrieve rendition dimensions for further evaluation
         rendition_metrics['dimensions'] = dimensions
