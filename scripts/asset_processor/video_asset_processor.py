@@ -6,6 +6,7 @@ from video_metrics import video_metrics
 from concurrent.futures.thread import ThreadPoolExecutor
 from scipy.spatial import distance
 
+
 class video_asset_processor:
     # Class to extract and aggregate values from video sequences.
     # It is instantiated as part of the data creation as well
@@ -14,7 +15,6 @@ class video_asset_processor:
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
-
         
         self.original_path = original_path                                                      # Stores system path to original asset
         self.original = cv2.VideoCapture(self.original_path)                                    # Initializes original asset to OpenCV VideoCapture class
@@ -28,13 +28,14 @@ class video_asset_processor:
                                                                                                 #                                           'ID')
         self.metrics = {}                                                                       # Dictionary containing dict of metrics
         self.metrics_list = metrics_list                                                        # List of metrics to be extracted from the asset and its renditions
-        self.video_metrics = video_metrics(self.metrics_list, self.skip_frames, self.hash_size) # Instance of the video_metrics class
         self.renditions_paths = renditions_paths                                                # List of paths to renditions
 
         # Retrieve original rendition dimensions
         self.height = self.original.get(cv2.CAP_PROP_FRAME_HEIGHT)                              # Obtains vertical dimension of the frames of the original
         self.width = self.original.get(cv2.CAP_PROP_FRAME_WIDTH)                                # Obtains horizontal dimension of the frames of the original 
         self.dimensions = '{}:{}'.format(int(self.width), int(self.height))                     # Collects both dimensional values in a string
+        self.video_metrics = video_metrics(self.metrics_list, self.skip_frames, self.hash_size, # Instance of the video_metrics class
+                                           int(self.dimensions[self.dimensions.find(':') + 1:]))
 
     def capture_to_array(self, capture):
         # ************************************************************************
@@ -48,13 +49,13 @@ class video_asset_processor:
         
         # Iterate through each frame in the video
         while capture.isOpened():
-            
+
             # Read the frame from the capture
             ret_frame, frame = capture.read()
 
             # If read successful, then append the retrieved numpy array to a python list
             if ret_frame:
-                frame = cv2.resize(frame,(256, 144), interpolation = cv2.INTER_LINEAR)
+                frame = cv2.resize(frame, (256, 144), interpolation=cv2.INTER_LINEAR)
                 
                 # Add the frame to the list
                 frame_list.append(frame)
@@ -90,7 +91,8 @@ class video_asset_processor:
         # Compute the metrics defined in the global metrics_list. Uses the global instance of video_metrics
         # Some metrics use a frame-to-frame comparison, but other require current and forward frames to extract
         # their comparative values.
-        rendition_metrics = self.video_metrics.compute_metrics(frame_pos, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame)
+        rendition_metrics = self.video_metrics.compute_metrics(rendition_frame, next_rendition_frame,
+                                                               reference_frame, next_reference_frame)
 
         # Retrieve rendition dimensions for further evaluation
         rendition_metrics['dimensions'] = dimensions
@@ -118,7 +120,6 @@ class video_asset_processor:
         rendition_metrics = {}                                                                  # Dictionary of metrics
         frame_pos = 0                                                                           # Position of the frame
         frames_to_process = []                                                                  # List of frames to be processed
-
 
         # Iterate frame by frame and fill a list with their values
         # to be passed to the ThreadPoolExecutor. Stop when maximum

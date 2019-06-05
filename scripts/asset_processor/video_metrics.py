@@ -2,15 +2,20 @@ import numpy as np
 import math
 from scipy.spatial import distance
 import cv2
+from skimage.filters import gaussian
+from sklearn import random_projection
+from sklearn.metrics import mean_squared_error
 
 
 class video_metrics:
-    def __init__(self, metrics_list, skip_frames, hash_size):
+    def __init__(self, metrics_list, skip_frames, hash_size, dimension):
         self.hash_size = hash_size
         self.skip_frames = skip_frames
         self.metrics_list = metrics_list
-        
-    def rescale_pair(self, img_A, img_B):
+        self.dimension = dimension
+
+    @staticmethod
+    def rescale_pair(img_A, img_B):
         # Limit the scale to the minimum of the dimensions
         width = min(img_A.shape[0], img_B.shape[0])
         height = min(img_A.shape[1], img_B.shape[1])
@@ -20,17 +25,19 @@ class video_metrics:
 
         return resized_A, resized_B
 
-    def mse(self, img_A, img_B):
+    @staticmethod
+    def mse(img_A, img_B):
         # Function to compute the Mean Square Error (MSE) between two images
-        return np.mean( (img_A - img_B) ** 2 )
+        return np.mean((img_A - img_B) ** 2)
 
-    def psnr(self, img_A, img_B):
+    @staticmethod
+    def psnr(img_A, img_B):
         # Function to compute the Peak to Signal Noise Ratio (PSNR)
         # of a pair of images. img_A is considered the original and img_B
         # is treated as the noisy signal
         
         # Compute the Mean Square Error (MSE) between original and copy
-        mse = np.mean( (img_A - img_B) ** 2 )
+        mse = np.mean((img_A - img_B) ** 2)
 
         # Compute PSNR as per definition in Wikipedia: 
         # https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio
@@ -55,7 +62,8 @@ class video_metrics:
         # Return only the first 15 elements of the array
         return hash_array[:15]
 
-    def evaluate_difference_instant(self, current_frame, next_frame, frame_pos):
+    @staticmethod
+    def evaluate_difference_instant(current_frame, next_frame):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent
 
@@ -65,9 +73,10 @@ class video_metrics:
         difference_ratio = np.count_nonzero(difference) / total_pixels
     
         return difference_ratio
-    
-    def evaluate_dct_instant(self, reference_frame, rendition_frame, frame_pos):
-        # Function that computes the Discrete Cosine Trasnform function included in OpenCV and outputs the 
+
+    @staticmethod
+    def evaluate_dct_instant(reference_frame, rendition_frame):
+        # Function that computes the Discrete Cosine Transform function included in OpenCV and outputs the
         # Maximum value
         
         reference_frame_float = np.float32(reference_frame)/255.0  # float conversion/scale
@@ -75,13 +84,13 @@ class video_metrics:
         
         rendition_frame_float = np.float32(rendition_frame)/255.0  # float conversion/scale
         rendition_dct = cv2.dct(rendition_frame_float)           # the dct
-        
 
         _, max_val, _, _ = cv2.minMaxLoc(reference_dct - rendition_dct)
 
         return max_val
 
-    def evaluate_cross_correlation_instant(self, reference_frame, rendition_frame):
+    @staticmethod
+    def evaluate_cross_correlation_instant(reference_frame, rendition_frame):
         # Function that computes the matchTemplate function included in OpenCV and outputs the 
         # Maximum value
         
@@ -91,7 +100,8 @@ class video_metrics:
 
         return max_val
 
-    def evaluate_difference_canny_instant(self, reference_frame, next_reference_frame,  rendition_frame, next_rendition_frame):
+    @staticmethod
+    def evaluate_difference_canny_instant(reference_frame, next_reference_frame, next_rendition_frame):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent, applying a Canny filter
 
@@ -116,7 +126,6 @@ class video_metrics:
         
         # Compute the difference between reference frame and its corresponding next frame in the rendition
         rendition_difference = np.array(next_rendition_edges - current_reference_edges, dtype='uint8')
-
     
         # Create a kernel for dilating the Canny filtered images
         kernel = np.ones((int(scale_width * 0.1), int(scale_height * 0.1)),'uint8')
@@ -158,7 +167,8 @@ class video_metrics:
         difference_mse = self.mse(scaled_reference, scaled_rendition)
         return difference_mse
 
-    def histogram_distance(self, reference_frame, rendition_frame, bins=None, eps=1e-10):
+    @staticmethod
+    def histogram_distance(reference_frame, rendition_frame, bins=None, eps=1e-10):
         # compute a 3D histogram in the RGB colorspace,
         # then normalize the histogram so that images
         # with the same content, but either scaled larger
@@ -182,54 +192,65 @@ class video_metrics:
         d = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(hist_a, hist_b)])
         return d
 
-    def compute_metrics(self, frame_pos, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
+    def evaluate_projections_instant(self, reference_frame, rendition_frame, sigma=4, n_components=200):
+
+        reference_frame = gaussian(reference_frame, sigma=sigma)
+        rendition_frame = gaussian(rendition_frame, sigma=sigma)
+
+        transformer = random_projection.SparseRandomProjection(n_components=n_components)
+        reference_frame = transformer.fit_transform(reference_frame.reshape(1, -1))
+        rendition_frame = transformer.transform(rendition_frame.reshape(1, -1))
+        mse = mean_squared_error(reference_frame, rendition_frame)
+        return mse*self.dimension
+
+    def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
         
         # Some metrics only need the luminance channel
-        reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2HSV)[:,:,2]
-        next_reference_frame_gray = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2HSV)[:,:,2]
-        rendition_frame_gray = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2HSV)[:,:,2]
-        next_rendition_frame_gray = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2HSV)[:,:,2]
-        
+        reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
+        next_reference_frame_gray = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
+        rendition_frame_gray = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
+        next_rendition_frame_gray = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
 
         for metric in self.metrics_list:
-            
+
             if metric == 'temporal_histogram_distance':
                 rendition_metrics[metric] = self.histogram_distance(reference_frame, rendition_frame)
 
             if metric == 'temporal_difference':
                 # Compute the temporal inter frame difference                
-                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame_gray, next_rendition_frame_gray,frame_pos)
-            
+                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame_gray,
+                                                                             next_rendition_frame_gray)
+
             if metric == 'temporal_psnr':
                 # Compute the temporal inter frame psnr                
                 rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame_gray, next_rendition_frame_gray)
-            
+
             if metric == 'temporal_mse':
                 # Compute the temporal inter frame psnr                
                 rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame_gray, next_reference_frame_gray)
 
             if metric == 'temporal_canny':
                 # Compute the temporal inter frame difference of the canny version of the frame
-                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame_gray, 
-                                                                                    next_reference_frame_gray,
-                                                                                    rendition_frame_gray, 
-                                                                                    next_rendition_frame_gray)
+                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame_gray,
+                                                                                   next_reference_frame_gray,
+                                                                                   rendition_frame_gray)
 
             if metric == 'temporal_cross_correlation':
-                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray, 
+                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray,
                                                                                     rendition_frame_gray)
 
             if metric == 'temporal_dct':
-                rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, 
-                                                                      rendition_frame_gray,
-                                                                      frame_pos)
+                rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, rendition_frame_gray)
+
+            if metric == 'temporal_random_projections':
+                rendition_metrics[metric] = self.evaluate_projections_instant(reference_frame_gray, rendition_frame_gray)
 
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)
             # Extract the dhash for the reference frame            
             reference_hash = self.dhash(reference_frame)
-            
+
             # Compute different distances with the hash
             if metric == 'hash_euclidean':
                 rendition_metrics['hash_euclidean'] = distance.euclidean(reference_hash, rendition_hash)
