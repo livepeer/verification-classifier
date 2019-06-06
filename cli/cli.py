@@ -4,6 +4,7 @@ import pickle
 import pandas as pd
 import numpy as np
 import urllib.request
+import time
 
 import sys
 
@@ -21,12 +22,15 @@ def cli(asset, renditions, model_url):
     original_asset = asset
 
     renditions_list = list(renditions)
-    metrics_list = ['temporal_difference', 'temporal_canny', 'temporal_histogram_distance', 'temporal_cross_correlation', 'temporal_dct']
+    metrics_list = ['temporal_gaussian', 'temporal_difference', 'temporal_canny', 'temporal_histogram_distance', 'temporal_cross_correlation', 'temporal_dct']
 
+    start = time.clock()
     asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4)
+    
 
     metrics_df = asset_processor.process()
-
+    end = time.clock()
+    print (end-start)
     for column in metrics_df.columns:
         if 'series' in column:
             metrics_df =  metrics_df.drop([column], axis=1)

@@ -192,14 +192,11 @@ class video_metrics:
         d = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(hist_a, hist_b)])
         return d
 
-    def evaluate_projections_instant(self, reference_frame, rendition_frame, sigma=4, n_components=200):
+    def evaluate_projections_instant(self, reference_frame, rendition_frame, sigma=4, n_components=00):
 
         reference_frame = gaussian(reference_frame, sigma=sigma)
         rendition_frame = gaussian(rendition_frame, sigma=sigma)
 
-        transformer = random_projection.SparseRandomProjection(n_components=n_components)
-        reference_frame = transformer.fit_transform(reference_frame.reshape(1, -1))
-        rendition_frame = transformer.transform(rendition_frame.reshape(1, -1))
         mse = mean_squared_error(reference_frame, rendition_frame)
         return mse*self.dimension
 
@@ -243,7 +240,7 @@ class video_metrics:
             if metric == 'temporal_dct':
                 rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, rendition_frame_gray)
 
-            if metric == 'temporal_random_projections':
+            if metric == 'temporal_gaussian':
                 rendition_metrics[metric] = self.evaluate_projections_instant(reference_frame_gray, rendition_frame_gray)
 
             # Compute the hash of the target frame
