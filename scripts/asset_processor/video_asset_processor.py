@@ -5,7 +5,7 @@ import os
 from video_metrics import video_metrics
 from concurrent.futures.thread import ThreadPoolExecutor
 from scipy.spatial import distance
-
+from memory_profiler import profile
 
 class video_asset_processor:
     # Class to extract and aggregate values from video sequences.
@@ -36,7 +36,8 @@ class video_asset_processor:
         self.dimensions = '{}:{}'.format(int(self.width), int(self.height))                     # Collects both dimensional values in a string
         self.video_metrics = video_metrics(self.metrics_list, self.skip_frames, self.hash_size, # Instance of the video_metrics class
                                            int(self.dimensions[self.dimensions.find(':') + 1:]))
-
+        self.profiling = True
+    
     def capture_to_array(self, capture):
         # ************************************************************************
         # Function to convert OpenCV video capture to a list of
@@ -237,7 +238,8 @@ class video_asset_processor:
         # Function to aggregate computed values of metrics 
         # of iterated renditions into a pandas DataFrame.
         # ************************************************************************
-
+        if self.profiling:
+            self.capture_to_array = profile(precision=4)(self.capture_to_array)
         # Convert OpenCV video captures of original to list
         # of numpy arrays for better performance of numerical computations
         self.original = self.capture_to_array(self.original)
