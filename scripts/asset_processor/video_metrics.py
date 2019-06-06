@@ -3,7 +3,6 @@ import math
 from scipy.spatial import distance
 import cv2
 from skimage.filters import gaussian
-from sklearn import random_projection
 from sklearn.metrics import mean_squared_error
 
 
@@ -192,7 +191,7 @@ class video_metrics:
         d = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(hist_a, hist_b)])
         return d
 
-    def evaluate_projections_instant(self, reference_frame, rendition_frame, sigma=4, n_components=00):
+    def evaluate_gaussian_instant(self, reference_frame, rendition_frame, sigma=4):
 
         reference_frame = gaussian(reference_frame, sigma=sigma)
         rendition_frame = gaussian(rendition_frame, sigma=sigma)
@@ -241,7 +240,7 @@ class video_metrics:
                 rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_gaussian':
-                rendition_metrics[metric] = self.evaluate_projections_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.evaluate_gaussian_instant(reference_frame_gray, rendition_frame_gray)
 
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)
