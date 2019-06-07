@@ -57,3 +57,9 @@ Then, simply add the py-spy command to run over the python script:
 ```
 py-spy -- python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --renditions path-to-rendition ... --model_url url-to-model
 ```
+
+Alternatively, one can enable the --do_profiling flag:
+
+```
+python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --renditions path-to-rendition ... --model_url url-to-model --do_profiling 1
+```
