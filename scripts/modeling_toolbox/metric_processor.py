@@ -82,7 +82,9 @@ class MetricProcessor:
             df_train = df_train_1.append(df_sample_train)
             df_train = df_train.sample(frac=1)
 
-            x_test_all = df_test_all.drop(['attack_ID'], axis=1)
+            x_test_all = df_test_all.drop(['title',
+                                           'attack',
+                                           'attack_ID'], axis=1)
             df_test_1 = df_test_all[df_test_all['attack_ID'] == 1]
             df_test_0 = df_test_all[df_test_all['attack_ID'] == 0]
 
@@ -91,15 +93,17 @@ class MetricProcessor:
             df_test = df_test.sample(frac=0.4)
 
             x_test_all = np.asarray(x_test_all)
-
             y_test_all = df_test_all['attack_ID']
 
-            x_train = df_train.drop(['attack_ID'], axis=1)
+            x_train = df_train.drop(['title',
+                                     'attack',
+                                     'attack_ID'], axis=1)
 
-            x_test = df_test.drop(['attack_ID'], axis=1)
+            x_test = df_test.drop(['title',
+                                   'attack',
+                                   'attack_ID'], axis=1)
 
             y_train = df_train['attack_ID']
-
             y_test = df_test['attack_ID']
 
             return (x_test_all, y_test_all), (x_train, y_train), (x_test, y_test)
@@ -136,9 +140,3 @@ class MetricProcessor:
             return (x_train, x_test, x_attacks), (df_train, df_test, df_attacks)
         else:
             print('Unknown learning type. Use UL for unsupervised learning and SL for supervised learning')
-
-
-
-
-
-
