@@ -63,3 +63,15 @@ Alternatively, one can enable the --do_profiling flag:
 ```
 python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --renditions path-to-rendition ... --model_url url-to-model --do_profiling 1
 ```
+
+For memory profiling the tool [memory_profiling](https://pypi.org/project/memory-profiler/) has been included in the requirements.txt. To use it, execute the script with ``` mprof run ```:
+
+```
+mprof run python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --renditions path-to-rendition ... --model_url url-to-model 
+```
+
+If a plot is required, it is possible to obtain by means of:
+
+```
+mprof plot -o plot.svg
+```
