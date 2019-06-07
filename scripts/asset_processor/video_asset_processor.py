@@ -5,13 +5,14 @@ import os
 from video_metrics import video_metrics
 from concurrent.futures.thread import ThreadPoolExecutor
 from scipy.spatial import distance
-from memory_profiler import profile
+from memory_profiler import profile as mem_profiler
+import line_profiler
 
 class video_asset_processor:
     # Class to extract and aggregate values from video sequences.
     # It is instantiated as part of the data creation as well
     # as in the inference, both in the CLI as in the notebooks
-    def __init__(self, original_path, renditions_paths, metrics_list, duration):
+    def __init__(self, original_path, renditions_paths, metrics_list, duration, do_profiling):
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
@@ -34,9 +35,15 @@ class video_asset_processor:
         self.height = self.original.get(cv2.CAP_PROP_FRAME_HEIGHT)                              # Obtains vertical dimension of the frames of the original
         self.width = self.original.get(cv2.CAP_PROP_FRAME_WIDTH)                                # Obtains horizontal dimension of the frames of the original 
         self.dimensions = '{}:{}'.format(int(self.width), int(self.height))                     # Collects both dimensional values in a string
-        self.video_metrics = video_metrics(self.metrics_list, self.skip_frames, self.hash_size, # Instance of the video_metrics class
-                                           int(self.dimensions[self.dimensions.find(':') + 1:]))
-        self.profiling = True
+        self.cpu_profiler = line_profiler.LineProfiler()
+        self.do_profiling = do_profiling
+        self.video_metrics = video_metrics(self.metrics_list, 
+                                           self.skip_frames, 
+                                           self.hash_size, 
+                                           int(self.dimensions[self.dimensions.find(':') + 1:]),
+                                           self.cpu_profiler,
+                                           self.do_profiling)# Instance of the video_metrics class
+        
     
     def capture_to_array(self, capture):
         # ************************************************************************
@@ -151,7 +158,7 @@ class video_asset_processor:
         # Function to aggregate computed values of metrics and renditions into a 
         # pandas DataFrame.
         # ************************************************************************
-
+        
         metrics_dict = {}                                                                       # Dictionary for containing all metrics
         renditions_dict = {}                                                                    # Dictionary for containing all renditions
 
@@ -238,8 +245,12 @@ class video_asset_processor:
         # Function to aggregate computed values of metrics 
         # of iterated renditions into a pandas DataFrame.
         # ************************************************************************
-        if self.profiling:
-            self.capture_to_array = profile(precision=4)(self.capture_to_array)
+        if self.do_profiling:
+            
+            self.capture_to_array = self.cpu_profiler(self.capture_to_array)
+            self.compare_renditions_instant = self.cpu_profiler(self.compare_renditions_instant)
+            self.aggregate = self.cpu_profiler(self.aggregate)
+
         # Convert OpenCV video captures of original to list
         # of numpy arrays for better performance of numerical computations
         self.original = self.capture_to_array(self.original)
@@ -263,5 +274,8 @@ class video_asset_processor:
             except Exception as err:
                 print('Unable to compute metrics for {}'.format(path))
                 print(err)
+
+        if self.do_profiling:
+            self.cpu_profiler.print_stats()
 
         return self.aggregate(self.metrics)

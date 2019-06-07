@@ -14,23 +14,30 @@ from video_asset_processor import video_asset_processor
 
 @click.command()
 @click.argument('asset')
-@click.option('-r', '--renditions', multiple=True)
-@click.option('-r', '--model_url')
-def cli(asset, renditions, model_url):
+@click.option('--renditions', multiple = True)
+@click.option('--model_url')
+@click.option('--do_profiling', default=0)
+def cli(asset, renditions, model_url, do_profiling):
+    # Download model from remote url
+    start = time.clock()
     loaded_model = download_models(model_url)
+    end = time.clock()
+    print ('Download time:', end-start)
     
+    # Prepare inpuit variables
     original_asset = asset
-
     renditions_list = list(renditions)
     metrics_list = ['temporal_gaussian', 'temporal_difference', 'temporal_canny', 'temporal_histogram_distance', 'temporal_cross_correlation', 'temporal_dct']
 
+    # Process and compare original asset against the provided list of renditions
     start = time.clock()
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4)
-    
-
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4, do_profiling)
     metrics_df = asset_processor.process()
     end = time.clock()
-    print (end-start)
+    print ('Execution time:', end-start)
+
+    # Cleanup the resulting pandas dataframe and convert it to a numpy array
+    # to pass to the prediction model
     for column in metrics_df.columns:
         if 'series' in column:
             metrics_df =  metrics_df.drop([column], axis=1)
@@ -47,14 +54,22 @@ def cli(asset, renditions, model_url):
        'temporal_dct-std', 'temporal_difference-euclidean',
        'temporal_difference-manhattan', 'temporal_difference-max',
        'temporal_difference-mean', 'temporal_difference-std',
-       'temporal_histogram_distance-euclidean',
+       'temporal_gaussian-euclidean', 'temporal_gaussian-manhattan',
+       'temporal_gaussian-max', 'temporal_gaussian-mean',
+       'temporal_gaussian-std', 'temporal_histogram_distance-euclidean',
        'temporal_histogram_distance-manhattan',
        'temporal_histogram_distance-max', 'temporal_histogram_distance-mean',
        'temporal_histogram_distance-std']
                              ]
     X = np.asarray(metrics_df)
-    # make predictions for given data
+
+    # Make predictions for given data
+    start = time.clock()
     y_pred = loaded_model.predict(X)
+    end = time.clock()
+    print ('Prediction time:', end-start)
+
+    # Display predictions
     i = 0
     for rendition in renditions_list:
         if y_pred[i] == 0:
