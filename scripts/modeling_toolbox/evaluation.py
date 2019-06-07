@@ -5,6 +5,10 @@ from sklearn import random_projection
 from sklearn import svm
 from sklearn.ensemble import IsolationForest
 import matplotlib.pyplot as plt
+from keras.layers import Dense, Input
+from keras.optimizers import Adam
+from keras.models import Model
+from keras import regularizers
 
 
 def one_class_svm(x_train, x_test, x_attacks, svm_results):
@@ -114,6 +118,42 @@ def isolation_forest(x_train, x_test, x_attacks, isolation_results):
                                                                   'f_beta': fb,
                                                                   'projection': 'RP'}, ignore_index=True)
     return isolation_results
+
+
+def autoencoder(x_train, x_test, x_attacks, ae_svm_results):
+    latent_dim = 3
+    input_vector = Input(shape=(x_train.shape[1],))
+    encoded = Dense(latent_dim, activation='relu')(input_vector)
+    decoded = Dense(x_train.shape[1], activity_regularizer=regularizers.l1(10e-5))(encoded)
+    autoencoder = Model(input_vector, decoded)
+    encoder = Model(input_vector, encoded)
+    autoencoder.compile(optimizer=Adam(lr=0.001), loss='mse')
+    network_history = autoencoder.fit(x_train, x_train, shuffle=True, batch_size=16, epochs=10,
+                                      validation_data=(x_test, x_test), verbose=True)
+    plot_history(network_history, 'AE history')
+    print('Mean loss on train: {}'.format(autoencoder.evaluate(x_train, x_train, batch_size=8, verbose=False)))
+    print('Mean loss on test: {}'.format(autoencoder.evaluate(x_test, x_test, batch_size=8, verbose=False)))
+    print('Mean loss on attacks: {}'.format(autoencoder.evaluate(x_attacks, x_attacks, batch_size=8, verbose=False)))
+    x_train_red = encoder.predict(x_train, batch_size=8)
+    x_test_red = encoder.predict(x_test, batch_size=8)
+    x_attacks_red = encoder.predict(x_attacks, batch_size=8)
+
+    nus = [0.01]
+
+    gammas = [x_train_red.shape[1], 2*x_train_red.shape[1], x_train_red.shape[1]/2, 'auto']
+    for nu in nus:
+        for gamma in gammas:
+            classifier = svm.OneClassSVM(kernel='rbf', gamma=gamma, nu=nu, cache_size=7000)
+            classifier.fit(x_train_red)
+
+            fb, area, tnr, tpr_train, tpr_test = unsupervised_evaluation(classifier, x_train_red,
+                                                                         x_test_red, x_attacks_red)
+
+            ae_svm_results = ae_svm_results.append({'nu': nu, 'gamma': gamma, 'n_components': latent_dim,
+                                                    'TPR_train': tpr_train, 'TPR_test': tpr_test, 'TNR': tnr,
+                                                    'model': 'ae-svm', 'auc': area, 'f_beta': fb}, ignore_index=True)
+
+    return ae_svm_results
 
 
 def unsupervised_evaluation(classifier, train_set, test_set, attack_set, beta=20):
