@@ -42,8 +42,18 @@ class video_asset_processor:
                                            self.hash_size, 
                                            int(self.dimensions[self.dimensions.find(':') + 1:]),
                                            self.cpu_profiler,
-                                           self.do_profiling)# Instance of the video_metrics class
+                                           self.do_profiling)                                   # Instance of the video_metrics class
         
+        # Convert OpenCV video captures of original to list
+        # of numpy arrays for better performance of numerical computations
+        self.original = self.capture_to_array(self.original)
+        # Compute its features
+        self.metrics[self.original_path] = self.compute(self.original, self.original_path, self.dimensions)
+        # Store the value in the renditions dictionary
+        self.renditions['original'] = {'frame_list': self.original,
+                                       'dimensions': self.dimensions,
+                                       'ID': self.original_path.split('/')[-2]}
+
     
     def capture_to_array(self, capture):
         # ************************************************************************
@@ -249,18 +259,8 @@ class video_asset_processor:
             
             self.capture_to_array = self.cpu_profiler(self.capture_to_array)
             self.compare_renditions_instant = self.cpu_profiler(self.compare_renditions_instant)
-            self.aggregate = self.cpu_profiler(self.aggregate)
 
-        # Convert OpenCV video captures of original to list
-        # of numpy arrays for better performance of numerical computations
-        self.original = self.capture_to_array(self.original)
-        # Compute its features
-        self.metrics[self.original_path] = self.compute(self.original, self.original_path, self.dimensions)
-        # Store the value in the renditions dictionary
-        self.renditions['original'] = {'frame_list': self.original,
-                                       'dimensions': self.dimensions,
-                                       'ID': self.original_path.split('/')[-2]}
-
+        
         # Iterate through renditions
         for path in self.renditions_paths:
             try:
@@ -270,7 +270,9 @@ class video_asset_processor:
                 dimensions = '{}:{}'.format(int(width), int(height))
                 # Turn openCV capture to a list of numpy arrays
                 frame_list = self.capture_to_array(capture)
+                # Compute the metrics for the rendition
                 self.metrics[path] = self.compute(frame_list, path, dimensions)
+               
             except Exception as err:
                 print('Unable to compute metrics for {}'.format(path))
                 print(err)
