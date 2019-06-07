@@ -19,10 +19,12 @@ from video_asset_processor import video_asset_processor
 @click.option('--do_profiling', default=0)
 def cli(asset, renditions, model_url, do_profiling):
     # Download model from remote url
+    total_start = time.clock()
+    
     start = time.clock()
     loaded_model = download_models(model_url)
-    end = time.clock()
-    print ('Download time:', end-start)
+    download_time = time.clock() - start
+    
     
     # Prepare inpuit variables
     original_asset = asset
@@ -32,10 +34,12 @@ def cli(asset, renditions, model_url, do_profiling):
     # Process and compare original asset against the provided list of renditions
     start = time.clock()
     asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4, do_profiling)
+    initialize_time = time.clock() - start
+    
+    start = time.clock()
     metrics_df = asset_processor.process()
-    end = time.clock()
-    print ('Execution time:', end-start)
-
+    process_time = time.clock() - start
+    
     # Cleanup the resulting pandas dataframe and convert it to a numpy array
     # to pass to the prediction model
     for column in metrics_df.columns:
@@ -66,8 +70,8 @@ def cli(asset, renditions, model_url, do_profiling):
     # Make predictions for given data
     start = time.clock()
     y_pred = loaded_model.predict(X)
-    end = time.clock()
-    print ('Prediction time:', end-start)
+    prediction_time = time.clock() - start
+    
 
     # Display predictions
     i = 0
@@ -79,6 +83,14 @@ def cli(asset, renditions, model_url, do_profiling):
 
         print('{} is {} an attack'.format(rendition, attack))
         i = i + 1
+    
+    
+    if do_profiling:
+        print ('Total time:', time.clock() - total_start)
+        print ('Download time:', download_time)
+        print ('Initialization time:', initialize_time)
+        print ('Process time:', process_time)
+        print ('Prediction time:', prediction_time)
 
 
 def download_models(url):
