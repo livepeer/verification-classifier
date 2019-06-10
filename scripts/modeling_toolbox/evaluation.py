@@ -26,17 +26,10 @@ def one_class_svm(x_train, x_test, x_attacks, svm_results):
 
     for n in dimensions:
 
-        # Use PCA for dim reduction
-        pca = PCA(n_components=n)
-        x_reduced_pca = pca.fit_transform(x_train)
-        test_reduced_pca = pca.transform(x_test)
-        attack_reduced_pca = pca.transform(x_attacks)
-
-        # Use Random Projections for dim reduction
-        rp = random_projection.SparseRandomProjection(n_components=n)
-        x_reduced_rp = rp.fit_transform(x_train)
-        test_reduced_rp = rp.transform(x_test)
-        attack_reduced_rp = rp.transform(x_attacks)
+        x_reduced_pca, test_reduced_pca, attack_reduced_pca = reduce_dimensionality(n, x_train, x_test, 'PCA',
+                                                                                    attack=x_attacks)
+        x_reduced_rp, test_reduced_rp, attack_reduced_rp = reduce_dimensionality(n, x_train, x_test, 'RP',
+                                                                                 attack=x_attacks)
 
         for nu in nus:
             for gamma in gammas:
@@ -53,7 +46,7 @@ def one_class_svm(x_train, x_test, x_attacks, svm_results):
                                                   'f_beta': fb, 'projection': 'PCA'}, ignore_index=True)
 
                 # Fit classifier with RP reduced data
-                classifier = svm.OneClassSVM(kernel='rbf',gamma=gamma, nu=nu, cache_size=7000)
+                classifier = svm.OneClassSVM(kernel='rbf', gamma=gamma, nu=nu, cache_size=7000)
 
                 classifier.fit(x_reduced_rp)
                 fb, area, tnr, tpr_train, tpr_test = unsupervised_evaluation(classifier, x_reduced_rp,
@@ -74,17 +67,12 @@ def isolation_forest(x_train, x_test, x_attacks, isolation_results):
     dimensions = [int(i*x_test.shape[1]) for i in [0.25, 0.5, 0.9, 1]]
 
     for n in dimensions:
-        # Use PCA for dim reduction
-        pca = PCA(n_components=n)
-        x_reduced_pca = pca.fit_transform(x_train)
-        test_reduced_pca = pca.transform(x_test)
-        attack_reduced_pca = pca.transform(x_attacks)
 
-        # Use Random Projections for dim reduction
-        rp = random_projection.SparseRandomProjection(n_components=n)
-        x_reduced_rp = rp.fit_transform(x_train)
-        test_reduced_rp = rp.transform(x_test)
-        attack_reduced_rp = rp.transform(x_attacks)
+        x_reduced_pca, test_reduced_pca, attack_reduced_pca = reduce_dimensionality(n, x_train, x_test, 'PCA',
+                                                                                    attack=x_attacks)
+        x_reduced_rp, test_reduced_rp, attack_reduced_rp = reduce_dimensionality(n, x_train, x_test, 'RP',
+                                                                                 attack=x_attacks)
+
         max_features = list(range(1, n + 1, 4))
         for estimator in estimators:
             for contamination in contaminations:
@@ -189,7 +177,7 @@ def unsupervised_evaluation(classifier, train_set, test_set, attack_set, beta=20
 def neural_network(x_train, y_train, x_test, y_test):
     model = Sequential()
 
-    model.add(Dense(128, input_shape=(x_train.shape[1],), activation= 'relu', kernel_regularizer=l2(0.01)))
+    model.add(Dense(128, input_shape=(x_train.shape[1],), activation='relu', kernel_regularizer=l2(0.01)))
     model.add(Dropout(0.1))
 
     model.add(Dense(64, activation='relu', kernel_regularizer=l2(0.01)))
@@ -210,7 +198,7 @@ def neural_network(x_train, y_train, x_test, y_test):
     model.add(Dense(1, kernel_initializer='normal', activation='sigmoid'))
 
     model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=['accuracy'])
-    network_history = model.fit(x_train, y_train, batch_size=128, epochs=150, verbose=0,
+    network_history = model.fit(x_train, y_train, batch_size=128, epochs=10, verbose=0,
                                 validation_data=(x_test, y_test))
     plot_history_with_acc(network_history)
     return model
@@ -220,18 +208,12 @@ def random_forest(x_train, y_train, x_test, y_test, random_forest_results):
 
     # Random forest Hyper-parameters
     estimators = [150, 200]
-    dimensions = [int(i*x_test.shape[1]) for i in [0.25, 0.35, 0.5, 0.75, 0.9, 1]]
+    dimensions = [int(i*x_test.shape[1]) for i in [1]]
 
     for n in dimensions:
-        # Use PCA for dim reduction
-        pca = PCA(n_components=n)
-        x_reduced_pca = pca.fit_transform(x_train)
-        test_reduced_pca = pca.transform(x_test)
 
-        # Use Random Projections for dim reduction
-        rp = random_projection.SparseRandomProjection(n_components=n)
-        x_reduced_rp = rp.fit_transform(x_train)
-        test_reduced_rp = rp.transform(x_test)
+        x_reduced_pca, test_reduced_pca = reduce_dimensionality(n, x_train, x_test, 'PCA')
+        x_reduced_rp, test_reduced_rp = reduce_dimensionality(n, x_train, x_test, 'RP')
 
         for estimator in estimators:
 
@@ -269,18 +251,12 @@ def ada_boost(x_train, y_train, x_test, y_test, ada_boost_results):
 
     # AdaBoost Hyper-parameters
     learning_rates = [0.55]
-    dimensions = [int(i*x_test.shape[1]) for i in [0.25, 0.35, 0.5, 0.75, 0.9, 1]]
+    dimensions = [int(i*x_test.shape[1]) for i in [1]]
 
     for n in dimensions:
-        # Use PCA for dim reduction
-        pca = PCA(n_components=n)
-        x_reduced_pca = pca.fit_transform(x_train)
-        test_reduced_pca = pca.transform(x_test)
 
-        # Use Random Projections for dim reduction
-        rp = random_projection.SparseRandomProjection(n_components=n)
-        x_reduced_rp = rp.fit_transform(x_train)
-        test_reduced_rp = rp.transform(x_test)
+        x_reduced_pca, test_reduced_pca = reduce_dimensionality(n, x_train, x_test, 'PCA')
+        x_reduced_rp, test_reduced_rp = reduce_dimensionality(n, x_train, x_test, 'RP')
 
         for lr in learning_rates:
 
@@ -317,18 +293,12 @@ def ada_boost(x_train, y_train, x_test, y_test, ada_boost_results):
 def svm_classifier(x_train, y_train, x_test, y_test, svm_results):
 
     # SVC Hyper-parameters
-    dimensions = [int(i*x_test.shape[1]) for i in [0.25, 0.5, 0.75, 1]]
+    dimensions = [int(i*x_test.shape[1]) for i in [1]]
 
     for n in dimensions:
-        # Use PCA for dim reduction
-        pca = PCA(n_components=n)
-        x_reduced_pca = pca.fit_transform(x_train)
-        test_reduced_pca = pca.transform(x_test)
 
-        # Use Random Projections for dim reduction
-        rp = random_projection.SparseRandomProjection(n_components=n)
-        x_reduced_rp = rp.fit_transform(x_train)
-        test_reduced_rp = rp.transform(x_test)
+        x_reduced_pca, test_reduced_pca = reduce_dimensionality(n, x_train, x_test, 'PCA')
+        x_reduced_rp, test_reduced_rp = reduce_dimensionality(n, x_train, x_test, 'RP')
 
         classifier = svm.SVC(gamma='auto', cache_size=7000)
 
@@ -363,21 +333,15 @@ def svm_classifier(x_train, y_train, x_test, y_test, svm_results):
 def xg_boost(x_train, y_train, x_test, y_test, xg_boost_results):
 
     # XGBoost Hyper-parameters
-    dimensions = [int(i*x_test.shape[1]) for i in [0.25, 0.5, 0.75, 1]]
+    dimensions = [int(i*x_test.shape[1]) for i in [1]]
 
     for n in dimensions:
-        # Use PCA for dim reduction
-        pca = PCA(n_components=n)
-        x_reduced_pca = pca.fit_transform(x_train)
-        test_reduced_pca = pca.transform(x_test)
 
-        # Use Random Projections for dim reduction
-        rp = random_projection.SparseRandomProjection(n_components=n)
-        x_reduced_rp = rp.fit_transform(x_train)
-        test_reduced_rp = rp.transform(x_test)
+        x_reduced_pca, test_reduced_pca = reduce_dimensionality(n, x_train, x_test, 'PCA')
+        x_reduced_rp, test_reduced_rp = reduce_dimensionality(n, x_train, x_test, 'RP')
 
         classifier = xgb.XGBClassifier()
-        grid = {'max_depth':10}
+        grid = {'max_depth': 10}
         classifier.set_params(**grid)
 
         classifier.fit(x_reduced_pca, y_train)
@@ -499,5 +463,26 @@ def plot_history_with_acc(network_history, title='Loss and Accuracy'):
     plt.plot(network_history.history['val_acc'])
     plt.legend(['Training', 'Validation'], loc='lower right')
     plt.show()
+
+
+def reduce_dimensionality(n_components, train, test, method, attack=None):
+    if method == 'PCA':
+        matrix = PCA(n_components=n_components)
+    elif method == 'RP':
+        matrix = random_projection.SparseRandomProjection(n_components=n_components, random_state=7)
+    else:
+        print('unknown projection method, choose either RP or PCA')
+        return None
+
+    train = matrix.fit_transform(train)
+    test = matrix.transform(test)
+
+    if attack is None:
+        return train, test
+
+    attack = matrix.transform(attack)
+    return train, test, attack
+
+
 
 
