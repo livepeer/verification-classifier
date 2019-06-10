@@ -49,7 +49,7 @@ def one_class_svm(x_train, x_test, x_attacks, svm_results):
                                                                              attack_reduced_pca)
 
                 svm_results = svm_results.append({'nu': nu, 'gamma': gamma, 'n_components': n, 'TPR_train': tpr_train,
-                                                  'TPR_test': tpr_test, 'TNR': tnr,'model': 'svm', 'auc': area,
+                                                  'TPR_test': tpr_test, 'TNR': tnr, 'model': 'svm', 'auc': area,
                                                   'f_beta': fb, 'projection': 'PCA'}, ignore_index=True)
 
                 # Fit classifier with RP reduced data
@@ -189,28 +189,28 @@ def unsupervised_evaluation(classifier, train_set, test_set, attack_set, beta=20
 def neural_network(x_train, y_train, x_test, y_test):
     model = Sequential()
 
-    model.add(Dense(128, input_shape=(x_train.shape[1],), activation= "relu", kernel_regularizer=l2(0.01)))
+    model.add(Dense(128, input_shape=(x_train.shape[1],), activation= 'relu', kernel_regularizer=l2(0.01)))
     model.add(Dropout(0.1))
 
-    model.add(Dense(64, activation= "relu", kernel_regularizer=l2(0.01)))
+    model.add(Dense(64, activation='relu', kernel_regularizer=l2(0.01)))
     model.add(Dropout(0.2))
 
     model.add(Dense(128, kernel_initializer='glorot_uniform', activation='sigmoid'))
     model.add(Dropout(0.4))
 
-    model.add(Dense(64, kernel_initializer='glorot_uniform', activation= "tanh"))
+    model.add(Dense(64, kernel_initializer='glorot_uniform', activation='tanh'))
     model.add(Dropout(0.5))
 
-    model.add(Dense(32, kernel_initializer='glorot_uniform', activation= "tanh"))
+    model.add(Dense(32, kernel_initializer='glorot_uniform', activation='tanh'))
     model.add(Dropout(0.4))
 
-    model.add(Dense(128, kernel_initializer='glorot_uniform', activation= "tanh"))
+    model.add(Dense(128, kernel_initializer='glorot_uniform', activation='tanh'))
     model.add(Dropout(0.3))
 
     model.add(Dense(1, kernel_initializer='normal', activation='sigmoid'))
 
     model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=['accuracy'])
-    network_history = model.fit(x_train, y_train, batch_size=128, epochs=30, verbose=0,
+    network_history = model.fit(x_train, y_train, batch_size=128, epochs=150, verbose=0,
                                 validation_data=(x_test, y_test))
     plot_history_with_acc(network_history)
     return model
@@ -443,15 +443,17 @@ def plot_roc(classifier, test, attacks, title):
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.title('Receiver operating characteristic: {}'.format(title))
-    plt.legend(loc="lower right")
+    plt.legend(loc='lower right')
     plt.show()
 
 
-def plot_roc_supervised(classifier, x_test, y_test, title):
+def plot_roc_supervised(classifier, x_test, y_test, title, nn=False):
 
     y_pred = classifier.predict(x_test)
     fpr, tpr, _ = roc_curve(y_test, y_pred)
 
+    if nn:
+        y_pred = [round(x[0]) for x in y_pred]
     print(confusion_matrix(y_test, y_pred))
 
     roc_auc = auc(fpr, tpr)
@@ -465,7 +467,7 @@ def plot_roc_supervised(classifier, x_test, y_test, title):
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.title('Receiver operating characteristic {}'.format(title))
-    plt.legend(loc="lower right")
+    plt.legend(loc='lower right')
     plt.show()
 
 
