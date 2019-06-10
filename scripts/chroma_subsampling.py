@@ -34,7 +34,7 @@ output_folders = {
 
 cpu_to_use = int(round(cpu_count / len(output_folders)))
 
-files_and_renditions = get_files_and_reinditions(metadata_file)
+files_and_renditions = get_files_and_renditions(metadata_file)
 
 subsampling_suffix = '_' + subsampling
 for folder, new_folder in output_folders.items():

@@ -43,5 +43,5 @@ def initialize():
         inputs_df = pd.concat([inputs_df, kind_df],axis=0,sort=True, ignore_index=True)
 
         jobs_dict[kind] = inputs_df['title'][inputs_df['kind']==kind]
-    inputs_df.to_csv('data.csv')
+    inputs_df.to_csv('data-large.csv')
 initialize()

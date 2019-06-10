@@ -7,11 +7,14 @@ from sklearn.metrics import mean_squared_error
 
 
 class video_metrics:
-    def __init__(self, metrics_list, skip_frames, hash_size, dimension):
+    def __init__(self, metrics_list, skip_frames, hash_size, dimension, cpu_profiler, do_profiling):
         self.hash_size = hash_size
         self.skip_frames = skip_frames
         self.metrics_list = metrics_list
         self.dimension = dimension
+        self.profiling = do_profiling
+        self.cpu_profiler = cpu_profiler
+        
 
     @staticmethod
     def rescale_pair(img_A, img_B):
@@ -202,6 +205,17 @@ class video_metrics:
     def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
         
+        if self.profiling:
+        
+            self.evaluate_cross_correlation_instant = self.cpu_profiler(self.evaluate_cross_correlation_instant)
+            self.evaluate_dct_instant = self.cpu_profiler(self.evaluate_dct_instant)
+            self.evaluate_difference_canny_instant = self.cpu_profiler(self.evaluate_difference_canny_instant)
+            self.evaluate_difference_instant = self.cpu_profiler(self.evaluate_difference_instant)
+            self.evaluate_gaussian_instant = self.cpu_profiler(self.evaluate_gaussian_instant)
+            self.evaluate_mse_instant = self.cpu_profiler(self.evaluate_mse_instant)
+            self.evaluate_psnr_instant = self.cpu_profiler(self.evaluate_psnr_instant)
+            self.rescale_pair = self.cpu_profiler(self.rescale_pair)
+
         # Some metrics only need the luminance channel
         reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
         next_reference_frame_gray = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
@@ -254,5 +268,6 @@ class video_metrics:
                 rendition_metrics['hash_hamming'] = distance.hamming(reference_hash, rendition_hash)
             if metric == 'hash_cosine':
                 rendition_metrics['hash_cosine'] = distance.cosine(reference_hash, rendition_hash)
+
 
         return rendition_metrics

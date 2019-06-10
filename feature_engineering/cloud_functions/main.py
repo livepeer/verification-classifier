@@ -27,9 +27,9 @@ def cli(asset, renditions):
     original_asset = asset
 
     renditions_list = renditions
-    metrics_list = ['temporal_difference', 'temporal_canny', 'temporal_histogram_distance', 'temporal_cross_correlation', 'temporal_dct']
+    metrics_list = ['temporal_gaussian', 'temporal_difference', 'temporal_canny', 'temporal_histogram_distance', 'temporal_cross_correlation', 'temporal_dct']
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4)
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4, False)
 
     metrics_df = asset_processor.process()
 
