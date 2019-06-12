@@ -18,8 +18,8 @@ from video_asset_processor import video_asset_processor
 @click.command()
 @click.argument('asset')
 @click.option('--renditions', multiple=True)
-@click.option('--model_url', default='https://github.com/livepeer/verification-classifier/blob/'
-                                     'pipeline-improvements/machine_learning/output/models/model.tar.gz?raw=true')
+@click.option('--model_url', default='https://github.com/livepeer/verification-classifier/blob/master/'
+                                     'machine_learning/output/models/model.tar.gz?raw=true')
 @click.option('--do_profiling', default=0)
 def cli(asset, renditions, model_url, do_profiling):
     # Download model from remote url
@@ -49,7 +49,7 @@ def cli(asset, renditions, model_url, do_profiling):
     start = time.clock()
     asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4, do_profiling)
     initialize_time = time.clock() - start
-    
+
     start = time.clock()
     metrics_df = asset_processor.process()
     process_time = time.clock() - start
