@@ -108,7 +108,7 @@ class video_metrics:
         # and its subsequent, applying a Canny filter
 
         # Grab the frame skip_frames ahead of the present rendition
-        
+
         scale_width = next_rendition_frame.shape[0]
         scale_height = next_rendition_frame.shape[1]
 
@@ -122,13 +122,13 @@ class video_metrics:
         current_reference_edges = cv2.Canny(reference_frame, lower, upper)
         next_reference_edges = cv2.Canny(next_reference_frame, lower, upper)
         next_rendition_edges = cv2.Canny(next_rendition_frame, lower, upper)
-        
+
         # Compute the difference between reference frame and its next frame
         reference_difference = np.array(next_reference_edges - current_reference_edges, dtype='uint8')
-        
+
         # Compute the difference between reference frame and its corresponding next frame in the rendition
         rendition_difference = np.array(next_rendition_edges - current_reference_edges, dtype='uint8')
-    
+
         # Create a kernel for dilating the Canny filtered images
         kernel = np.ones((int(scale_width * 0.1), int(scale_height * 0.1)),'uint8')
 
@@ -136,22 +136,15 @@ class video_metrics:
         reference_difference_dilation = cv2.dilate(reference_difference, kernel, iterations=1)
         rendition_difference_dilation = cv2.dilate(rendition_difference, kernel, iterations=1)
 
-        # Compute the difference ratio between reference frame (of original asset) and its next frame
-        if np.count_nonzero(reference_difference_dilation) == 0:
-            reference_ratio = total_pixels
+        # Compute the difference ratio between reference and its next
+        if np.count_nonzero(reference_difference_dilation) != 0:
+            difference_reference_ratio = np.count_nonzero(reference_difference_dilation) / total_pixels
         else:
-            reference_ratio = total_pixels / np.count_nonzero(reference_difference_dilation)
-        
-        # Compute the difference ratio between reference frame (of original asset) and its next frame
-        # in the rendition
-        if np.count_nonzero(rendition_difference_dilation) == 0:
-            rendition_ratio = total_pixels
-        else:
-            rendition_ratio = total_pixels / np.count_nonzero(rendition_difference_dilation) 
+            difference_reference_ratio = 0.00000001
+        # Compute the difference ratio between reference and its next in the rendition
+        difference_rendition_ratio = np.count_nonzero(rendition_difference_dilation) / total_pixels
 
-        difference = abs(1 / reference_ratio - 1/ rendition_ratio)
-
-        return difference
+        return difference_rendition_ratio / difference_reference_ratio
     
     def evaluate_psnr_instant(self, reference_frame,  next_rendition_frame):
         # Function to compute the instantaneous PSNR between a frame
