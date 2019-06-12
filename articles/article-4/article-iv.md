@@ -57,46 +57,56 @@ Cool huh? At this point, hopefully, the advantage of our approach becomes eviden
 ## Describing a video asset. What makes a good encoding?
 
 This is great then. We have a strategy. But now we need to supply our learning model with enough information. The kind of information that helps it to figure out what makes it a "good" rendition so everything else can be categorized as garbage.
-In our previous story ([article III](https://medium.com/@epiclabs.io/assessing-metrics-for-video-quality-verification-in-livepeers-ecosystem-iii-744ba1c1d5d7)) we described a set of computable features that seemed to describe fairly well the intrinsic characteristics of each one of our video samples.
-We also have a large enough data set created from the YT8M's dataset with original videos and different renditions. Instructions and utilites to access those 10s video segments are available in the [project's repo](https://github.com/livepeer/verification-classifier). With an 80% train / 20% test split, we have 102531 train specimens and 25633 test specimens.
-Our positive sample pool (i.e. "good" renditions), comprises those transcoded at the bitrate defined by Youtube with no encoding artifacts introduced. The rest are attacks.
-This leaves us with 14550 positive training specimens and 87981 negative training specimen, hopefully enough diversity to make a good generalization. The csv file containing the full dataset can be found [here](https://storage.googleapis.com/feature_dataset/data-large.tar.xz).
+In our previous story ([article III](https://medium.com/@epiclabs.io/assessing-metrics-for-video-quality-verification-in-livepeers-ecosystem-iii-744ba1c1d5d7)) we described a set of computable features that seemed to describe fairly well the intrinsic characteristics of each one of our video samples. They describe inter-frame differences between renditions for:
+
+* **Color** — Inter-Frame Histogram Distance (IFHD)
+* **Contours** — Inter-Frame Contour Difference (IFCD)
+* **Energy** — Inter-Frame Discrete Cosine Transform Difference (IFDCTD)
+* **Textures** — Inter-Frame normalized cross-correlation (IFNCC)
+* **Mass** — Inter -Frame Low Pass Difference (IFLPD)
+
+We also have a large enough data set created from the YT8M's dataset with original videos and different renditions. Instructions and utilites to access those 10 second video segments are available in the [project's repo](https://github.com/livepeer/verification-classifier). With an 80% train / 20% test split, we have **102531** train specimens and **25633** test specimens.
+Our positive sample pool (i.e. "good" renditions), comprises those transcoded at the bitrate prescribed by Youtube with no encoding artifacts introduced. The rest are attacks.
+
+This leaves us with **14550** positive training specimens and **87981** negative training specimen, hopefully enough diversity to make a good generalization. The csv file containing the full dataset can be found [here](https://storage.googleapis.com/feature_dataset/data-large.tar.xz).
 
 For the generation of this dataset, we have computed the following values for each and every sample:
 
 * **dimension** (vertical size of the video, in pixels)
 * **fps** (number of frames per second of the video)
 * **size** (in memory, in bytes)
-* **IFCS-euclidean** (euclidean distance of the rendition's IFCS time series to that of its original)
-* **IFCS-manhattan** ((euclidean distance of the rendition's IFCS time series to that of its original))
-* **IFCS-max** 
-* **IFCS-mean**
-* **IFCS-std**
-* **IFNCC-euclidean**
-* **IFNCC-manhattan**
-* **IFNCC-max**
-* **IFNCC-mean**
-* **IFNCC-std**
-* **IFDCTD-euclidean**
-* **IFDCTD-manhattan**
-* **IFDCTD-max**
-* **IFDCTD-mean**
-* **IFDCTD-std**
-* **temporal_difference-euclidean**
-* **temporal_difference-manhattan**
-* **temporal_difference-max**
-* **temporal_difference-mean**
-* **temporal_difference-std**
-* **temporal_gaussian-euclidean**
-* **temporal_gaussian-manhattan**
-* **temporal_gaussian-max**
-* **temporal_gaussian-mean**
-* **temporal_gaussian-std**
-* **IFHD-euclidean**
-* **IFHD-manhattan**
-* **IFHD-max**
-* **IFHD-mean**
-* **IFHD-std**
+* **IFCD-euclidean** (euclidean distance of the rendition's IFCD time series to that of its original)
+* **IFCD-manhattan** (manhattan distance of the rendition's IFCD time series to that of its original)
+* **IFCD-max** (maximum value of the rendition's IFCD time series)
+* **IFCD-mean** (mean value of the rendition's IFCD time series)
+* **IFCD-std** (standard deviation of the rendition's IFCD time series)
+* **IFNCC-euclidean** (euclidean distance of the rendition's IFNCC time series to that of its original)
+* **IFNCC-manhattan** (manhattan distance of the rendition's IFNCC time series to that of its original)
+* **IFNCC-max** (maximum value of the rendition's IFNCC time series)
+* **IFNCC-mean** (mean value of the rendition's IFNCC time series)
+* **IFNCC-std** (standard deviation of the rendition's IFNCC time series)
+* **IFDCTD-euclidean** (euclidean distance of the rendition's IFDCTD time series to that of its original)
+* **IFDCTD-manhattan** (manhattan distance of the rendition's IFDCTD time series to that of its original)
+* **IFDCTD-max** (maximum value of the rendition's IFDCTD time series)
+* **IFDCTD-mean** (mean value of the rendition's IFDCTD time series)
+* **IFDCTD-std** (standard deviation of the rendition's IFDCTD time series)
+* **IFPD-euclidean** (euclidean distance of the rendition's IFPD time series to that of its original)
+* **IFPD-manhattan** (manhattan distance of the rendition's IFPD time series to that of its original)
+* **IFPD-max** (maximum value of the rendition's IFPD time series)
+* **IFPD-mean** (mean value of the rendition's IFPD time series)
+* **IFPD-std** (standard deviation of the rendition's IFPD time series)
+* **IFLPD-euclidean** (euclidean distance of the rendition's IFLPD time series to that of its original)
+* **IFLPD-manhattan** (manhattan distance of the rendition's IFLPD time series to that of its original)
+* **IFLPD-max** (maximum value of the rendition's IFLPD time series)
+* **IFLPD-mean** (mean value of the rendition's IFLPD time series)
+* **IFLPD-std** (standard deviation of the rendition's IFLPD time series)
+* **IFHD-euclidean** (euclidean distance of the rendition's IFHD time series to that of its original)
+* **IFHD-manhattan** (manhattan distance of the rendition's IFHD time series to that of its original)
+* **IFHD-max** (maximum value of the rendition's IFHD time series)
+* **IFHD-mean** (mean value of the rendition's IFHD time series)
+* **IFHD-std** (standard deviation of the rendition's IFHD time series)
+
+
 
 
 #### References
