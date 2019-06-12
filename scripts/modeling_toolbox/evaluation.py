@@ -357,7 +357,7 @@ def xg_boost(x_train, y_train, x_test, y_test, xg_boost_results):
             'projection': 'PCA'}, ignore_index=True)
 
         classifier = xgb.XGBClassifier()
-        grid = {'max_depth':10}
+        grid = {'max_depth': 10}
         classifier.set_params(**grid)
 
         classifier.fit(x_reduced_rp, y_train)
@@ -482,7 +482,3 @@ def reduce_dimensionality(n_components, train, test, method, attack=None):
 
     attack = matrix.transform(attack)
     return train, test, attack
-
-
-
-
