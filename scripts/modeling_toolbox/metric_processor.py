@@ -24,14 +24,7 @@ class MetricProcessor:
 
         df = pd.DataFrame(data)
         del data
-        histogram_range = np.arange(self.bins)
         attack_IDs = []
-
-        for column in df.columns:
-            if 'series' in column:
-                for i in histogram_range:
-                    df['{}-hist-{}'.format(column, i)] = 0.0
-                    df['{}-mean-{}'.format(column, i)] = 0.0
 
         for row_index, row in df.iterrows():
 
@@ -41,6 +34,13 @@ class MetricProcessor:
                 attack_IDs.append(0)
 
             if self.bins != 0:
+                histogram_range = np.arange(self.bins)
+                for column in df.columns:
+                    if 'series' in column:
+                        for i in histogram_range:
+                            df['{}-hist-{}'.format(column, i)] = 0.0
+                            df['{}-mean-{}'.format(column, i)] = 0.0
+
                 for column in self.series_features_list:
                     time_series = np.fromstring(row[column].replace('[', '').replace(']', ''), dtype=np.float, sep=' ')
                     histogram = np.histogram(time_series, bins=histogram_range, density=True)[0]
@@ -88,9 +88,9 @@ class MetricProcessor:
             df_test_1 = df_test_all[df_test_all['attack_ID'] == 1]
             df_test_0 = df_test_all[df_test_all['attack_ID'] == 0]
 
-            df_sample_test = df_test_0.sample(df_test_0.shape[0])
+            df_sample_test = df_test_0.sample(df_test_1.shape[0])
             df_test = df_test_1.append(df_sample_test)
-            df_test = df_test.sample(frac=0.4)
+            df_test = df_test.sample(frac=1)
 
             x_test_all = np.asarray(x_test_all)
             y_test_all = df_test_all['attack_ID']
