@@ -1,13 +1,10 @@
-import os
 import click
 import pickle
-import pandas as pd
 import numpy as np
 import urllib.request
 import time
 import tarfile
 import json
-
 import sys
 
 sys.path.insert(0, 'scripts/asset_processor')
