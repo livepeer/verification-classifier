@@ -14,7 +14,8 @@ class MetricProcessor:
                                      'temporal_cross_correlation-series',
                                      'temporal_dct-series',
                                      'temporal_difference-series',
-                                     'temporal_histogram_distance-series']
+                                     'temporal_histogram_distance-series',
+                                     'temporal_gaussian-series']
         self.info_columns = ['attack_ID', 'title', 'attack']
 
     def read_and_process_data(self):
