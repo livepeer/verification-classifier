@@ -102,29 +102,18 @@ class video_metrics:
 
         return max_val
 
-    @staticmethod
-    def evaluate_difference_canny_instant(reference_frame, next_reference_frame, next_rendition_frame):
+    def evaluate_difference_canny_instant(self, reference_frame, rendition_frame):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent, applying a Canny filter
-
-        # Grab the frame skip_frames ahead of the present rendition
-
-        scale_width = next_rendition_frame.shape[0]
-        scale_height = next_rendition_frame.shape[1]
-
-        # Compute the number of different pixels
-        total_pixels = scale_width * scale_height
 
         # Compute the Canny edges for the reference frame, its next frame and the next frame of the rendition
         lower = 100
         upper = 200
 
-        current_reference_edges = cv2.Canny(reference_frame, lower, upper)
-        next_reference_edges = cv2.Canny(next_reference_frame, lower, upper)
-        next_rendition_edges = cv2.Canny(next_rendition_frame, lower, upper)
+        reference_edges = cv2.Canny(reference_frame, lower, upper)
+        rendition_edges = cv2.Canny(rendition_frame, lower, upper)
 
-        # Compute the difference between reference frame and its next frame
-        reference_difference = np.array(next_reference_edges - current_reference_edges, dtype='uint8')
+        return self.mse(reference_edges, rendition_edges)
 
     @staticmethod
     def evaluate_ssim_instant(reference_frame, rendition_frame):
@@ -133,37 +122,21 @@ class video_metrics:
         return ssim(reference_frame, rendition_frame,
                   data_range=rendition_frame.max() - rendition_frame.min())
 
-        # Create a kernel for dilating the Canny filtered images
-        kernel = np.ones((int(scale_width * 0.1), int(scale_height * 0.1)),'uint8')
-
-        # Apply the kernel to dilate and highlight the differences
-        reference_difference_dilation = cv2.dilate(reference_difference, kernel, iterations=1)
-        rendition_difference_dilation = cv2.dilate(rendition_difference, kernel, iterations=1)
-
-        # Compute the difference ratio between reference and its next
-        if np.count_nonzero(reference_difference_dilation) != 0:
-            difference_reference_ratio = np.count_nonzero(reference_difference_dilation) / total_pixels
-        else:
-            difference_reference_ratio = 0.00000001
-        # Compute the difference ratio between reference and its next in the rendition
-        difference_rendition_ratio = np.count_nonzero(rendition_difference_dilation) / total_pixels
-
-        return difference_rendition_ratio / difference_reference_ratio
-    
-    def evaluate_psnr_instant(self, reference_frame,  next_rendition_frame):
+    def evaluate_psnr_instant(self, reference_frame,  rendition_frame):
         # Function to compute the instantaneous PSNR between a frame
-        # and its subsequent within a rendition
+        #  and its correspondant in the rendition
 
-        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_rendition_frame)
+        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
         difference_psnr = self.psnr(scaled_reference, scaled_rendition)
         return difference_psnr
 
-    def evaluate_mse_instant(self, reference_frame, next_rendition_frame):
+    def evaluate_mse_instant(self, reference_frame, rendition_frame):
         # Function to compute the instantaneous difference between a frame
-        # and its subsequent
+        #  and its correspondant in the rendition
 
-        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_rendition_frame)
+        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
         difference_mse = self.mse(scaled_reference, scaled_rendition)
+
         return difference_mse
 
     @staticmethod
@@ -233,23 +206,22 @@ class video_metrics:
 
             if metric == 'temporal_psnr':
                 # Compute the temporal inter frame psnr                
+                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame_gray, rendition_frame_gray)
+
             if metric == 'temporal_ssim':
                 # Compute the temporal inter frame ssim                
                 rendition_metrics[metric] = self.evaluate_ssim_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_mse':
-                # Compute the temporal inter frame psnr                
-                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame_gray, next_reference_frame_gray)
+                # Compute the temporal inter frame mse                
+                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_canny':
                 # Compute the temporal inter frame difference of the canny version of the frame
-                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame_gray,
-                                                                                   next_reference_frame_gray,
-                                                                                   rendition_frame_gray)
+                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_cross_correlation':
-                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray,
-                                                                                    rendition_frame_gray)
+                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_dct':
                 rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, rendition_frame_gray)
