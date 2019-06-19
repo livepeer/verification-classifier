@@ -13,7 +13,8 @@ class video_metrics:
         self.metrics_list = metrics_list
         self.dimension = dimension
         self.profiling = do_profiling
-        self.cpu_profiler = cpu_profiler
+        if do_profiling:
+            self.cpu_profiler = cpu_profiler
         
 
     @staticmethod
@@ -190,7 +191,6 @@ class video_metrics:
 
         # Some metrics only need the luminance channel
         reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-        next_reference_frame_gray = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
         rendition_frame_gray = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
         next_rendition_frame_gray = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
 

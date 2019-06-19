@@ -6,7 +6,7 @@ from video_metrics import video_metrics
 from concurrent.futures.thread import ThreadPoolExecutor
 from scipy.spatial import distance
 from memory_profiler import profile as mem_profiler
-import line_profiler
+
 
 
 class video_asset_processor:
@@ -36,7 +36,11 @@ class video_asset_processor:
         self.height = self.original.get(cv2.CAP_PROP_FRAME_HEIGHT)                              # Obtains vertical dimension of the frames of the original
         self.width = self.original.get(cv2.CAP_PROP_FRAME_WIDTH)                                # Obtains horizontal dimension of the frames of the original
         self.dimensions = '{}:{}'.format(int(self.width), int(self.height))                     # Collects both dimensional values in a string
-        self.cpu_profiler = line_profiler.LineProfiler()
+        if do_profiling:
+            import line_profiler  
+            self.cpu_profiler = line_profiler.LineProfiler()
+        else:
+            self.cpu_profiler=None
         self.do_profiling = do_profiling
         self.video_metrics = video_metrics(self.metrics_list,
                                            self.skip_frames,
