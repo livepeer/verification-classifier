@@ -193,7 +193,8 @@ class video_metrics:
         rendition_frame = gaussian(rendition_frame, sigma=sigma)
 
         mse = mean_squared_error(reference_frame, rendition_frame)
-        return mse*self.dimension
+
+        return mse
 
     def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
