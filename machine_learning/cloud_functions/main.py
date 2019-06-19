@@ -29,7 +29,7 @@ def initialize():
     pd.set_option('display.max_colwidth', -1)
 
     namespace = 'livepeer-verifier-training'
-    client = create_client('lateral-yew-239912')
+    client = create_client('epiclabs')
     query = client.query(kind='__kind__',namespace=namespace)
     query.keys_only()
     jobs_dict = {}
