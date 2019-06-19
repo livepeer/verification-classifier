@@ -4,7 +4,7 @@ from scipy.spatial import distance
 import cv2
 from skimage.filters import gaussian
 from sklearn.metrics import mean_squared_error
-
+from skimage.measure import compare_ssim as ssim
 
 class video_metrics:
     def __init__(self, metrics_list, skip_frames, hash_size, dimension, cpu_profiler, do_profiling):
@@ -126,8 +126,12 @@ class video_metrics:
         # Compute the difference between reference frame and its next frame
         reference_difference = np.array(next_reference_edges - current_reference_edges, dtype='uint8')
 
-        # Compute the difference between reference frame and its corresponding next frame in the rendition
-        rendition_difference = np.array(next_rendition_edges - current_reference_edges, dtype='uint8')
+    @staticmethod
+    def evaluate_ssim_instant(reference_frame, rendition_frame):
+        # Function to compute the instantaneous SSIM between a frame
+        # and its correspondant in the rendition
+        return ssim(reference_frame, rendition_frame,
+                  data_range=rendition_frame.max() - rendition_frame.min())
 
         # Create a kernel for dilating the Canny filtered images
         kernel = np.ones((int(scale_width * 0.1), int(scale_height * 0.1)),'uint8')
@@ -208,6 +212,7 @@ class video_metrics:
             self.evaluate_gaussian_instant = self.cpu_profiler(self.evaluate_gaussian_instant)
             self.evaluate_mse_instant = self.cpu_profiler(self.evaluate_mse_instant)
             self.evaluate_psnr_instant = self.cpu_profiler(self.evaluate_psnr_instant)
+            self.evaluate_ssim_instant = self.cpu_profiler(self.evaluate_ssim_instant)
             self.rescale_pair = self.cpu_profiler(self.rescale_pair)
 
         # Some metrics only need the luminance channel
@@ -228,7 +233,9 @@ class video_metrics:
 
             if metric == 'temporal_psnr':
                 # Compute the temporal inter frame psnr                
-                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame_gray, next_rendition_frame_gray)
+            if metric == 'temporal_ssim':
+                # Compute the temporal inter frame ssim                
+                rendition_metrics[metric] = self.evaluate_ssim_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_mse':
                 # Compute the temporal inter frame psnr                
