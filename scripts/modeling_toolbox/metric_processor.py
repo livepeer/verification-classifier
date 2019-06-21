@@ -105,7 +105,7 @@ class MetricProcessor:
             df_test = df_test.sample(frac=1)
 
             x_test_all = np.asarray(x_test_all)
-            y_test_all = df_test_all['attack_ID']
+            y_test_all = np.where(df_test_all['attack_ID']>=10, 0, 1)
 
             x_train = df_train.drop(['title',
                                      'attack',
@@ -115,8 +115,8 @@ class MetricProcessor:
                                    'attack',
                                    'attack_ID'], axis=1)
 
-            y_train = df_train['attack_ID']
-            y_test = df_test['attack_ID']
+            y_train = np.where(df_train['attack_ID']>=10, 0, 1)
+            y_test = np.where(df_test['attack_ID']>=10, 0, 1)
 
             return (x_test_all, y_test_all), (x_train, y_train), (x_test, y_test)
 
@@ -222,3 +222,4 @@ class MetricProcessor:
             elif label.split('-')[0] in upscale_features:
                 df[label] = df.apply(lambda row: (row[label]*row['dimension']), axis=1)
         return df
+            
