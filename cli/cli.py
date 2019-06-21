@@ -50,48 +50,47 @@ def cli(asset, renditions, do_profiling):
 
     prediction_time = 0
     try:
-    # Cleanup the resulting pandas dataframe and convert it to a numpy array
-    # to pass to the prediction model
-    for column in metrics_df.columns:
-        if 'series' in column:
-            metrics_df = metrics_df.drop([column], axis=1)
+        # Cleanup the resulting pandas dataframe and convert it to a numpy array
+        # to pass to the prediction model
+        for column in metrics_df.columns:
+            if 'series' in column:
+                metrics_df = metrics_df.drop([column], axis=1)
 
-    features.remove('attack_ID')
+        features.remove('attack_ID')
 
-    metrics_df = metrics_df[features]
-    metrics_df = metrics_df.drop('title', axis=1)
-    metrics_df = metrics_df.drop('attack', axis=1)
-    X = np.asarray(metrics_df)
-    # Scale data:
-    X = loaded_scaler.transform(X)
+        metrics_df = metrics_df[features]
+        metrics_df = metrics_df.drop('title', axis=1)
+        metrics_df = metrics_df.drop('attack', axis=1)
+        X = np.asarray(metrics_df)
+        # Scale data:
+        X = loaded_scaler.transform(X)
 
-    matrix = pickle.load(open('reduction_{}.pickle.dat'.format(model_name), 'rb'))
-    X = matrix.transform(X)
+        matrix = pickle.load(open('reduction_{}.pickle.dat'.format(model_name), 'rb'))
+        X = matrix.transform(X)
 
-    # Make predictions for given data
-    start = time.clock()
-    y_pred = loaded_model.predict(X)
-    prediction_time = time.clock() - start
+        # Make predictions for given data
+        start = time.clock()
+        y_pred = loaded_model.predict(X)
+        prediction_time = time.clock() - start
 
-    # Display predictions
-    i = 0
-    for rendition in renditions_list:
-        if y_pred[i] == 0:
-            attack = ''
-        else:
-            attack = ' not'
+        # Display predictions
+        i = 0
+        for rendition in renditions_list:
+            if y_pred[i] == 0:
+                attack = ''
+            else:
+                attack = ' not'
 
-        print('{} is{} an attack'.format(rendition, attack))
-        i = i + 1
+            print('{} is{} an attack'.format(rendition, attack))
+            i = i + 1
     except:
         print('Prediction failed')
 
-    if do_profiling:
-        print('Total time:', time.clock() - total_start)
-        print('Download time:', download_time)
-        print('Initialization time:', initialize_time)
-        print('Process time:', process_time)
-        print('Prediction time:', prediction_time)
+    print('Total time:', time.clock() - total_start)
+    print('Download time:', download_time)
+    print('Initialization time:', initialize_time)
+    print('Process time:', process_time)
+    print('Prediction time:', prediction_time)
 
 
 def download_models(url):
