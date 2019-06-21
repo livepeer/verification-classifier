@@ -42,7 +42,7 @@ def cli(asset, renditions, do_profiling):
 
     # Process and compare original asset against the provided list of renditions
     start = time.clock()
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4, do_profiling)
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 1, do_profiling)
     initialize_time = time.clock() - start
 
     start = time.clock()
