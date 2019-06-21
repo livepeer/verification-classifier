@@ -21,7 +21,7 @@ from imports.video_asset_processor import video_asset_processor
 
 datastore_client = datastore.Client()
 
-def cli(asset, renditions):
+def compute_metrics(asset, renditions):
     start_time = time.time()
 
     original_asset = asset
@@ -35,10 +35,11 @@ def cli(asset, renditions):
                     'temporal_dct',
                     'temporal_ssim',
                     'temporal_psnr',
-                    'temporal_mse'
+                    'temporal_mse',
+                    'temporal_entropy'
                     ]
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4, False)
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 1, False)
 
     metrics_df = asset_processor.process()
 
@@ -50,7 +51,7 @@ def cli(asset, renditions):
         add_asset_input(datastore_client,'{}/{}'.format(row['title'],row['attack']), line)
 
     elapsed_time = time.time() - start_time
-    print('Prediction time:', elapsed_time)
+    print('Computation time:', elapsed_time)
 
 def add_asset_input(client, title, input_data):
     entity_name = 'asset_input'
@@ -154,4 +155,4 @@ def measure_asset_http(request):
             print('Unable to download {}'.format(url))
             pass
 
-    cli(asset_path, renditions_paths)
+    compute_metrics(asset_path, renditions_paths)
