@@ -5,6 +5,7 @@ import cv2
 from skimage.filters import gaussian
 from sklearn.metrics import mean_squared_error
 from skimage.measure import compare_ssim as ssim
+from skimage.measure import shannon_entropy as entropy
 
 class video_metrics:
     def __init__(self, metrics_list, skip_frames, hash_size, dimension, cpu_profiler, do_profiling):
@@ -76,6 +77,15 @@ class video_metrics:
         difference_ratio = np.count_nonzero(difference) / total_pixels
     
         return difference_ratio
+
+
+    @staticmethod
+    def evaluate_entropy_instant(reference_frame, rendition_frame):
+      # Function that computes the difference in Shannon entropy between
+      # two images
+        entropy_difference = entropy(reference_frame) - entropy(rendition_frame)
+        return  entropy_difference
+        
 
     @staticmethod
     def evaluate_dct_instant(reference_frame, rendition_frame):
@@ -181,6 +191,7 @@ class video_metrics:
         
             self.evaluate_cross_correlation_instant = self.cpu_profiler(self.evaluate_cross_correlation_instant)
             self.evaluate_dct_instant = self.cpu_profiler(self.evaluate_dct_instant)
+            self.evaluate_entropy_instant = self.cpu_profiler(self.evaluate_entropy_instant)
             self.evaluate_difference_canny_instant = self.cpu_profiler(self.evaluate_difference_canny_instant)
             self.evaluate_difference_instant = self.cpu_profiler(self.evaluate_difference_instant)
             self.evaluate_gaussian_instant = self.cpu_profiler(self.evaluate_gaussian_instant)
@@ -228,6 +239,9 @@ class video_metrics:
 
             if metric == 'temporal_gaussian':
                 rendition_metrics[metric] = self.evaluate_gaussian_instant(reference_frame_gray, rendition_frame_gray)
+
+            if metric == 'temporal_entropy':
+                rendition_metrics[metric] = self.evaluate_entropy_instant(reference_frame_gray, rendition_frame_gray)
 
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)
