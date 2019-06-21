@@ -37,8 +37,7 @@ def cli(asset, renditions, do_profiling):
     # Prepare input variables
     original_asset = asset
     renditions_list = list(renditions)
-    metrics_list = ['temporal_gaussian', 'temporal_difference', 'temporal_canny', 'temporal_histogram_distance',
-                    'temporal_cross_correlation', 'temporal_dct']
+    metrics_list = ['temporal_gaussian', 'temporal_dct']
 
     # Process and compare original asset against the provided list of renditions
     start = time.clock()
