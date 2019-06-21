@@ -32,7 +32,7 @@ For example if we have symbolic links in the `data` folder pointing to `/videos/
 Once inside the Docker image, the python script has the following structure:
 
 ```
-python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --renditions path-to-rendition ... --model_url url-to-model
+python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --renditions path-to-rendition 
 ```
 Note that you can add as many --rendition (-r) as you want.
 
