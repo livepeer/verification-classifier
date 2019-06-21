@@ -49,6 +49,8 @@ def cli(asset, renditions, do_profiling):
     metrics_df = asset_processor.process()
     process_time = time.clock() - start
 
+    prediction_time = 0
+    try:
     # Cleanup the resulting pandas dataframe and convert it to a numpy array
     # to pass to the prediction model
     for column in metrics_df.columns:
@@ -82,6 +84,8 @@ def cli(asset, renditions, do_profiling):
 
         print('{} is{} an attack'.format(rendition, attack))
         i = i + 1
+    except:
+        print('Prediction failed')
 
     if do_profiling:
         print('Total time:', time.clock() - total_start)
