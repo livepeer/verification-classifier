@@ -36,10 +36,13 @@ python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --r
 ```
 Note that you can add as many --rendition (-r) as you want.
 
-For the models, you can try one of any [from the official repository of the verifier](https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models):
-* Random Forest: https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models/random_forest.pickle.dat
-* XGBoost: https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models/XGBoost.pickle.dat
-* AdaBoost: https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models/AdaBoost.pickle.dat
+The model that is being used is the best one yet generated: XGBoost. This model has the following scores:
+
+* TPR: 0.9792
+* TNR: 0.9648
+* F20: 0.9787
+
+And it is saved in the following url: https://github.com/livepeer/verification-classifier/blob/master/machine_learning/output/models/model.tar.gz?raw=true
 
 This list is subject to extension.
 
