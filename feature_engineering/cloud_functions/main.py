@@ -36,7 +36,8 @@ def compute_metrics(asset, renditions):
                     'temporal_ssim',
                     'temporal_psnr',
                     'temporal_mse',
-                    'temporal_entropy'
+                    'temporal_entropy',
+                    'temporal_lbp'
                     ]
 
     asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 1, False)
@@ -54,7 +55,7 @@ def compute_metrics(asset, renditions):
     print('Computation time:', elapsed_time)
 
 def add_asset_input(client, title, input_data):
-    entity_name = 'asset_input'
+    entity_name = 'item_input'
     key = client.key(entity_name, title, namespace = 'livepeer-verifier-training')
     video = datastore.Entity(key)
     #input_data['created'] = datetime.datetime.utcnow()
@@ -82,13 +83,21 @@ def measure_asset_http(request):
     original_bucket = 'livepeer-verifier-originals'
     renditions_bucket = 'livepeer-verifier-renditions'
     
+    # Create the folder for the original asset
+    local_folder = '/tmp/1080p'
+    if not os.path.exists(local_folder):
+        os.makedirs(local_folder)
+
     # Get the file that has been uploaded to GCS
-    asset_path = '/tmp/{}'.format(asset_name)
+    asset_path = '{}/{}'.format(local_folder, asset_name)
+    
     print(asset_path)
+    renditions_paths=[]
     url = 'https://storage.googleapis.com/{}/{}'.format(original_bucket, asset_name)
     print('Downloading {}'.format(url))
     try:
         urllib.request.urlretrieve(url, asset_path)
+        renditions_paths.append(asset_path)
     except:
         print('Unable to download {}'.format(url))
         pass
@@ -136,7 +145,6 @@ def measure_asset_http(request):
                     '144p_rotate_90_clockwise',
                     ]
 
-    renditions_paths=[]
     for attack in attacks_list:
         remote_file = '{}/{}'.format(attack, asset_name)
         url = 'https://storage.googleapis.com/{}/{}'.format(renditions_bucket, remote_file)
