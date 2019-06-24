@@ -5,7 +5,8 @@ import cv2
 from skimage.filters import gaussian
 from sklearn.metrics import mean_squared_error
 from skimage.measure import compare_ssim as ssim
-from skimage.measure import shannon_entropy as entropy
+from skimage.measure import shannon_entropy
+from skimage.feature import local_binary_pattern as LBP
 
 class video_metrics:
     def __init__(self, metrics_list, skip_frames, hash_size, dimension, cpu_profiler, do_profiling):
@@ -81,11 +82,29 @@ class video_metrics:
 
     @staticmethod
     def evaluate_entropy_instant(reference_frame, rendition_frame):
-      # Function that computes the difference in Shannon entropy between
-      # two images
-        entropy_difference = entropy(reference_frame) - entropy(rendition_frame)
+        # Function that computes the difference in Shannon entropy between
+        # two images
+        total_pixels = reference_frame.shape[0] * reference_frame.shape[1]
+        entropy_difference = shannon_entropy(reference_frame) - shannon_entropy(rendition_frame)
+        
         return  entropy_difference
         
+    @staticmethod
+    def evaluate_lbp_instant(reference_frame, rendition_frame):
+        # Function that computes the difference in Local Binary patterns between
+        # two images
+        
+        # Settings for LBP
+        radius = 3
+        n_points = 8 * radius
+        METHOD = 'uniform'
+
+        total_pixels = reference_frame.shape[0] * reference_frame.shape[1]
+        lbp_difference = LBP(reference_frame, n_points, radius, METHOD) - LBP(rendition_frame, n_points, radius, METHOD)
+        
+        return  np.count_nonzero(lbp_difference) / total_pixels
+        
+
 
     @staticmethod
     def evaluate_dct_instant(reference_frame, rendition_frame):
@@ -192,6 +211,7 @@ class video_metrics:
             self.evaluate_cross_correlation_instant = self.cpu_profiler(self.evaluate_cross_correlation_instant)
             self.evaluate_dct_instant = self.cpu_profiler(self.evaluate_dct_instant)
             self.evaluate_entropy_instant = self.cpu_profiler(self.evaluate_entropy_instant)
+            self.evaluate_lbp_instant = self.cpu_profiler(self.evaluate_lbp_instant)
             self.evaluate_difference_canny_instant = self.cpu_profiler(self.evaluate_difference_canny_instant)
             self.evaluate_difference_instant = self.cpu_profiler(self.evaluate_difference_instant)
             self.evaluate_gaussian_instant = self.cpu_profiler(self.evaluate_gaussian_instant)
@@ -242,6 +262,9 @@ class video_metrics:
 
             if metric == 'temporal_entropy':
                 rendition_metrics[metric] = self.evaluate_entropy_instant(reference_frame_gray, rendition_frame_gray)
+
+            if metric == 'temporal_lbp':
+                rendition_metrics[metric] = self.evaluate_lbp_instant(reference_frame_gray, rendition_frame_gray)
 
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)
