@@ -18,7 +18,8 @@ class MetricProcessor:
                                      'temporal_gaussian-series',
                                      'temporal_ssim-series',
                                      'temporal_psnr-series',
-                                     'temporal_entropy-series']
+                                     'temporal_entropy-series',
+                                     'temporal_lbp-series']
 
         self.info_columns = ['attack_ID', 'title', 'attack']
 
@@ -200,7 +201,12 @@ class MetricProcessor:
                         'temporal_entropy-manhattan',
                         'temporal_entropy-max', 
                         'temporal_entropy-mean',
-                        'temporal_entropy-std'
+                        'temporal_entropy-std',
+                        'temporal_lbp-euclidean',
+                        'temporal_lbp-manhattan',
+                        'temporal_lbp-max', 
+                        'temporal_lbp-mean',
+                        'temporal_lbp-std'
                         ]
         df = pd.DataFrame(data)
         downscale_features = ['temporal_psnr', 
@@ -213,7 +219,8 @@ class MetricProcessor:
                             'temporal_canny', 
                             'temporal_gaussian', 
                             'temporal_histogram_distance',
-                            'temporal_entropy'
+                            'temporal_entropy',
+                            'temporal_lbp'
                         ]
 
         for label in feat_labels:
