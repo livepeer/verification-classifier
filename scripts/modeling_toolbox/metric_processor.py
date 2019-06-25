@@ -27,7 +27,7 @@ class MetricProcessor:
         data = pd.read_csv(self.path)
         if self.reduced:
             data = data[:20000]
-        renditions_list = ['attack', '720p', '480p', '360p', '240p', '144p']
+        renditions_list = ['attack', '1080p', '720p', '480p', '360p', '240p', '144p']
 
         df = pd.DataFrame(data)
 
