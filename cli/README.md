@@ -36,13 +36,13 @@ python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --r
 ```
 Note that you can add as many --rendition (-r) as you want.
 
-For the models, you can try one of any [from the official repository of the verifier](https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models):
-* Random Forest: https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models/random_forest.pickle.dat
-* XGBoost: https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models/XGBoost.pickle.dat
-* AdaBoost: https://github.com/livepeer/verification-classifier/raw/master/machine_learning/output/models/AdaBoost.pickle.dat
+The model that is being used is a thresholding of the mean value of the gaussian time-series. This model has the following scores:
 
-This list is subject to extension.
+* TPR: 0.9942
+* TNR: 0.8342
+* F20: 0.9819
 
+This model only uses information of the legit assets, making it attack-agnostic.
 ## 4.- Profiling
 
 It is possible to do profiling of the processes involved in the computation of the video metrics and subsequent metrics needed for inference.

@@ -14,33 +14,39 @@ class MetricProcessor:
                                      'temporal_cross_correlation-series',
                                      'temporal_dct-series',
                                      'temporal_difference-series',
-                                     'temporal_histogram_distance-series']
+                                     'temporal_histogram_distance-series',
+                                     'temporal_gaussian-series']
         self.info_columns = ['attack_ID', 'title', 'attack']
 
     def read_and_process_data(self):
         data = pd.read_csv(self.path)
         if self.reduced:
             data = data[:20000]
+        renditions_list = ['attack', '1080p', '720p', '480p', '360p', '240p', '144p']
 
         df = pd.DataFrame(data)
         del data
-        histogram_range = np.arange(self.bins)
         attack_IDs = []
-
-        for column in df.columns:
-            if 'series' in column:
-                for i in histogram_range:
-                    df['{}-hist-{}'.format(column, i)] = 0.0
-                    df['{}-mean-{}'.format(column, i)] = 0.0
 
         for row_index, row in df.iterrows():
 
-            if row['attack'] in ['1080p', '720p', '480p', '360p', '240p', '144p']:
-                attack_IDs.append(1)
+            if row['attack'] in renditions_list:
+                attack_IDs.append(renditions_list.index(row['attack']))
+            elif 'watermark' in row['attack']:
+                    attack_IDs.append(11)
+            elif 'low_bitrate_4' in row['attack']:
+                    attack_IDs.append(12)
             else:
-                attack_IDs.append(0)
+                attack_IDs.append(10)
 
             if self.bins != 0:
+                histogram_range = np.arange(self.bins)
+                for column in df.columns:
+                    if 'series' in column:
+                        for i in histogram_range:
+                            df['{}-hist-{}'.format(column, i)] = 0.0
+                            df['{}-mean-{}'.format(column, i)] = 0.0
+
                 for column in self.series_features_list:
                     time_series = np.fromstring(row[column].replace('[', '').replace(']', ''), dtype=np.float, sep=' ')
                     histogram = np.histogram(time_series, bins=histogram_range, density=True)[0]
@@ -75,8 +81,8 @@ class MetricProcessor:
             df_train_all = df[0:num_train]
             df_test_all = df[num_train:]
 
-            df_train_1 = df_train_all[df_train_all['attack_ID'] == 1]
-            df_train_0 = df_train_all[df_train_all['attack_ID'] == 0]
+            df_train_1 = df_train_all[df_train_all['attack_ID'] < 10]
+            df_train_0 = df_train_all[df_train_all['attack_ID'] >= 10]
 
             df_sample_train = df_train_0.sample(df_train_1.shape[0])
             df_train = df_train_1.append(df_sample_train)
@@ -85,12 +91,12 @@ class MetricProcessor:
             x_test_all = df_test_all.drop(['title',
                                            'attack',
                                            'attack_ID'], axis=1)
-            df_test_1 = df_test_all[df_test_all['attack_ID'] == 1]
-            df_test_0 = df_test_all[df_test_all['attack_ID'] == 0]
+            df_test_1 = df_test_all[df_test_all['attack_ID'] < 10]
+            df_test_0 = df_test_all[df_test_all['attack_ID'] >= 10]
 
-            df_sample_test = df_test_0.sample(df_test_0.shape[0])
+            df_sample_test = df_test_0.sample(df_test_1.shape[0])
             df_test = df_test_1.append(df_sample_test)
-            df_test = df_test.sample(frac=0.4)
+            df_test = df_test.sample(frac=1)
 
             x_test_all = np.asarray(x_test_all)
             y_test_all = df_test_all['attack_ID']
@@ -110,8 +116,8 @@ class MetricProcessor:
 
         elif self.learning_type == 'UL':
 
-            df_1 = df[df['attack_ID'] == 1]
-            df_0 = df[df['attack_ID'] == 0]
+            df_1 = df[df['attack_ID'] < 10]
+            df_0 = df[df['attack_ID'] >= 10]
 
             num_train = int(df_1.shape[0]*train_prop)
             df_train = df_1[0:num_train]
