@@ -48,15 +48,13 @@ def cli(asset, renditions, do_profiling, seconds=1):
     prediction_time = time.clock() - start
 
     # Display predictions
-    i = 0
-    for rendition in renditions_list:
+    for i, rendition in enumerate(renditions_list):
         if y_pred[i]:
             attack = ''
         else:
             attack = ' not'
 
         print('{} is{} an attack'.format(rendition, attack))
-        i = i + 1
 
     if do_profiling:
         print('Total time:', time.clock() - total_start)

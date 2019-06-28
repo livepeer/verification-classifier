@@ -230,7 +230,7 @@ class video_metrics:
                 rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame_gray, next_rendition_frame_gray)
 
             if metric == 'temporal_mse':
-                # Compute the temporal inter frame psnr                
+                # Compute the temporal inter frame mse
                 rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame_gray, next_reference_frame_gray)
 
             if metric == 'temporal_canny':
