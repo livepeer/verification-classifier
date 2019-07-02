@@ -36,11 +36,11 @@ python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --r
 ```
 Note that you can add as many --rendition (-r) as you want.
 
-The model that is being used is a thresholding of the mean value of the gaussian time-series. This model has the following scores:
+The model that is being used is a One-Class Support Vector Machine. This model has the following scores:
 
-* TPR: 0.9942
-* TNR: 0.8342
-* F20: 0.9819
+* TPR: 0.9923
+* TNR: 0.7502
+* F20: 0.9770
 
 This model only uses information of the legit assets, making it attack-agnostic.
 ## 4.- Profiling
