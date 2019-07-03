@@ -15,7 +15,12 @@ class MetricProcessor:
                                      'temporal_dct-series',
                                      'temporal_difference-series',
                                      'temporal_histogram_distance-series',
-                                     'temporal_gaussian-series']
+                                     'temporal_gaussian-series',
+                                     'temporal_ssim-series',
+                                     'temporal_psnr-series',
+                                     'temporal_entropy-series',
+                                     'temporal_lbp-series']
+
         self.info_columns = ['attack_ID', 'title', 'attack']
 
     def read_and_process_data(self):
@@ -25,6 +30,8 @@ class MetricProcessor:
         renditions_list = ['attack', '1080p', '720p', '480p', '360p', '240p', '144p']
 
         df = pd.DataFrame(data)
+
+        df = self.rescale_to_resolution(df)
         del data
         attack_IDs = []
 
@@ -99,7 +106,7 @@ class MetricProcessor:
             df_test = df_test.sample(frac=1)
 
             x_test_all = np.asarray(x_test_all)
-            y_test_all = df_test_all['attack_ID']
+            y_test_all = np.where(df_test_all['attack_ID']>=10, 0, 1)
 
             x_train = df_train.drop(['title',
                                      'attack',
@@ -109,8 +116,8 @@ class MetricProcessor:
                                    'attack',
                                    'attack_ID'], axis=1)
 
-            y_train = df_train['attack_ID']
-            y_test = df_test['attack_ID']
+            y_train = np.where(df_train['attack_ID']>=10, 0, 1)
+            y_test = np.where(df_test['attack_ID']>=10, 0, 1)
 
             return (x_test_all, y_test_all), (x_train, y_train), (x_test, y_test)
 
@@ -146,3 +153,80 @@ class MetricProcessor:
             return (x_train, x_test, x_attacks), (df_train, df_test, df_attacks)
         else:
             print('Unknown learning type. Use UL for unsupervised learning and SL for supervised learning')
+    def rescale_to_resolution(self, data):
+        feat_labels =  ['dimension', 
+                        'size',
+                        'fps',
+                        'temporal_difference-euclidean', 
+                        'temporal_difference-manhattan',
+                        'temporal_difference-max', 
+                        'temporal_difference-mean',
+                        'temporal_difference-std', 
+                        'temporal_cross_correlation-euclidean', 
+                        'temporal_cross_correlation-manhattan',
+                        'temporal_cross_correlation-max', 
+                        'temporal_cross_correlation-mean',
+                        'temporal_cross_correlation-std',
+                        'temporal_dct-euclidean', 
+                        'temporal_dct-manhattan',
+                        'temporal_dct-max', 
+                        'temporal_dct-mean',
+                        'temporal_dct-std',
+                        'temporal_canny-euclidean', 
+                        'temporal_canny-manhattan',
+                        'temporal_canny-max', 
+                        'temporal_canny-mean',
+                        'temporal_canny-std',
+                        'temporal_gaussian-euclidean', 
+                        'temporal_gaussian-manhattan',
+                        'temporal_gaussian-max', 
+                        'temporal_gaussian-mean',
+                        'temporal_gaussian-std',
+                        'temporal_histogram_distance-euclidean',
+                        'temporal_histogram_distance-manhattan',
+                        'temporal_histogram_distance-max', 
+                        'temporal_histogram_distance-mean',
+                        'temporal_histogram_distance-std',
+                        'temporal_ssim-euclidean',
+                        'temporal_ssim-manhattan',
+                        'temporal_ssim-max', 
+                        'temporal_ssim-mean',
+                        'temporal_ssim-std',
+                        'temporal_psnr-euclidean',
+                        'temporal_psnr-manhattan',
+                        'temporal_psnr-max', 
+                        'temporal_psnr-mean',
+                        'temporal_psnr-std',
+                        'temporal_entropy-euclidean',
+                        'temporal_entropy-manhattan',
+                        'temporal_entropy-max', 
+                        'temporal_entropy-mean',
+                        'temporal_entropy-std',
+                        'temporal_lbp-euclidean',
+                        'temporal_lbp-manhattan',
+                        'temporal_lbp-max', 
+                        'temporal_lbp-mean',
+                        'temporal_lbp-std'
+                        ]
+        df = pd.DataFrame(data)
+        downscale_features = ['temporal_psnr', 
+                      'temporal_ssim', 
+                      'temporal_cross_correlation'
+                     ]
+
+        upscale_features = ['temporal_difference', 
+                            'temporal_dct', 
+                            'temporal_canny', 
+                            'temporal_gaussian', 
+                            'temporal_histogram_distance',
+                            'temporal_entropy',
+                            'temporal_lbp'
+                        ]
+
+        for label in feat_labels:
+            if label.split('-')[0] in downscale_features:
+                df[label] = df.apply(lambda row: (row[label]/row['dimension']), axis=1)
+            elif label.split('-')[0] in upscale_features:
+                df[label] = df.apply(lambda row: (row[label]*row['dimension']), axis=1)
+        return df
+            

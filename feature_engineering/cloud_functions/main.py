@@ -21,15 +21,26 @@ from imports.video_asset_processor import video_asset_processor
 
 datastore_client = datastore.Client()
 
-def cli(asset, renditions):
+def compute_metrics(asset, renditions):
     start_time = time.time()
 
     original_asset = asset
 
     renditions_list = renditions
-    metrics_list = ['temporal_gaussian', 'temporal_difference', 'temporal_canny', 'temporal_histogram_distance', 'temporal_cross_correlation', 'temporal_dct']
+    metrics_list = ['temporal_gaussian', 
+                    'temporal_difference', 
+                    'temporal_canny', 
+                    'temporal_histogram_distance', 
+                    'temporal_cross_correlation', 
+                    'temporal_dct',
+                    'temporal_ssim',
+                    'temporal_psnr',
+                    'temporal_mse',
+                    'temporal_entropy',
+                    'temporal_lbp'
+                    ]
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4, False)
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 1, False)
 
     metrics_df = asset_processor.process()
 
@@ -41,10 +52,10 @@ def cli(asset, renditions):
         add_asset_input(datastore_client,'{}/{}'.format(row['title'],row['attack']), line)
 
     elapsed_time = time.time() - start_time
-    print('Prediction time:', elapsed_time)
+    print('Computation time:', elapsed_time)
 
 def add_asset_input(client, title, input_data):
-    entity_name = 'asset_input'
+    entity_name = 'item_input'
     key = client.key(entity_name, title, namespace = 'livepeer-verifier-training')
     video = datastore.Entity(key)
     #input_data['created'] = datetime.datetime.utcnow()
@@ -72,13 +83,21 @@ def measure_asset_http(request):
     original_bucket = 'livepeer-verifier-originals'
     renditions_bucket = 'livepeer-verifier-renditions'
     
+    # Create the folder for the original asset
+    local_folder = '/tmp/1080p'
+    if not os.path.exists(local_folder):
+        os.makedirs(local_folder)
+
     # Get the file that has been uploaded to GCS
-    asset_path = '/tmp/{}'.format(asset_name)
+    asset_path = '{}/{}'.format(local_folder, asset_name)
+    
     print(asset_path)
+    renditions_paths=[]
     url = 'https://storage.googleapis.com/{}/{}'.format(original_bucket, asset_name)
     print('Downloading {}'.format(url))
     try:
         urllib.request.urlretrieve(url, asset_path)
+        renditions_paths.append(asset_path)
     except:
         print('Unable to download {}'.format(url))
         pass
@@ -126,7 +145,6 @@ def measure_asset_http(request):
                     '144p_rotate_90_clockwise',
                     ]
 
-    renditions_paths=[]
     for attack in attacks_list:
         remote_file = '{}/{}'.format(attack, asset_name)
         url = 'https://storage.googleapis.com/{}/{}'.format(renditions_bucket, remote_file)
@@ -145,4 +163,4 @@ def measure_asset_http(request):
             print('Unable to download {}'.format(url))
             pass
 
-    cli(asset_path, renditions_paths)
+    compute_metrics(asset_path, renditions_paths)

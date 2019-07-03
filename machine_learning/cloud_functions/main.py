@@ -29,14 +29,14 @@ def initialize():
     pd.set_option('display.max_colwidth', -1)
 
     namespace = 'livepeer-verifier-training'
-    client = create_client('lateral-yew-239912')
+    client = create_client('epiclabs')
     query = client.query(kind='__kind__',namespace=namespace)
     query.keys_only()
     jobs_dict = {}
     inputs_df = pd.DataFrame()
 
     print('Getting inputs...')
-    input_kinds = [entity.key.name for entity in query.fetch() if 'asset_input' in entity.key.name]
+    input_kinds = [entity.key.name for entity in query.fetch() if 'item_input' in entity.key.name]
     for kind in input_kinds:
         kind_df = get_jobs_df(kind, namespace)
         kind_df['kind'] = kind
