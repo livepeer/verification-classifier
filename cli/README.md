@@ -36,16 +36,13 @@ python3 scripts/cli.py path-to-original-asset --renditions path-to-rendition --r
 ```
 Note that you can add as many --rendition (-r) as you want.
 
-The model that is being used is the best one yet generated: XGBoost. This model has the following scores:
+The model that is being used is a One-Class Support Vector Machine. This model has the following scores:
 
-* TPR: 0.9792
-* TNR: 0.9648
-* F20: 0.9787
+* TPR: 0.9923
+* TNR: 0.7502
+* F20: 0.9770
 
-And it is saved in the following url: https://github.com/livepeer/verification-classifier/blob/master/machine_learning/output/models/model.tar.gz?raw=true
-
-This list is subject to extension.
-
+This model only uses information of the legit assets, making it attack-agnostic.
 ## 4.- Profiling
 
 It is possible to do profiling of the processes involved in the computation of the video metrics and subsequent metrics needed for inference.

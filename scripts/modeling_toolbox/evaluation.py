@@ -23,6 +23,7 @@ def one_class_svm(x_train, x_test, x_attacks, svm_results):
     nus = [0.01]
     gammas = ['auto']
     dimensions = [int(i*x_test.shape[1]) for i in [0.25, 0.35, 0.5, 0.75, 0.9, 1]]
+    dimensions = list(filter(lambda x: x > 0, dimensions))
 
     for n in dimensions:
 
@@ -56,6 +57,17 @@ def one_class_svm(x_train, x_test, x_attacks, svm_results):
                                                   'TPR_test': tpr_test, 'TNR': tnr, 'model': 'svm', 'auc': area,
                                                   'f_beta': fb, 'projection': 'RP'}, ignore_index=True)
 
+                classifier = svm.OneClassSVM(kernel='rbf', gamma=gamma, nu=nu, cache_size=7000)
+
+                classifier.fit(x_train)
+                fb, area, tnr, tpr_train, tpr_test = unsupervised_evaluation(classifier, x_train,
+                                                                             x_test, x_attacks)
+
+                svm_results = svm_results.append({'nu': nu, 'gamma': gamma, 'n_components': x_test.shape[1],
+                                                  'TPR_train': tpr_train,
+                                                  'TPR_test': tpr_test, 'TNR': tnr, 'model': 'svm', 'auc': area,
+                                                  'f_beta': fb, 'projection': 'None'}, ignore_index=True)
+
     return svm_results
 
 
@@ -65,6 +77,7 @@ def isolation_forest(x_train, x_test, x_attacks, isolation_results):
     estimators = [200, 100]
     contaminations = [0.01]
     dimensions = [int(i*x_test.shape[1]) for i in [0.25, 0.5, 0.9, 1]]
+    dimensions = list(filter(lambda x: x > 0, dimensions))
 
     for n in dimensions:
 
