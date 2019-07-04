@@ -25,22 +25,15 @@ def compute_metrics(asset, renditions):
     start_time = time.time()
 
     original_asset = asset
-
+    seconds = 4
     renditions_list = renditions
     metrics_list = ['temporal_gaussian', 
                     'temporal_difference', 
-                    'temporal_canny', 
                     'temporal_histogram_distance', 
-                    'temporal_cross_correlation', 
-                    'temporal_dct',
-                    'temporal_ssim',
-                    'temporal_psnr',
-                    'temporal_mse',
-                    'temporal_entropy',
-                    'temporal_lbp'
+                    'temporal_dct'
                     ]
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 1, False)
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, False)
 
     metrics_df = asset_processor.process()
 
@@ -55,7 +48,7 @@ def compute_metrics(asset, renditions):
     print('Computation time:', elapsed_time)
 
 def add_asset_input(client, title, input_data):
-    entity_name = 'item_input'
+    entity_name = 'asset_input'
     key = client.key(entity_name, title, namespace = 'livepeer-verifier-training')
     video = datastore.Entity(key)
     #input_data['created'] = datetime.datetime.utcnow()
