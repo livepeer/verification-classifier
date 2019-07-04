@@ -36,7 +36,7 @@ def initialize():
     inputs_df = pd.DataFrame()
 
     print('Getting inputs...')
-    input_kinds = [entity.key.name for entity in query.fetch() if 'item_input' in entity.key.name]
+    input_kinds = [entity.key.name for entity in query.fetch() if 'asset_input' in entity.key.name]
     for kind in input_kinds:
         kind_df = get_jobs_df(kind, namespace)
         kind_df['kind'] = kind
