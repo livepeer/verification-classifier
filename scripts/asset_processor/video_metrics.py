@@ -4,6 +4,9 @@ from scipy.spatial import distance
 import cv2
 from skimage.filters import gaussian
 from sklearn.metrics import mean_squared_error
+from skimage.measure import compare_ssim as ssim
+from skimage.measure import shannon_entropy
+from skimage.feature import local_binary_pattern as LBP
 
 
 class video_metrics:
@@ -13,8 +16,8 @@ class video_metrics:
         self.metrics_list = metrics_list
         self.dimension = dimension
         self.profiling = do_profiling
-        self.cpu_profiler = cpu_profiler
-        
+        if do_profiling:
+            self.cpu_profiler = cpu_profiler
 
     @staticmethod
     def rescale_pair(img_A, img_B):
@@ -74,6 +77,31 @@ class video_metrics:
     
         return difference_ratio
 
+
+    @staticmethod
+    def evaluate_entropy_instant(reference_frame, rendition_frame):
+        # Function that computes the difference in Shannon entropy between
+        # two images
+        entropy_difference = shannon_entropy(reference_frame) - shannon_entropy(rendition_frame)
+        
+        return entropy_difference
+        
+    @staticmethod
+    def evaluate_lbp_instant(reference_frame, rendition_frame):
+        # Function that computes the difference in Local Binary patterns between
+        # two images
+        
+        # Settings for LBP
+        radius = 3
+        n_points = 8 * radius
+        METHOD = 'uniform'
+
+        total_pixels = reference_frame.shape[0] * reference_frame.shape[1]
+        lbp_difference = LBP(reference_frame, n_points, radius, METHOD) - LBP(rendition_frame, n_points, radius, METHOD)
+        
+        return np.count_nonzero(lbp_difference) / total_pixels
+        
+
     @staticmethod
     def evaluate_spatial_complexity(current_frame):
         # Function to compute the spatial complexity of a video
@@ -109,64 +137,41 @@ class video_metrics:
 
         return max_val
 
-    @staticmethod
-    def evaluate_difference_canny_instant(reference_frame, next_reference_frame, next_rendition_frame):
+    def evaluate_difference_canny_instant(self, reference_frame, rendition_frame):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent, applying a Canny filter
-
-        # Grab the frame skip_frames ahead of the present rendition
-
-        scale_width = next_rendition_frame.shape[0]
-        scale_height = next_rendition_frame.shape[1]
-
-        # Compute the number of different pixels
-        total_pixels = scale_width * scale_height
 
         # Compute the Canny edges for the reference frame, its next frame and the next frame of the rendition
         lower = 100
         upper = 200
 
-        current_reference_edges = cv2.Canny(reference_frame, lower, upper)
-        next_reference_edges = cv2.Canny(next_reference_frame, lower, upper)
-        next_rendition_edges = cv2.Canny(next_rendition_frame, lower, upper)
+        reference_edges = cv2.Canny(reference_frame, lower, upper)
+        rendition_edges = cv2.Canny(rendition_frame, lower, upper)
 
-        # Compute the difference between reference frame and its next frame
-        reference_difference = np.array(next_reference_edges - current_reference_edges, dtype='uint8')
+        return self.mse(reference_edges, rendition_edges)
 
-        # Compute the difference between reference frame and its corresponding next frame in the rendition
-        rendition_difference = np.array(next_rendition_edges - current_reference_edges, dtype='uint8')
+    @staticmethod
+    def evaluate_ssim_instant(reference_frame, rendition_frame):
+        # Function to compute the instantaneous SSIM between a frame
+        # and its correspondant in the rendition
+        return ssim(reference_frame, rendition_frame,
+                  data_range=rendition_frame.max() - rendition_frame.min())
 
-        # Create a kernel for dilating the Canny filtered images
-        kernel = np.ones((int(scale_width * 0.1), int(scale_height * 0.1)),'uint8')
-
-        # Apply the kernel to dilate and highlight the differences
-        reference_difference_dilation = cv2.dilate(reference_difference, kernel, iterations=1)
-        rendition_difference_dilation = cv2.dilate(rendition_difference, kernel, iterations=1)
-
-        # Compute the difference ratio between reference and its next
-        if np.count_nonzero(reference_difference_dilation) != 0:
-            difference_reference_ratio = np.count_nonzero(reference_difference_dilation) / total_pixels
-        else:
-            difference_reference_ratio = 0.00000001
-        # Compute the difference ratio between reference and its next in the rendition
-        difference_rendition_ratio = np.count_nonzero(rendition_difference_dilation) / total_pixels
-
-        return difference_rendition_ratio / difference_reference_ratio
-    
-    def evaluate_psnr_instant(self, reference_frame,  next_rendition_frame):
+    def evaluate_psnr_instant(self, reference_frame,  rendition_frame):
         # Function to compute the instantaneous PSNR between a frame
-        # and its subsequent within a rendition
+        #  and its correspondant in the rendition
 
-        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_rendition_frame)
+        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
         difference_psnr = self.psnr(scaled_reference, scaled_rendition)
         return difference_psnr
 
-    def evaluate_mse_instant(self, reference_frame, next_rendition_frame):
+    def evaluate_mse_instant(self, reference_frame, rendition_frame):
         # Function to compute the instantaneous difference between a frame
-        # and its subsequent
+        #  and its correspondant in the rendition
 
-        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, next_rendition_frame)
+        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
         difference_mse = self.mse(scaled_reference, scaled_rendition)
+
         return difference_mse
 
     @staticmethod
@@ -210,17 +215,19 @@ class video_metrics:
         
             self.evaluate_cross_correlation_instant = self.cpu_profiler(self.evaluate_cross_correlation_instant)
             self.evaluate_dct_instant = self.cpu_profiler(self.evaluate_dct_instant)
+            self.evaluate_entropy_instant = self.cpu_profiler(self.evaluate_entropy_instant)
+            self.evaluate_lbp_instant = self.cpu_profiler(self.evaluate_lbp_instant)
             self.evaluate_difference_canny_instant = self.cpu_profiler(self.evaluate_difference_canny_instant)
             self.evaluate_difference_instant = self.cpu_profiler(self.evaluate_difference_instant)
             self.evaluate_spatial_complexity = self.cpu_profiler(self.evaluate_spatial_complexity)
             self.evaluate_gaussian_instant = self.cpu_profiler(self.evaluate_gaussian_instant)
             self.evaluate_mse_instant = self.cpu_profiler(self.evaluate_mse_instant)
             self.evaluate_psnr_instant = self.cpu_profiler(self.evaluate_psnr_instant)
+            self.evaluate_ssim_instant = self.cpu_profiler(self.evaluate_ssim_instant)
             self.rescale_pair = self.cpu_profiler(self.rescale_pair)
 
         # Some metrics only need the luminance channel
         reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-        next_reference_frame_gray = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
         rendition_frame_gray = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
         next_rendition_frame_gray = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
 
@@ -236,21 +243,22 @@ class video_metrics:
 
             if metric == 'temporal_psnr':
                 # Compute the temporal inter frame psnr                
-                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame_gray, next_rendition_frame_gray)
+                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame_gray, rendition_frame_gray)
+
+            if metric == 'temporal_ssim':
+                # Compute the temporal inter frame ssim                
+                rendition_metrics[metric] = self.evaluate_ssim_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_mse':
-                # Compute the temporal inter frame mse
-                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame_gray, next_reference_frame_gray)
+                # Compute the temporal inter frame mse                
+                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_canny':
                 # Compute the temporal inter frame difference of the canny version of the frame
-                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame_gray,
-                                                                                   next_reference_frame_gray,
-                                                                                   rendition_frame_gray)
+                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_cross_correlation':
-                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray,
-                                                                                    rendition_frame_gray)
+                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_dct':
                 rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, rendition_frame_gray)
@@ -260,6 +268,11 @@ class video_metrics:
 
             if metric == 'temporal_spatial_complexity':
                 rendition_metrics[metric] = self.evaluate_spatial_complexity(reference_frame_gray)
+            if metric == 'temporal_entropy':
+                rendition_metrics[metric] = self.evaluate_entropy_instant(reference_frame_gray, rendition_frame_gray)
+
+            if metric == 'temporal_lbp':
+                rendition_metrics[metric] = self.evaluate_lbp_instant(reference_frame_gray, rendition_frame_gray)
 
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)

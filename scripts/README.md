@@ -150,7 +150,7 @@ for original_asset in glob.iglob(originals_path.format('1080p') + '**', recursiv
             rendition_folder = originals_path.format(folder)
             renditions_list.append(rendition_folder + os.path.basename(original_asset))
 
-        asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 4, False)
+        asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, 1, False)
 
         asset_metrics_dict = asset_processor.process()
 
