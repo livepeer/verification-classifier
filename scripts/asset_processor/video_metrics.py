@@ -69,12 +69,19 @@ class video_metrics:
         # Function to compute the instantaneous difference between a frame
         # and its subsequent
 
-        # Compute the number of different pixels
-        total_pixels = current_frame.shape[0] * current_frame.shape[1]
-        difference = np.array(next_frame - current_frame)
-        difference_ratio = np.count_nonzero(difference) / total_pixels
+        difference = np.abs(np.float32(next_frame) - np.float32(current_frame))
+        difference_ratio = np.mean(difference)
     
         return difference_ratio
+
+    @staticmethod
+    def evaluate_spatial_complexity(current_frame):
+        # Function to compute the spatial complexity of a video
+
+        sobel_x = cv2.Sobel(current_frame, cv2.CV_64F, 0, 1)
+        sobel_y = cv2.Sobel(current_frame, cv2.CV_64F, 1, 0)
+
+        return np.mean(np.sqrt(sobel_x**2 + sobel_y**2))
 
     @staticmethod
     def evaluate_dct_instant(reference_frame, rendition_frame):
@@ -187,7 +194,8 @@ class video_metrics:
         d = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(hist_a, hist_b)])
         return d
 
-    def evaluate_gaussian_instant(self, reference_frame, rendition_frame, sigma=4):
+    @staticmethod
+    def evaluate_gaussian_instant(reference_frame, rendition_frame, sigma=4):
 
         reference_frame = gaussian(reference_frame, sigma=sigma)
         rendition_frame = gaussian(rendition_frame, sigma=sigma)
@@ -204,6 +212,7 @@ class video_metrics:
             self.evaluate_dct_instant = self.cpu_profiler(self.evaluate_dct_instant)
             self.evaluate_difference_canny_instant = self.cpu_profiler(self.evaluate_difference_canny_instant)
             self.evaluate_difference_instant = self.cpu_profiler(self.evaluate_difference_instant)
+            self.evaluate_spatial_complexity = self.cpu_profiler(self.evaluate_spatial_complexity)
             self.evaluate_gaussian_instant = self.cpu_profiler(self.evaluate_gaussian_instant)
             self.evaluate_mse_instant = self.cpu_profiler(self.evaluate_mse_instant)
             self.evaluate_psnr_instant = self.cpu_profiler(self.evaluate_psnr_instant)
@@ -249,6 +258,9 @@ class video_metrics:
             if metric == 'temporal_gaussian':
                 rendition_metrics[metric] = self.evaluate_gaussian_instant(reference_frame_gray, rendition_frame_gray)
 
+            if metric == 'temporal_spatial_complexity':
+                rendition_metrics[metric] = self.evaluate_spatial_complexity(reference_frame_gray)
+
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)
             # Extract the dhash for the reference frame            
@@ -261,6 +273,5 @@ class video_metrics:
                 rendition_metrics['hash_hamming'] = distance.hamming(reference_hash, rendition_hash)
             if metric == 'hash_cosine':
                 rendition_metrics['hash_cosine'] = distance.cosine(reference_hash, rendition_hash)
-
 
         return rendition_metrics
