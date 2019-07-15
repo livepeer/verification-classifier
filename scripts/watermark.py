@@ -13,6 +13,7 @@ parser.add_argument('-o', "--output", action='store', help='Folder where the ren
                     type=str, required=True)
 parser.add_argument('-m', "--metadata", action='store', help='File where the metadata is', type=str, required=True)
 parser.add_argument('-w', "--watermark", action='store', help='Watermark file', type=str, required=True)
+parser.add_argument('-s', "--suffix", action='store', help='Watermark folder suffix', type=str, required=True)
 parser.add_argument('-r', "--reprocess", action='store', help='input file with files to reprocess', type=str,
                     required=False)
 
@@ -30,12 +31,12 @@ if args.reprocess is not None:
     file_to_reprocess = args.reprocess
 
 output_folders = {
-    '1080': '1080p_watermark',
-    '720': '720p_watermark',
-    '480': '480p_watermark',
-    '360': '360p_watermark',
-    '240': '240p_watermark',
-    '144': '144p_watermark',
+    '1080': '1080p_watermark-{}'.format(args.suffix),
+    '720': '720p_watermark-{}'.format(args.suffix),
+    '480': '480p_watermark-{}'.format(args.suffix),
+    '360': '360p_watermark-{}'.format(args.suffix),
+    '240': '240p_watermark-{}'.format(args.suffix),
+    '144': '144p_watermark-{}'.format(args.suffix)
 }
 
 cpu_count = multiprocessing.cpu_count()
