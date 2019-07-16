@@ -71,11 +71,11 @@ class video_metrics:
     def evaluate_difference_instant(current_frame, next_frame):
         # Function to compute the instantaneous difference between a frame
         # and its subsequent
-
+        total_size = current_frame.shape[0] * current_frame.shape[1]
         difference = np.abs(np.float32(next_frame) - np.float32(current_frame))
-        difference_ratio = np.mean(difference)
+        difference_ratio = np.mean(difference) / total_size
 
-        return difference_ratio
+        return difference_ratio.round(decimals=5)
 
     @staticmethod
     def evaluate_entropy_instant(reference_frame, rendition_frame):
