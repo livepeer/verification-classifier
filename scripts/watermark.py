@@ -13,6 +13,9 @@ parser.add_argument('-o', "--output", action='store', help='Folder where the ren
                     type=str, required=True)
 parser.add_argument('-m', "--metadata", action='store', help='File where the metadata is', type=str, required=True)
 parser.add_argument('-w', "--watermark", action='store', help='Watermark file', type=str, required=True)
+parser.add_argument('-s', "--suffix", action='store', help='Watermark folder suffix', type=str, required=True)
+parser.add_argument('-x', "--pos_x", action='store', help='Watermark x position (in pixels)', type=str, required=True)
+parser.add_argument('-y', "--pos_y", action='store', help='Watermark y position (in pixels)', type=str, required=True)
 parser.add_argument('-r', "--reprocess", action='store', help='input file with files to reprocess', type=str,
                     required=False)
 
@@ -22,6 +25,8 @@ input_path = args.input
 output_path = args.output
 metadata_file = args.metadata
 watermark_file = args.watermark
+pos_x = args.pos_x
+pos_y = args.pos_y
 reprocess = False
 file_to_reprocess = None
 
@@ -30,12 +35,12 @@ if args.reprocess is not None:
     file_to_reprocess = args.reprocess
 
 output_folders = {
-    '1080': '1080p_watermark',
-    '720': '720p_watermark',
-    '480': '480p_watermark',
-    '360': '360p_watermark',
-    '240': '240p_watermark',
-    '144': '144p_watermark',
+    '1080': '1080p_watermark-{}'.format(args.suffix),
+    '720': '720p_watermark-{}'.format(args.suffix),
+    '480': '480p_watermark-{}'.format(args.suffix),
+    '360': '360p_watermark-{}'.format(args.suffix),
+    '240': '240p_watermark-{}'.format(args.suffix),
+    '144': '144p_watermark-{}'.format(args.suffix)
 }
 
 cpu_count = multiprocessing.cpu_count()
@@ -64,9 +69,9 @@ def format_command(full_input_file, codec, bitrates, output_files):
     command = ['ffmpeg', '-y', '-i', '"' + full_input_file + '"', '-i',
                '"' + watermark_file + '"',
                '-filter_complex',
-               '"[0:v]overlay=10:10,split=6[in1][in2][in3][in4][in5][in6];'
+               '"[0:v]overlay={}:{},split=6[in1][in2][in3][in4][in5][in6];'
                '[in1]scale=-2:1080[out1];[in2]scale=-2:720[out2];[in3]scale=-2:480[out3];[in4]scale=-2:360[out4];'
-               '[in5]scale=-2:240[out5];[in6]scale=-2:144[out6]"',
+               '[in5]scale=-2:240[out5];[in6]scale=-2:144[out6]"'.format(pos_x, pos_y),
                '-map', '"[out1]"', '-c:v', codec, '-b:v', str(bitrates[1080]) + 'K', '"' + output_files['1080'] + '"',
                '-map', '"[out2]"', '-c:v', codec, '-b:v', str(bitrates[720]) + 'K', '"' + output_files['720'] + '"',
                '-map', '"[out3]"', '-c:v', codec, '-b:v', str(bitrates[480]) + 'K', '"' + output_files['480'] + '"',
