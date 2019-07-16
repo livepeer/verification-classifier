@@ -3,6 +3,9 @@ sklearn
 seaborn==0.9.0
 opencv-python==4.0.0.21
 meson==0.50.0
-tensorflow==1.10.0
+tensorflow
 Keras==2.2.4
 xgboost==0.82
+py-spy==0.1.11
+memory-profiler==0.55.0
+line_profiler==2.1.2

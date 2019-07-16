@@ -4,3 +4,7 @@ click==7.0
 numpy==1.16.2
 pandas==0.24.2
 xgboost==0.82
+scikit-image==0.15.0
+py-spy==0.1.11
+memory-profiler==0.55.0
+line_profiler==2.1.2

@@ -1,0 +1,1 @@
+{"gamma": "auto", "nu": 0.01, "n_components": 3, "TPR_test": 0.9923026171101825, "TNR": 0.7502490692674741, "model": "svm", "auc": 0.8712758431888283, "f_beta": 0.9770083536279153, "projection": "RP", "TPR_train": 0.9905971626525899, "features": ["temporal_dct-mean", "temporal_gaussian-mean", "dimension", "attack_ID", "title", "attack"]}

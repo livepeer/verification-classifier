@@ -1,7 +1,10 @@
 import click
-import pandas as pd
+import pickle
 import numpy as np
-from scipy.spatial import distance
+import urllib.request
+import time
+import tarfile
+import json
 
 import sys
 
@@ -9,65 +12,93 @@ sys.path.insert(0, 'scripts/asset_processor')
 
 from video_asset_processor import video_asset_processor
 
+
 @click.command()
 @click.argument('asset')
-@click.option('-r', '--renditions', multiple=True)
-@click.option('-m', '--metrics', multiple=True)
-def cli(asset, renditions, metrics):
-    implemented_metrics = {
-        'temporal_canny',
-        'temporal_difference',
-        'temporal_psnr',
-        'temporal_mse',
-        'histogram_distance',
-        'hash_euclidean',
-        'hash_hamming',
-        'hash_cosine'
-    }
+@click.option('--renditions', multiple=True)
+@click.option('--do_profiling', default=0)
+def cli(asset, renditions, do_profiling):
+    seconds = 1
+    # Download model from remote url
+    total_start = time.clock()
+    model_url = 'https://storage.googleapis.com/verification-models/verification.tar.gz'
+    model_name = 'OCSVM'
+    scaler_type = 'StandardScaler'
+    learning_type = 'UL'
+    start = time.clock()
+    download_models(model_url)
+    download_time = time.clock() - start
+    loaded_model = pickle.load(open('{}.pickle.dat'.format(model_name), 'rb'))
+    loaded_scaler = pickle.load(open('{}_{}.pickle.dat'.format(learning_type, scaler_type), 'rb'))
 
-    for metric in metrics:
-        if metric not in implemented_metrics:
-            raise click.BadOptionUsage(metric,
-                                       '{} is not a valid metric, try with: {}'.format(metric, implemented_metrics))
+    with open('param_{}.json'.format(model_name)) as json_file:
+        params = json.load(json_file)
+        features = params['features']
 
+    # Prepare input variables
     original_asset = asset
+    renditions_list = list(renditions)
+    metrics_list = ['temporal_gaussian', 'temporal_dct']
 
-    renditions_list = [original_asset] + list(renditions)
+    # Process and compare original asset against the provided list of renditions
+    start = time.clock()
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, do_profiling)
+    initialize_time = time.clock() - start
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics,4)
+    start = time.clock()
+    metrics_df = asset_processor.process()
+    process_time = time.clock() - start
 
-    asset_metrics_dict = asset_processor.process()
-    dict_of_df = {k: pd.DataFrame(v) for k, v in asset_metrics_dict.items()}
-    metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
-    metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
+    # Cleanup the resulting pandas dataframe and convert it to a numpy array
+    # to pass to the prediction model
+    for column in metrics_df.columns:
+        if 'series' in column:
+            metrics_df = metrics_df.drop([column], axis=1)
 
-    distances_result = {}
-    for displayed_metric in metrics:
-        frames = []
-        for rendition in renditions_list:
-            rendition_df = metrics_df[metrics_df['path'] == rendition][displayed_metric]
+    features.remove('attack_ID')
 
-            rendition_df = rendition_df.reset_index(drop=True).transpose()
-            frames.append(rendition_df)
+    metrics_df = metrics_df[features]
+    metrics_df = metrics_df.drop('title', axis=1)
+    metrics_df = metrics_df.drop('attack', axis=1)
 
-        renditions_df = pd.concat(frames, axis=1)
-        renditions_df.columns = renditions_list
-        renditions_df = renditions_df.astype(float)
+    X = np.asarray(metrics_df)
+    # Scale data:
+    X = loaded_scaler.transform(X)
 
-        x_original = np.array(renditions_df[original_asset].values)
+    matrix = pickle.load(open('reduction_{}.pickle.dat'.format(model_name), 'rb'))
+    X = matrix.transform(X)
 
-        distances = {}
+    # Make predictions for given data
+    start = time.clock()
+    y_pred = loaded_model.predict(X)
+    prediction_time = time.clock() - start
 
-        for rendition in renditions_list:
-            x = np.array(renditions_df[rendition].values)
+    # Display predictions
+    for i, rendition in enumerate(renditions_list):
+        if y_pred[i] == -1:
+            attack = ''
+        else:
+            attack = ' not'
 
-            euclidean = distance.euclidean(x_original, x)
+        print('{} is{} an attack'.format(rendition, attack))
 
-            distances[rendition] = {'Euclidean': euclidean}
+    if do_profiling:
+        print('Total time:', time.clock() - total_start)
+        print('Download time:', download_time)
+        print('Initialization time:', initialize_time)
+        print('Process time:', process_time)
+        print('Prediction time:', prediction_time)
 
-        distances_result[displayed_metric] = pd.DataFrame.from_dict(distances, orient='index').to_json(orient="index")
 
-    print(distances_result)
+def download_models(url):
+
+    print('Model download started!')
+    filename, _ = urllib.request.urlretrieve(url, filename=url.split('/')[-1])
+
+    print('Model downloaded')
+
+    with tarfile.open(filename) as tf:
+        tf.extractall()
 
 
 if __name__ == '__main__':
