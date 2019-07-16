@@ -113,9 +113,12 @@ This script puts a watermark in the video. It has 4 parameters:
 - The output path (-o or --output) which is the folder where the videos with watermark are going to be stored.
 - The metadata (-m or --metadata) which is the file containing data about the videos, the most important is the needed bitrate to enconde the video.
 - The watermark file (-w --watermark) which is the file containing the image to be applied to the video.
+- The position (-x or --pos_x) in x pixels from the left at which the watermark will be located.
+- The position (-y or --pos_y) in y pixels from the bottom at which the watermark will be located.
+- The suffix (-s or --suffix) to give to the folder where encoded files will be stored
 
 ```
-python watermark.py -i /path/to/1080pRenditions -o /path/to/renditions -m /path/to/metadatafile -w /path/to/watermarkfile
+python watermark.py -i /path/to/1080pRenditions -o /path/to/renditions -m /path/to/metadatafile -w /path/to/watermarkfile -x pos_x -y pos_y -s suffix
 ```
 
 
