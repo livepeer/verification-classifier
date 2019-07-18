@@ -235,9 +235,9 @@ class video_metrics:
             self.rescale_pair = self.cpu_profiler(self.rescale_pair)
 
         # Some metrics only need the luminance channel
-        reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-        rendition_frame_gray = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-        next_rendition_frame_gray = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2HSV)[:, :, 2]
+        reference_frame_gray = reference_frame
+        rendition_frame_gray = rendition_frame
+        next_rendition_frame_gray = next_rendition_frame
 
         for metric in self.metrics_list:
 
