@@ -10,16 +10,18 @@ class MetricProcessor:
         self.path = path
         self.reduced = reduced
         self.bins = bins
-        self.series_features_list = ['temporal_canny-series',
-                                     'temporal_cross_correlation-series',
+        self.series_features_list = [
+                                    # 'temporal_canny-series',
+                                    #  'temporal_cross_correlation-series',
                                      'temporal_dct-series',
                                      'temporal_difference-series',
                                      'temporal_histogram_distance-series',
                                      'temporal_gaussian-series',
                                      'temporal_ssim-series',
                                      'temporal_psnr-series',
-                                     'temporal_entropy-series',
-                                     'temporal_lbp-series']
+                                    #  'temporal_entropy-series',
+                                    #  'temporal_lbp-series'
+                                    ]
 
         self.info_columns = ['attack_ID', 'title', 'attack']
 
@@ -211,16 +213,16 @@ class MetricProcessor:
         df = pd.DataFrame(data)
         downscale_features = ['temporal_psnr', 
                       'temporal_ssim', 
-                      'temporal_cross_correlation'
+                    #   'temporal_cross_correlation'
                      ]
 
         upscale_features = ['temporal_difference', 
                             'temporal_dct', 
-                            'temporal_canny', 
+                            # 'temporal_canny', 
                             'temporal_gaussian', 
                             'temporal_histogram_distance',
-                            'temporal_entropy',
-                            'temporal_lbp'
+                            # 'temporal_entropy',
+                            # 'temporal_lbp'
                         ]
 
         for label in feat_labels:
