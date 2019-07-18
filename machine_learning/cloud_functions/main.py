@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+
 
 # [START datastore_build_service]
 from google.cloud import datastore
@@ -13,12 +15,16 @@ def create_client(project_id):
 def get_jobs_df(kind, namespace):
     query = client.query(kind=kind, namespace=namespace)
     query_iter = query.fetch()
+    i = 0
+    number_of_pages = 300
     jobs_df = pd.DataFrame()
-    for page in query_iter.pages:
+    for page in tqdm(query_iter.pages):
+        i += 1
         tasks = list(page)
         page_df = pd.DataFrame(data=tasks)
+        print(i * number_of_pages, ' videos retrieved so far')
         jobs_df = pd.concat([jobs_df, page_df], axis=0,sort=True)
-        
+    print('Data retrieval completed {} videos retrieved, {} features extracted'.format(jobs_df.shape[0],jobs_df.shape[1]))
     return jobs_df
 
 
@@ -37,7 +43,10 @@ def initialize():
 
     print('Getting inputs...')
     input_kinds = [entity.key.name for entity in query.fetch() if 'features_input' in entity.key.name]
+    
+    print('Retrieving data from Datastore...')
     for kind in input_kinds:
+        
         kind_df = get_jobs_df(kind, namespace)
         kind_df['kind'] = kind
         inputs_df = pd.concat([inputs_df, kind_df],axis=0,sort=True, ignore_index=True)
