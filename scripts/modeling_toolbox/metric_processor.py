@@ -10,18 +10,10 @@ class MetricProcessor:
         self.path = path
         self.reduced = reduced
         self.bins = bins
-        self.series_features_list = [
-                                    # 'temporal_canny-series',
-                                    #  'temporal_cross_correlation-series',
-                                     'temporal_dct-series',
-                                     'temporal_difference-series',
-                                     'temporal_histogram_distance-series',
-                                     'temporal_gaussian-series',
-                                     'temporal_ssim-series',
-                                     'temporal_psnr-series',
-                                    #  'temporal_entropy-series',
-                                    #  'temporal_lbp-series'
-                                    ]
+        self.series_features_list = []
+        for feature in features:
+            if 'temporal' in feature:
+                self.series_features_list.append('{}-series'.format(feature.split('-')[0]))
 
         self.info_columns = ['attack_ID', 'title', 'attack']
 
@@ -184,6 +176,11 @@ class MetricProcessor:
                         'temporal_gaussian-max', 
                         'temporal_gaussian-mean',
                         'temporal_gaussian-std',
+                        'temporal_gaussian_difference-euclidean', 
+                        'temporal_gaussian_difference-manhattan',
+                        'temporal_gaussian_difference-max', 
+                        'temporal_gaussian_difference-mean',
+                        'temporal_gaussian_difference-std',
                         'temporal_histogram_distance-euclidean',
                         'temporal_histogram_distance-manhattan',
                         'temporal_histogram_distance-max', 
@@ -211,24 +208,30 @@ class MetricProcessor:
                         'temporal_lbp-std'
                         ]
         df = pd.DataFrame(data)
-        downscale_features = ['temporal_psnr', 
-                      'temporal_ssim', 
-                    #   'temporal_cross_correlation'
+        downscale_features = [
+                        'temporal_psnr', 
+                        'temporal_ssim', 
+                        'temporal_cross_correlation'
                      ]
 
-        upscale_features = ['temporal_difference', 
+        upscale_features = [
+                            'temporal_difference', 
                             'temporal_dct', 
-                            # 'temporal_canny', 
+                            'temporal_canny', 
                             'temporal_gaussian', 
+                            'temporal_gaussian_difference', 
                             'temporal_histogram_distance',
-                            # 'temporal_entropy',
-                            # 'temporal_lbp'
+                            'temporal_entropy',
+                            'temporal_lbp'
                         ]
 
         for label in feat_labels:
-            if label.split('-')[0] in downscale_features:
-                df[label] = df.apply(lambda row: (row[label]/row['dimension']), axis=1)
-            elif label.split('-')[0] in upscale_features:
-                df[label] = df.apply(lambda row: (row[label]*row['dimension']), axis=1)
+
+            if label in self.features:
+                print(label)
+                if label.split('-')[0] in downscale_features:
+                    df[label] = df.apply(lambda row: (row[label]/row['dimension']), axis=1)
+                elif label.split('-')[0] in upscale_features:
+                    df[label] = df.apply(lambda row: (row[label]*row['dimension']), axis=1)
         return df
             
