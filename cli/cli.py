@@ -18,9 +18,11 @@ from video_asset_processor import video_asset_processor
 @click.option('--renditions', multiple=True)
 @click.option('--do_profiling', default=0)
 def cli(asset, renditions, do_profiling):
-    seconds = 1
+    seconds = 2
     # Download model from remote url
     total_start = time.clock()
+    total_start_user = time.time()
+
     model_url = 'https://storage.googleapis.com/verification-models/verification.tar.gz'
     model_name = 'OCSVM'
     scaler_type = 'StandardScaler'
@@ -42,12 +44,16 @@ def cli(asset, renditions, do_profiling):
 
     # Process and compare original asset against the provided list of renditions
     start = time.clock()
+    start_user = time.time()
     asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, do_profiling)
     initialize_time = time.clock() - start
+    initialize_time_user = time.time() - start_user
 
     start = time.clock()
+    start_user = time.time()
     metrics_df = asset_processor.process()
     process_time = time.clock() - start
+    process_time_user = time.time() - start_user
 
     # Cleanup the resulting pandas dataframe and convert it to a numpy array
     # to pass to the prediction model
@@ -83,11 +89,16 @@ def cli(asset, renditions, do_profiling):
         print('{} is{} an attack'.format(rendition, attack))
 
     if do_profiling:
-        print('Total time:', time.clock() - total_start)
+        print('Total CPU time:', time.clock() - total_start)
+        print('Total user time:', time.time() - total_start_user)
         print('Download time:', download_time)
-        print('Initialization time:', initialize_time)
-        print('Process time:', process_time)
-        print('Prediction time:', prediction_time)
+        print('Initialization CPU time:', initialize_time)
+        print('Initialization user time:', initialize_time_user)
+        
+        print('Process CPU time:', process_time)
+        print('Process user time:', process_time_user)
+        print('Prediction CPU time:', prediction_time)
+        
 
 
 def download_models(url):
