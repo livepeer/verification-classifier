@@ -16,9 +16,11 @@ from video_asset_processor import video_asset_processor
 @click.command()
 @click.argument('asset')
 @click.option('--renditions', multiple=True)
+@click.option('--max_samples', type=int, default=10)
 @click.option('--do_profiling', default=0)
-def cli(asset, renditions, do_profiling):
+def cli(asset, renditions, do_profiling, max_samples):
     seconds = 2
+    
     # Download model from remote url
     total_start = time.clock()
     total_start_user = time.time()
@@ -45,7 +47,7 @@ def cli(asset, renditions, do_profiling):
     # Process and compare original asset against the provided list of renditions
     start = time.clock()
     start_user = time.time()
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, do_profiling)
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, max_samples, do_profiling)
     initialize_time = time.clock() - start
     initialize_time_user = time.time() - start_user
 

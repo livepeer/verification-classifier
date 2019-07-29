@@ -26,13 +26,14 @@ def compute_metrics(asset, renditions):
 
     original_asset = asset
     seconds = 1
+    max_samples = 10
     renditions_list = renditions
     metrics_list = ['temporal_gaussian', 
                     'temporal_gaussian_difference', 
                     'temporal_dct'
                     ]
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, False)
+    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, max_samples, False)
 
     metrics_df = asset_processor.process()
 
