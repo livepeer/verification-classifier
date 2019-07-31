@@ -35,6 +35,7 @@ class video_asset_processor:
         # Retrieve original rendition dimensions
         self.height = self.original.get(cv2.CAP_PROP_FRAME_HEIGHT)                              # Obtains vertical dimension of the frames of the original
         self.width = self.original.get(cv2.CAP_PROP_FRAME_WIDTH)                                # Obtains horizontal dimension of the frames of the original
+        self.max_frames = int(self.original.get(cv2.CAP_PROP_FRAME_COUNT))                           # Obtains number of frames of the original
         self.dimensions = '{}:{}'.format(int(self.width), int(self.height))                     # Collects both dimensional values in a string
         if do_profiling:
             import line_profiler  
@@ -66,15 +67,13 @@ class video_asset_processor:
         # ************************************************************************
 
         frame_list = []                                                                         # List of numpy arrays
-        seconds = 0                                                                             # Number of seconds processed
-        frame_count = 0                                                                         # Number of frames processed
+                                                                          # Number of frames processed
         i = 0
-        max_frames = self.fps * self.duration
-        if self.max_samples < max_frames:
-            max_samples = self.max_samples
-        else:
-            max_samples = max_frames
-        random_sampler = list(np.random.choice(max_frames, max_samples, replace=False))
+        
+        if self.max_samples > self.max_frames:
+            self.max_samples = self.max_frames
+
+        random_sampler = list(np.random.choice(self.max_frames-1, self.max_samples, replace=False))
         # Iterate through each frame in the video
         while capture.isOpened():
 
@@ -84,19 +83,14 @@ class video_asset_processor:
             # If read successful, then append the retrieved numpy array to a python list
             if ret_frame:
                 i += 1
-                frame = cv2.resize(frame, (128, 72), interpolation=cv2.INTER_LINEAR)
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
                 # Add the frame to the list
                 if i in random_sampler:
+                    frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
                     frame_list.append(frame)
 
-                frame_count += 1
-                seconds = frame_count / self.fps
             # Break the loop when frames cannot be taken from original
             else:
-                break
-            # Break the loop when seconds are longer than defined duration of analysis
-            if seconds > self.duration:
                 break
         # Clean up memory
         capture.release()
@@ -114,9 +108,9 @@ class video_asset_processor:
 
         frame_metrics = {}                                                                      # Dictionary of metrics
         reference_frame = self.original[frame_pos]                                                # Original frame to compare against
-        next_reference_frame = self.original[frame_pos]                        # Original's subsequent frame
+        next_reference_frame = self.original[frame_pos+1]                        # Original's subsequent frame
         rendition_frame = frame_list[frame_pos]                                                 # Rendition frame
-        next_rendition_frame = frame_list[frame_pos]                         # Rendition's subsequent frame
+        next_rendition_frame = frame_list[frame_pos+1]                         # Rendition's subsequent frame
 
         # Compute the metrics defined in the global metrics_list. Uses the global instance of video_metrics
         # Some metrics use a frame-to-frame comparison, but other require current and forward frames to extract
@@ -155,7 +149,7 @@ class video_asset_processor:
         # to be passed to the ThreadPoolExecutor. Stop when maximum
         # number of frames has been reached.
         while frame_pos + self.skip_frames < self.duration * self.fps:
-            if frame_pos < len(frame_list):
+            if frame_pos < len(frame_list)-1:
                 frames_to_process.append(frame_pos)
             frame_pos += 1
 
@@ -220,6 +214,7 @@ class video_asset_processor:
                     [[manhattan]] = distance.cdist(x_original.reshape(1, -1), x_rendition.reshape(1, -1),
                                                    metric='cityblock')
 
+                    
                     rendition_dict['{}-euclidean'.format(metric)] = distance.euclidean(x_original, x_rendition)
                     rendition_dict['{}-dwt'.format(metric)] = self.video_metrics.dtw_distance(x_original, x_rendition) 
                     rendition_dict['{}-manhattan'.format(metric)] = manhattan
