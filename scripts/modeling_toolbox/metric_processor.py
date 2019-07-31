@@ -64,9 +64,9 @@ class MetricProcessor:
 
         if self.bins != 0:
             for column in self.series_features_list:
-                print(column)
+                print('Computing time series descriptor for ', column)
                 for i in range(self.bins):
-                    print(i)
+                    print('Computing bin ', i)
                     # df['{}-hist-{}'.format(column, i)] = df.apply(lambda row: np.histogram((np.fromstring(row[column].replace('[', '').replace(']', ''), 
                     #                         dtype=np.float, sep=' ')), self.bins)[0][i], axis=1)
                     # df['{}-mean-{}'.format(column, i)] = df.apply(lambda row: np.array_split((np.fromstring(row[column].replace('[', '').replace(']', ''), 
@@ -223,7 +223,17 @@ class MetricProcessor:
                         'temporal_lbp-manhattan',
                         'temporal_lbp-max', 
                         'temporal_lbp-mean',
-                        'temporal_lbp-std'
+                        'temporal_lbp-std',
+                        'temporal_orb-euclidean',
+                        'temporal_orb-manhattan',
+                        'temporal_orb-max', 
+                        'temporal_orb-mean',
+                        'temporal_orb-std',
+                        'temporal_saliency-euclidean',
+                        'temporal_saliency-manhattan',
+                        'temporal_saliency-max', 
+                        'temporal_saliency-mean',
+                        'temporal_saliency-std'
                         ]
         df = pd.DataFrame(data)
         downscale_features = [
