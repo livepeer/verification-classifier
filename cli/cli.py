@@ -42,8 +42,8 @@ def cli(asset, renditions, do_profiling, max_samples):
     # Prepare input variables
     original_asset = asset
     renditions_list = list(renditions)
-    metrics_list = ['temporal_gaussian', 'temporal_dct']
-
+    metrics_list = ['temporal_gaussian', 'temporal_dct', 'temporal_orb']
+    
     # Process and compare original asset against the provided list of renditions
     start = time.clock()
     start_user = time.time()
@@ -91,6 +91,7 @@ def cli(asset, renditions, do_profiling, max_samples):
         print('{} is{} an attack'.format(rendition, attack))
 
     if do_profiling:
+        print('Features used:', metrics_list)
         print('Total CPU time:', time.clock() - total_start)
         print('Total user time:', time.time() - total_start_user)
         print('Download time:', download_time)
