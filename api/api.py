@@ -1,8 +1,7 @@
 # Minimal app for serving Livepeer verification
 from verifier import verify
 from flask import Flask, request
-import logging
-#logging.basicConfig(level=logging.DEBUG)
+
 import urllib
 import os
 import uuid
