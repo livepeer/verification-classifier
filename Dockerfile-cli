@@ -1,0 +1,4 @@
+FROM verifier-cli:v1
+RUN echo "'Copying CLI\n'"
+COPY /cli /scripts
+CMD /bin/bash
