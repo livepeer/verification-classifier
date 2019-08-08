@@ -1,0 +1,1 @@
+docker build -f Dockerfile-cli -t verifier-cli:v1 . && docker run --rm -it --volume="$(pwd)/stream":/stream --ipc=host verifier-cli:v1

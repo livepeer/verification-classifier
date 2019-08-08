@@ -47,9 +47,10 @@ At this step we should have the required data in the form of video assets and at
 
 Further information about this notebooks can be found [here](data-analysis/README.md)
 
-# 3. Command Line Interface: cli
+# 3. Interfaces: CLI and API
 
-Once models are trained and available, a command line interface to interact with them and obtain predictions is offered in the cli folder.
+Once models are trained and available, a [CLI](https://github.com/livepeer/verification-classifier/tree/master/api) and a [RESTful API](https://github.com/livepeer/verification-classifier/tree/master/cli) to interact with them and obtain predictions are made available.
+The bash scripts launch_cli.sh and launch_api.sh can be run from the root folder of the project.
 
 # 4. Common usage scripts: scripts
 
