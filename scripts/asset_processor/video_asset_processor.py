@@ -184,7 +184,7 @@ class video_asset_processor:
 
         # First, we combine the frames
         dict_of_df = {k: pd.DataFrame(v) for k, v in metrics.items()}
-        metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
+        metrics_df = pd.concat(dict_of_df, axis=1, sort=True).transpose().reset_index(inplace=False)
         # Pandas concat function creates a level_0 and level_1 extra columns. They need to be renamed
         metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
 
@@ -232,6 +232,7 @@ class video_asset_processor:
                 rendition_dict['size'] = os.path.getsize(rendition)
                 rendition_dict['fps'] = self.fps
                 rendition_dict['path'] = rendition
+                rendition_dict['dimension'] = self.height
 
             # Store the rendition values in the dictionary of renditions for the present asset
             renditions_dict[rendition] = rendition_dict
@@ -244,17 +245,11 @@ class video_asset_processor:
 
         metrics_df['title'] = metrics_df['level_0']
         attack_series = []
-        dimensions_series = []
+        
         for _, row in metrics_df.iterrows():
             attack_series.append(row['level_1'].split('/')[-2])
 
         metrics_df['attack'] = attack_series
-
-        for _, row in metrics_df.iterrows():
-            dimension = int(row['attack'].split('_')[0].replace('p', ''))
-            dimensions_series.append(dimension)
-
-        metrics_df['dimension'] = dimensions_series
 
         metrics_df = metrics_df.drop(['level_0', 'level_1'], axis=1)
         return metrics_df
