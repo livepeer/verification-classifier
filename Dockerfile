@@ -4,6 +4,3 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY /scripts/asset_processor /scripts
 COPY /verifier /scripts
-COPY /api /scripts
-ENTRYPOINT ["python"]
-CMD ["scripts/api.py"]
