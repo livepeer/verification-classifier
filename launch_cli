@@ -1,1 +1,1 @@
-docker build -t verifier:v1 . && docker run --rm -it --volume="$(pwd)/data":/data --ipc=host verifier:v1
+docker build -f Dockerfile-cli -t verifier-cli:v1 . && docker run --rm -it --volume="$(pwd)/data":/data --ipc=host verifier-cli:v1
