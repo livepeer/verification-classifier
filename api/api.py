@@ -36,13 +36,16 @@ def post_route():
             i += 1
         return 'Results: {}\n'.format(results)
 
-def retrieve_video_file(url):
-    file_name = '/tmp/{}'.format(uuid.uuid4())
-    
-    print('File download started!')
-    video_file, _ = urllib.request.urlretrieve(url, filename=file_name)
-    
-    print('File downloaded')
+def retrieve_video_file(uri):
+    if 'http' in uri:
+        file_name = '/tmp/{}'.format(uuid.uuid4())
+        
+        print('File download started!')
+        video_file, _ = urllib.request.urlretrieve(url, filename=file_name)
+        
+        print('File downloaded')
+    else:
+        video_file = uri
     return video_file
 
 def retrieve_model(uri):
