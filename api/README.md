@@ -67,11 +67,11 @@ Results: [{'https://storage.googleapis.com/livepeer-verifier-renditions/1080p_bl
 *Request (local assets)*
 ```
 
-curl localhost:5000/verify -d '{"source": "data/sources/-3MYFnEaYu4.mp4", 
+curl localhost:5000/verify -d '{"source": "stream/sources/-3MYFnEaYu4.mp4", 
 
                                 "renditions": [
-                                                "data/1080p_black_and_white/-3MYFnEaYu4.mp4", 
-                                                "data/720p_watermark/-3MYFnEaYu4.mp4"
+                                                "stream/1080p_black_and_white/-3MYFnEaYu4.mp4", 
+                                                "stream/720p_watermark/-3MYFnEaYu4.mp4"
                                                ], 
 
                                 "model": "https://storage.googleapis.com/verification-models/verification.tar.gz"}' 
@@ -80,6 +80,6 @@ curl localhost:5000/verify -d '{"source": "data/sources/-3MYFnEaYu4.mp4",
 ```
 *Response (local assets)*
 ```
-Results: [{'data/1080p_black_and_white/-3MYFnEaYu4.mp4': -1}, 
-          {'data/720p_watermark//-3MYFnEaYu4.mp4': -1}]
+Results: [{'stream/1080p_black_and_white/-3MYFnEaYu4.mp4': -1}, 
+          {'stream/720p_watermark/-3MYFnEaYu4.mp4': -1}]
 ```

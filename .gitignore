@@ -7,7 +7,7 @@
 /.doit.db.bak
 /.doit.db.dat
 /.doit.db.dir
-data
+stream
 feature_engineering/output/ms-ssim
 feature_engineering/output/psnr
 feature_engineering/output/ssim

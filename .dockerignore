@@ -7,7 +7,7 @@ env.*
 feature_engineering
 YT8M_downloader
 machine_learning
-data
+stream
 # To prevent storing dev/temporary container data
 *.csv
 tmp
