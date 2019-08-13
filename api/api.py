@@ -41,7 +41,7 @@ def retrieve_video_file(uri):
         file_name = '/tmp/{}'.format(uuid.uuid4())
         
         print('File download started!')
-        video_file, _ = urllib.request.urlretrieve(url, filename=file_name)
+        video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
         
         print('File downloaded')
     else:
