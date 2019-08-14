@@ -52,6 +52,11 @@ class video_asset_processor:
 
         # Convert OpenCV video captures of original to list
         # of numpy arrays for better performance of numerical computations
+        if self.max_samples >= self.max_frames:
+            self.max_samples = self.max_frames
+
+        self.random_sampler = list(np.random.choice(self.max_frames, self.max_samples, replace=False))
+
         self.original = self.capture_to_array(self.original)
         # Compute its features
         self.metrics[self.original_path] = self.compute(self.original, self.original_path, self.dimensions)
@@ -70,10 +75,6 @@ class video_asset_processor:
                                                                           # Number of frames processed
         i = 0
         
-        if self.max_samples > self.max_frames:
-            self.max_samples = self.max_frames
-
-        random_sampler = list(np.random.choice(self.max_frames-1, self.max_samples, replace=False))
         # Iterate through each frame in the video
         while capture.isOpened():
 
@@ -84,9 +85,10 @@ class video_asset_processor:
             if ret_frame:
                 i += 1
                 # Add the frame to the list
-                if i in random_sampler:
+                if i in self.random_sampler:
                     frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
+                    #frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     frame_list.append(frame)
 
             # Break the loop when frames cannot be taken from original
@@ -148,10 +150,8 @@ class video_asset_processor:
         # Iterate frame by frame and fill a list with their values
         # to be passed to the ThreadPoolExecutor. Stop when maximum
         # number of frames has been reached.
-        while frame_pos + self.skip_frames < self.duration * self.fps:
-            if frame_pos < len(frame_list)-1:
-                frames_to_process.append(frame_pos)
-            frame_pos += 1
+
+        frames_to_process = range(len(frame_list)-1)
 
         # Execute computations in parallel using as many processors as possible
         # future_list is a dictionary storing all computed values from each thread
@@ -164,7 +164,9 @@ class video_asset_processor:
             # Values are retrieved in a dict, as a result of the executor's process
             result_rendition_metrics, frame_pos = future.result()
             # The computed values at a given frame
+            
             rendition_metrics[frame_pos] = result_rendition_metrics
+            print(frame_pos, rendition_metrics[frame_pos]['temporal_gaussian_difference'])
 
         # Return the metrics for the currently processed rendition
         return rendition_metrics
