@@ -166,7 +166,6 @@ class video_asset_processor:
             # The computed values at a given frame
             
             rendition_metrics[frame_pos] = result_rendition_metrics
-            print(frame_pos, rendition_metrics[frame_pos]['temporal_gaussian_difference'])
 
         # Return the metrics for the currently processed rendition
         return rendition_metrics
