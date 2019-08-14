@@ -18,7 +18,6 @@ class video_metrics:
         self.metrics_list = metrics_list
         self.dimension = dimension
         self.profiling = do_profiling
-        self.saliency = cv2.saliency.StaticSaliencySpectralResidual_create()
         if do_profiling:
             self.cpu_profiler = cpu_profiler
 
@@ -278,22 +277,6 @@ class video_metrics:
         mse = mean_squared_error(reference_frame, rendition_frame)
         return mse
 
-    def evaluate_saliency_difference_instant(self, reference_frame, rendition_frame, sigma=4):
-
-        (success, saliencyMap_rend) = self.saliency.computeSaliency(rendition_frame)
-        saliencyMap_rend = (saliencyMap_rend * 255).astype("uint8")
-        saliencyMap_rend = cv2.threshold(saliencyMap_rend.astype("uint8"), 0, 255,
-        cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-        
-        (success, saliencyMap) = self.saliency.computeSaliency(reference_frame)
-        saliencyMap = (saliencyMap * 255).astype("uint8")
-        saliencyMap = cv2.threshold(saliencyMap.astype("uint8"), 0, 255,
-        cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-
-        difference = np.abs(np.float32(saliencyMap - saliencyMap_rend))
-
-        return np.sum(difference)
-
     @staticmethod
     def evaluate_gaussian_difference_instant(reference_frame, rendition_frame, sigma=4):
         reference_frame = gaussian(reference_frame, sigma=sigma)
@@ -311,7 +294,6 @@ class video_metrics:
         rendition_metrics = {}
 
         if self.profiling:
-            self.evaluate_saliency_difference_instant = self.cpu_profiler(self.evaluate_saliency_difference_instant)
             self.evaluate_cross_correlation_instant = self.cpu_profiler(self.evaluate_cross_correlation_instant)
             self.evaluate_dct_instant = self.cpu_profiler(self.evaluate_dct_instant)
             self.evaluate_entropy_instant = self.cpu_profiler(self.evaluate_entropy_instant)
@@ -346,10 +328,6 @@ class video_metrics:
             if metric == 'temporal_orb':
                 # Compute the temporal inter frame psnr
                 rendition_metrics[metric] = self.evaluate_orb_instant(reference_frame_gray, rendition_frame_gray)
-
-            if metric == 'temporal_saliency':
-                # Compute the temporal inter frame psnr
-                rendition_metrics[metric] = self.evaluate_saliency_difference_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_psnr':
                 # Compute the temporal inter frame psnr

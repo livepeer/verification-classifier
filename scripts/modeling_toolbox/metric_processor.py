@@ -229,11 +229,6 @@ class MetricProcessor:
                         'temporal_orb-max', 
                         'temporal_orb-mean',
                         'temporal_orb-std',
-                        'temporal_saliency-euclidean',
-                        'temporal_saliency-manhattan',
-                        'temporal_saliency-max', 
-                        'temporal_saliency-mean',
-                        'temporal_saliency-std'
                         ]
         df = pd.DataFrame(data)
         downscale_features = [
