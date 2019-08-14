@@ -301,7 +301,11 @@ class video_metrics:
 
         difference = np.abs(np.float32(reference_frame - rendition_frame))
 
-        return np.sum(difference)
+        _, threshold = cv2.threshold(difference, 0.05, 1, cv2.THRESH_BINARY) 
+
+        sum_th = np.sum(threshold)
+        
+        return sum_th
 
     def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
