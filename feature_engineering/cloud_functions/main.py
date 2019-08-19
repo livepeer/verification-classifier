@@ -56,7 +56,7 @@ def add_asset_input(client, title, input_data):
     video.update(input_data)
 
     client.put(video)
-def measure_asset_http(request):
+def dataset_generator_http(request):
     """HTTP Cloud Function.
     Args:
         request (flask.Request): The request object.
