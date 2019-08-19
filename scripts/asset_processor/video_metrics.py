@@ -284,7 +284,16 @@ class video_metrics:
 
         difference = np.abs(np.float32(reference_frame - rendition_frame))
 
-        _, threshold = cv2.threshold(difference, 0.05, 1, cv2.THRESH_BINARY) 
+        return np.sum(difference)
+
+    @staticmethod
+    def evaluate_gaussian_difference_threshold_instant(reference_frame, rendition_frame, sigma=4):
+        reference_frame = gaussian(reference_frame, sigma=sigma)
+        rendition_frame = gaussian(rendition_frame, sigma=sigma)
+
+        difference = np.abs(np.float32(reference_frame - rendition_frame))
+
+        _, threshold = cv2.threshold(difference, np.quantile(difference,0.99), 1, cv2.THRESH_BINARY) 
 
         sum_th = np.sum(threshold)
         
@@ -303,6 +312,7 @@ class video_metrics:
             self.evaluate_spatial_complexity = self.cpu_profiler(self.evaluate_spatial_complexity)
             self.evaluate_gaussian_instant = self.cpu_profiler(self.evaluate_gaussian_instant)
             self.evaluate_gaussian_difference_instant = self.cpu_profiler(self.evaluate_gaussian_difference_instant)
+            self.evaluate_gaussian_difference_threshold_instant = self.cpu_profiler(self.evaluate_gaussian_difference_threshold_instant)
             self.evaluate_mse_instant = self.cpu_profiler(self.evaluate_mse_instant)
             self.evaluate_psnr_instant = self.cpu_profiler(self.evaluate_psnr_instant)
             self.evaluate_ssim_instant = self.cpu_profiler(self.evaluate_ssim_instant)
@@ -360,6 +370,9 @@ class video_metrics:
                 rendition_metrics[metric] = self.evaluate_gaussian_difference_instant(reference_frame_gray,
                                                                                       rendition_frame_gray)
 
+            if metric == 'temporal_gaussian_difference_threshold':
+                rendition_metrics[metric] = self.evaluate_gaussian_difference_threshold_instant(reference_frame_gray,
+                                                                                      rendition_frame_gray)
             if metric == 'temporal_spatial_complexity':
                 rendition_metrics[metric] = self.evaluate_spatial_complexity(reference_frame_gray)
 
