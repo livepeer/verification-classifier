@@ -6,6 +6,10 @@ import urllib
 import os
 import uuid
 import tarfile
+import sys
+
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 
@@ -40,10 +44,10 @@ def retrieve_video_file(uri):
     if 'http' in uri:
         file_name = '/tmp/{}'.format(uuid.uuid4())
         
-        print('File download started!')
+        print('File download started!', flush=True)
         video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
         
-        print('File downloaded')
+        print('File downloaded', flush=True)
     else:
         video_file = uri
     return video_file
@@ -54,10 +58,10 @@ def retrieve_model(uri):
     # Create target Directory if don't exist
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
-        print("Directory " , model_dir ,  " Created ")
-        print('Model download started!')
+        print("Directory " , model_dir ,  " Created ", flush=True)
+        print('Model download started!', flush=True)
         filename, _ = urllib.request.urlretrieve(uri, filename='{}/{}'.format(model_dir, model_file))
-        print('Model downloaded')
+        print('Model downloaded', flush=True)
         try:
             with tarfile.open(filename) as tf:
                 tf.extractall(model_dir)
@@ -65,7 +69,7 @@ def retrieve_model(uri):
         except Exception:
             return 'Unable to untar model',''
     else:    
-        print("Directory " , model_dir ,  " already exists, skipping download")
+        print("Directory " , model_dir ,  " already exists, skipping download", flush=True)
         return model_dir, model_file
     
 
