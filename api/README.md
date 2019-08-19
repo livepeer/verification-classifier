@@ -54,7 +54,7 @@ curl localhost:5000/verify -d '{"source": "https://storage.googleapis.com/livepe
                                                 "https://storage.googleapis.com/livepeer-verifier-renditions/720p_watermark/-3MYFnEaYu4.mp4"
                                                ], 
 
-                                "model": "https://storage.googleapis.com/verification-models/verification.tar.gz"}' 
+                                "model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}' 
 
                                 -H 'Content-Type: application/json'
 ```
@@ -74,7 +74,7 @@ curl localhost:5000/verify -d '{"source": "stream/sources/-3MYFnEaYu4.mp4",
                                                 "stream/720p_watermark/-3MYFnEaYu4.mp4"
                                                ], 
 
-                                "model": "https://storage.googleapis.com/verification-models/verification.tar.gz"}' 
+                                "model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}' 
 
                                 -H 'Content-Type: application/json'
 ```
