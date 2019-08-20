@@ -236,7 +236,7 @@ class video_asset_processor:
 
             #Extract the dimensions of the rendition
             dimensions_df = metrics_df[metrics_df['path'] == rendition]['dimensions']
-            rendition_dict['dimension'] = dimensions_df.unique()[0].split(':')[1]
+            rendition_dict['dimension'] = int(dimensions_df.unique()[0].split(':')[1])
                 
             # Store the rendition values in the dictionary of renditions for the present asset
             renditions_dict[rendition] = rendition_dict
