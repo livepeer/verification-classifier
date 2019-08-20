@@ -287,19 +287,22 @@ class video_metrics:
         return np.sum(difference)
 
     @staticmethod
-    def evaluate_gaussian_difference_threshold_instant(reference_frame, rendition_frame, sigma=4):
-        reference_frame = gaussian(reference_frame, sigma=sigma)
-        rendition_frame = gaussian(rendition_frame, sigma=sigma)
-
-        difference = np.abs(np.float32(reference_frame - rendition_frame))
-
-        _, threshold = cv2.threshold(difference, np.quantile(difference,0.99), 1, cv2.THRESH_BINARY) 
-
-        sum_th = np.sum(threshold)
+    def evaluate_gaussian_difference_threshold_instant(reference_frame, rendition_frame, next_reference_frame, next_rendition_frame, dimensions, sigma=4):
         
+        temporal_difference = np.abs(np.float32((next_reference_frame / 255) - (rendition_frame / 255)))
+
+        gauss_reference_frame = gaussian(reference_frame, sigma=sigma)
+        gauss_rendition_frame = gaussian(rendition_frame, sigma=sigma)
+
+        difference = np.abs(np.float32(gauss_reference_frame - gauss_rendition_frame))
+
+        _, threshold = cv2.threshold(difference, temporal_difference.std() , 1, cv2.THRESH_BINARY) 
+
+        sum_th = np.sum(threshold) 
+
         return sum_th
 
-    def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
+    def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame, dimensions):
         rendition_metrics = {}
 
         if self.profiling:
@@ -372,7 +375,10 @@ class video_metrics:
 
             if metric == 'temporal_gaussian_difference_threshold':
                 rendition_metrics[metric] = self.evaluate_gaussian_difference_threshold_instant(reference_frame_gray,
-                                                                                      rendition_frame_gray)
+                                                                                                rendition_frame_gray,
+                                                                                                next_reference_frame_gray,
+                                                                                                next_rendition_frame_gray,
+                                                                                                dimensions)
             if metric == 'temporal_spatial_complexity':
                 rendition_metrics[metric] = self.evaluate_spatial_complexity(reference_frame_gray)
 
