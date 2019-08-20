@@ -287,7 +287,7 @@ class video_metrics:
         return np.sum(difference)
 
     @staticmethod
-    def evaluate_gaussian_difference_threshold_instant(reference_frame, rendition_frame, next_reference_frame, next_rendition_frame, dimensions, sigma=4):
+    def evaluate_gaussian_difference_threshold_instant(reference_frame, rendition_frame, next_reference_frame, next_rendition_frame, sigma=4):
         
         temporal_difference = np.abs(np.float32((next_reference_frame / 255) - (rendition_frame / 255)))
 
@@ -302,7 +302,7 @@ class video_metrics:
 
         return sum_th
 
-    def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame, dimensions):
+    def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
 
         if self.profiling:
@@ -377,8 +377,7 @@ class video_metrics:
                 rendition_metrics[metric] = self.evaluate_gaussian_difference_threshold_instant(reference_frame_gray,
                                                                                                 rendition_frame_gray,
                                                                                                 next_reference_frame_gray,
-                                                                                                next_rendition_frame_gray,
-                                                                                                dimensions)
+                                                                                                next_rendition_frame_gray)
             if metric == 'temporal_spatial_complexity':
                 rendition_metrics[metric] = self.evaluate_spatial_complexity(reference_frame_gray)
 

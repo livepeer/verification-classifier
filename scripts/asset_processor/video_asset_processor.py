@@ -46,7 +46,7 @@ class video_asset_processor:
         self.video_metrics = video_metrics(self.metrics_list,
                                            self.skip_frames,
                                            self.hash_size,
-                                           int(self.dimensions[self.dimensions.find(':') + 1:]),
+                                           int(self.height),
                                            self.cpu_profiler,
                                            self.do_profiling)                                   # Instance of the video_metrics class
 
@@ -228,13 +228,16 @@ class video_asset_processor:
                 else:
                     rendition_dict[metric] = rendition_df.mean()
 
-                # Size is an important feature of an asset, as it gives important information
-                # regarding the potential compression effect
-                rendition_dict['size'] = os.path.getsize(rendition)
-                rendition_dict['fps'] = self.fps
-                rendition_dict['path'] = rendition
-                rendition_dict['dimension'] = self.height
+            # Size is an important feature of an asset, as it gives important information
+            # regarding the potential compression effect
+            rendition_dict['size'] = os.path.getsize(rendition)
+            rendition_dict['fps'] = self.fps
+            rendition_dict['path'] = rendition
 
+            #Extract the dimensions of the rendition
+            dimensions_df = metrics_df[metrics_df['path'] == rendition]['dimensions']
+            rendition_dict['dimension'] = dimensions_df.unique()[0].split(':')[1]
+                
             # Store the rendition values in the dictionary of renditions for the present asset
             renditions_dict[rendition] = rendition_dict
 
