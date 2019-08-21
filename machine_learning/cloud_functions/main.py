@@ -42,7 +42,7 @@ def initialize():
     inputs_df = pd.DataFrame()
 
     print('Getting inputs...')
-    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input' in entity.key.name]
+    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input_30' in entity.key.name]
     
     print('Retrieving data from Datastore...')
     for kind in input_kinds:
