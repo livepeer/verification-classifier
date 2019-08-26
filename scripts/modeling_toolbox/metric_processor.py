@@ -5,7 +5,7 @@ import pywt
 
 class MetricProcessor:
 
-    def __init__(self, features, learning_type, path, reduced=20000, bins=0):
+    def __init__(self, features, learning_type, path, reduced=False, bins=0):
         self.features = features
         self.learning_type = learning_type
         self.path = path
