@@ -28,7 +28,8 @@ def compute_metrics(asset, renditions):
     seconds = 1
     max_samples = 30
     renditions_list = renditions
-    metrics_list = ['temporal_gaussian', 
+    metrics_list = ['temporal_difference',
+                    'temporal_gaussian', 
                     'temporal_gaussian_difference', 
                     'temporal_gaussian_difference_threshold', 
                     'temporal_dct'
