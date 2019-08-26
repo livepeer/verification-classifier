@@ -7,6 +7,6 @@ do
     filename="${filename##*/}"
     gcloud beta functions call dataset_generator_http --data '{"name":"'"$filename"'"}' &
 
-    echo '%s %s launched \n' "$(date)" "$filename";
+    echo "$(date)" "$filename";
     sleep 7
 done;
