@@ -50,7 +50,7 @@ def compute_metrics(asset, renditions):
     print('Computation time:', elapsed_time)
 
 def add_asset_input(client, title, input_data):
-    entity_name = 'features_input_30'
+    entity_name = 'features_input_30_540'
     key = client.key(entity_name, title, namespace = 'livepeer-verifier-training')
     video = datastore.Entity(key)
     #input_data['created'] = datetime.datetime.utcnow()
