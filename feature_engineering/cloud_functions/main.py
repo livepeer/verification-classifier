@@ -17,7 +17,7 @@ import sys
 
 sys.path.insert(0, 'imports')
 
-from imports.video_asset_processor import video_asset_processor
+from imports.video_asset_processor import VideoAssetProcessor
 
 datastore_client = datastore.Client()
 
@@ -35,7 +35,7 @@ def compute_metrics(asset, renditions):
                     'temporal_dct'
                     ]
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, max_samples, False)
+    asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, seconds, max_samples, False)
 
     metrics_df = asset_processor.process()
 

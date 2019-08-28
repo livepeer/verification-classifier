@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, 'scripts/asset_processor')
 
-from video_asset_processor import video_asset_processor
+from video_asset_processor import VideoAssetProcessor
 
 
 def verify(asset, renditions, do_profiling, max_samples, model_dir, model_name):
