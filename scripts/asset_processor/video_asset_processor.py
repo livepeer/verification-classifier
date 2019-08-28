@@ -1,3 +1,10 @@
+'''
+Module for management and parallelization of verification jobs.
+'''
+
+import os
+from concurrent.futures.thread import ThreadPoolExecutor
+
 import cv2
 import numpy as np
 import pandas as pd

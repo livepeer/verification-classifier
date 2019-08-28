@@ -1,12 +1,10 @@
 import click
 import urllib
 import sys
-import tarfile
-import os
 
 sys.path.insert(0, 'scripts/asset_processor')
 # Minimal app for serving Livepeer verification
-from verifier import verify
+from verifier import retrieve_model, verify, pre_verify
 
 @click.command()
 @click.argument('source')

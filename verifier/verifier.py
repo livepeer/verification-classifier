@@ -1,11 +1,21 @@
+'''
+Module wrapping up VideoAssetProcessor class in order to serve as interface for
+CLI and API.
+It manages pre-verification and tamper verfication of assets
+'''
+
+import uuid
+import time
+import json
+import tarfile
+import os
+import sys
+import urllib
+
 import pickle
 import numpy as np
 import pandas as pd
-import urllib.request
-import time
-import json
-
-import sys
+import cv2
 
 sys.path.insert(0, 'scripts/asset_processor')
 

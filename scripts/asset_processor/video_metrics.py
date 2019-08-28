@@ -1,14 +1,16 @@
+'''
+Module for management, evaluation and computation of video metrics
+'''
+import math
+
 import cv2
 import numpy as np
-import math
-import sys
 from scipy.spatial import distance
-
-from skimage.filters import gaussian
 from sklearn.metrics import mean_squared_error
 from skimage.measure import compare_ssim as ssim
 from skimage.measure import shannon_entropy
 from skimage.feature import local_binary_pattern as LBP
+from skimage.filters import gaussian
 
 
 class video_metrics:

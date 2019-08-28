@@ -1,12 +1,6 @@
 # Minimal app for serving Livepeer verification
-from verifier import verify
+from verifier import verify, retrieve_model
 from flask import Flask, request
-
-import urllib
-import os
-import uuid
-import tarfile
-import sys
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
