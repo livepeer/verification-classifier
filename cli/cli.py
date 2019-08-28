@@ -24,26 +24,5 @@ def cli(source, renditions, do_profiling, max_samples, model_uri):
         i += 1
     return 'Results: {}\n'.format(results)
 
-def retrieve_model(uri):
-    model_dir = '/tmp/model'
-    model_file = uri.split('/')[-1]
-    # Create target Directory if don't exist
-    if not os.path.exists(model_dir):
-        os.mkdir(model_dir)
-        print("Directory " , model_dir ,  " Created ")
-        print('Model download started!')
-        filename, _ = urllib.request.urlretrieve(uri, filename='{}/{}'.format(model_dir, model_file))
-        print('Model downloaded')
-        try:
-            with tarfile.open(filename) as tf:
-                tf.extractall(model_dir)
-                return model_dir, model_file
-        except Exception:
-            return 'Unable to untar model',''
-    else:    
-        print("Directory " , model_dir ,  " already exists, skipping download")
-        return model_dir, model_file
-
-
 if __name__ == '__main__':
     cli()

@@ -213,6 +213,45 @@ def rescale_to_resolution(data, features):
                     df[label] = df.apply(lambda row: (row[label]/row['dimension']), axis=1)
                     print('Downscaling',label, flush=True)
                 elif label.split('-')[0] in upscale_features:
-                    df[label] = df.apply(lambda row: (row[label]*row['dimension']), axis=1)
-                    print('Upscaling',label, flush=True)
-        return df
+def retrieve_model(uri):
+    '''
+    Function to obtain pre-trained model for verification predictions
+    '''
+
+    model_dir = '/tmp/model'
+    model_file = uri.split('/')[-1]
+    # Create target Directory if don't exist
+    if not os.path.exists(model_dir):
+        os.mkdir(model_dir)
+        print("Directory ", model_dir, " Created ")
+        print('Model download started!')
+        filename, _ = urllib.request.urlretrieve(uri,
+                                                 filename='{}/{}'.format(model_dir,
+                                                                         model_file)
+                                                )
+        print('Model downloaded')
+        try:
+            with tarfile.open(filename) as tar_f:
+                tar_f.extractall(model_dir)
+                return model_dir, model_file
+        except Exception:
+            return 'Unable to untar model'
+    else:
+        print("Directory ", model_dir, " already exists, skipping download")
+        return model_dir, model_file
+
+def retrieve_video_file(uri):
+    '''
+    Function to obtain a path to a video file from url or local path
+    '''
+
+    if 'http' in uri:
+        file_name = '/tmp/{}'.format(uuid.uuid4())
+
+        print('File download started!', flush=True)
+        video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
+
+        print('File downloaded', flush=True)
+    else:
+        video_file = uri
+    return video_file
