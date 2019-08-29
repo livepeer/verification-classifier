@@ -32,28 +32,27 @@ def pre_verify(source_file, rendition):
     fps = int(rendition_capture.get(cv2.CAP_PROP_FPS))
 
     # Create dictionary with passed / failed verification parameters
-    pre_verification_dict = {}
-    pre_verification_dict['path'] = video_file
-    pre_verification_dict['uri'] = rendition['uri']
+
+    rendition['path'] = video_file
 
     for key in rendition:
         if key == 'resolution':
-            height = rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
-            width = rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-            pre_verification_dict['height'] = height == rendition['resolution'].height
-            pre_verification_dict['width'] = width == rendition['resolution'].width
+            height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+            rendition['resolution']['height'] = height == float(rendition['resolution']['height'])
+            rendition['resolution']['width'] = width == float(rendition['resolution']['width'])
 
         if key == 'frame_rate':
-            pre_verification_dict['frame_rate'] = fps == rendition['framerate']
+            rendition['frame_rate'] = fps == rendition['frame_rate']
 
         if key == 'bitrate':
             # Compute bitrate
             frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
             duration = float(frame_count) / float(fps) # in seconds
             bitrate = os.path.getsize(video_file) / duration
-            pre_verification_dict['bitrate'] = bitrate == rendition['bitrate']
+            rendition['bitrate'] = bitrate == rendition['bitrate']
 
-    return pre_verification_dict
+    return rendition
 
 def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name):
     '''
@@ -63,6 +62,16 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
 
     total_start = time.clock()
     total_start_user = time.time()
+
+    # Prepare source and renditions for verification
+    original_asset = {'path':retrieve_video_file(source_uri),
+                      'uri': source_uri}
+
+    # Create a list of preverified renditions
+    pre_verified_renditions = []
+    for rendition in renditions:
+        pre_verification = pre_verify(original_asset, rendition)
+        pre_verified_renditions.append(pre_verification)
 
     # Configure model for inference
     model_name = 'OCSVM'
@@ -78,18 +87,6 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     with open('{}/param_{}.json'.format(model_dir, model_name)) as json_file:
         params = json.load(json_file)
         features = params['features']
-
-    # Prepare source and renditions for verification
-    original_asset = {'path':retrieve_video_file(source_uri),
-                      'uri': source_uri}
-
-    # Create a list of preverified renditions
-    pre_verified_renditions = []
-    for rendition in renditions:
-
-        pre_verification = pre_verify(original_asset, rendition)
-
-        pre_verified_renditions.append(pre_verification)
 
     # Remove non numeric features from feature list
     non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size']
@@ -138,10 +135,11 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     y_pred = loaded_model.predict(x_renditions)
     prediction_time = time.clock() - start
 
-    predictions = []
-    # Display predictions
+    
+    # Add predictions to rendition dictionary
     for i, rendition in enumerate(renditions):
-        predictions.append(y_pred[i])
+        rendition.pop('path', None)
+        rendition['tamper'] = y_pred[i]
 
     if do_profiling:
         print('Features used:', features)
