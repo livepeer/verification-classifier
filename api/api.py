@@ -17,7 +17,7 @@ def post_route():
         model_uri = data['model']
 
         model_file, model_name = retrieve_model(model_uri)
-
+        
         do_profiling = False
         max_samples = 10
 
@@ -28,7 +28,7 @@ def post_route():
             results.append({rendition['uri'] : predictions[i]})
             i += 1
         return 'Results: {}\n'.format(results)
-
+  
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')

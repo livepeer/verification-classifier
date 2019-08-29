@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from scipy import fft
 import pywt
 
 class MetricProcessor:
@@ -56,9 +55,9 @@ class MetricProcessor:
             if row['attack'] in renditions_list:
                 attack_IDs.append(renditions_list.index(row['attack']))
             elif 'watermark' in row['attack']:
-                    attack_IDs.append(11)
+                attack_IDs.append(11)
             elif 'low_bitrate_4' in row['attack']:
-                    attack_IDs.append(12)
+                attack_IDs.append(12)
             else:
                 attack_IDs.append(10)
 

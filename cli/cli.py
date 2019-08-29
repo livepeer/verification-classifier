@@ -13,12 +13,21 @@ from verifier import retrieve_model, verify, pre_verify
 @click.argument('pre_verification_parameters')
 @click.option('--do_profiling', default=0)
 @click.option('--max_samples', type=int, default=10)
-@click.option('--do_profiling', default=0)
-def cli(source, renditions, do_profiling, max_samples, model_uri):
-    
-    model_file, model_name = retrieve_model(model_uri)
+def cli(source, renditions, model_uri, do_profiling, max_samples):
+    # ************************************************************************
+    # Function to aggregate predicted verifications from a pre-trained model,
+    # a source video asset and a list of its renditions.
+    # Arguments:
+    # -source:                      The source video asset from which renditions were created
+    # -renditions:                  A list of paths in disk where renditions are located
+    # -do_profiling:                Enables / disables profiling tools for debugging purposes
+    # -max_samples:                 Number o random sampling frames to be used to make predictions
+    # -model_uri:                   Path to location in disk where pre-traind model is located
+    # ************************************************************************
 
-    predictions = verify(source, renditions, do_profiling, max_samples, model_file, model_name)
+    model_dir, model_file = retrieve_model(model_uri)
+
+    predictions = verify(source, renditions, do_profiling, max_samples, model_dir, model_file)
     results = []
     i = 0
     for rendition_uri in renditions:
