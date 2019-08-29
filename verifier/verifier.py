@@ -61,8 +61,6 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     with respect to a given source file using a specified model.
     '''
 
-    seconds = 2
-
     total_start = time.clock()
     total_start_user = time.time()
 
@@ -108,7 +106,6 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     asset_processor = VideoAssetProcessor(original_asset,
                                           pre_verified_renditions,
                                           metrics_list,
-                                          seconds,
                                           max_samples,
                                           do_profiling)
 

@@ -25,7 +25,6 @@ def compute_metrics(asset, renditions):
     start_time = time.time()
 
     original_asset = asset
-    seconds = 1
     max_samples = 30
     renditions_list = renditions
     metrics_list = ['temporal_difference',
@@ -35,7 +34,7 @@ def compute_metrics(asset, renditions):
                     'temporal_dct'
                     ]
 
-    asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, seconds, max_samples, False)
+    asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, max_samples, False)
 
     metrics_df = asset_processor.process()
 

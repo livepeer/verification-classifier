@@ -18,7 +18,7 @@ class VideoAssetProcessor:
     It is instantiated as part of the data creation as well
     as in the inference, both in the CLI as in the notebooks.
     '''
-    def __init__(self, original, renditions, metrics_list, duration, max_samples, do_profiling):
+    def __init__(self, original, renditions, metrics_list, max_samples, do_profiling):
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
@@ -32,8 +32,6 @@ class VideoAssetProcessor:
         self.fps = int(self.original_capture.get(cv2.CAP_PROP_FPS))
         # Counts number of frames of the asset
         self.asset_length = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        # Establishes how many seconds of the original asset are used
-        self.duration = duration
         # Defines whether to use all frames or leap frog skip_frames frames
         self.skip_frames = 1
         # Size of the hash for frame hash analysis in video_metrics
