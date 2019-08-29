@@ -143,9 +143,10 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     metrics_df = metrics_df.drop('title', axis=1)
     metrics_df = metrics_df.drop('attack', axis=1)
 
+    
     # Scale measured metrics according to their resolution for better accuracy
     metrics_df = rescale_to_resolution(metrics_df, features)
-    print(metrics_df, flush=True)
+    
     # Normalize input data using the associated scaler
     x_renditions = np.asarray(metrics_df)
     x_renditions = loaded_scaler.transform(x_renditions)

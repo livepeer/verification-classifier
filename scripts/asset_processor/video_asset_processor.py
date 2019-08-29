@@ -12,8 +12,6 @@ from scipy.spatial import distance
 
 from video_metrics import VideoMetrics
 
-pd.options.display.width = 0
-
 class VideoAssetProcessor:
     '''
     Class to extract and aggregate values from video sequences.
