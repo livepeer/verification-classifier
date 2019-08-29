@@ -12,6 +12,8 @@ from scipy.spatial import distance
 
 from video_metrics import VideoMetrics
 
+pd.options.display.width = 0
+
 class VideoAssetProcessor:
     '''
     Class to extract and aggregate values from video sequences.
@@ -236,7 +238,8 @@ class VideoAssetProcessor:
             rendition_dict = {}
 
             # We have a number of different metrics that have been computed.
-            # See the list in the video_metrics class
+            # These are an input for the constructor of the class an vary according to 
+            # what metrics are of interest in the research
             for metric in self.metrics_list:
                 # Obtain a Pandas DataFrame from the original and build the original time series
                 original_df = metrics_df[metrics_df['path'] == self.original_path][metric]
@@ -302,7 +305,7 @@ class VideoAssetProcessor:
         metrics_df['attack'] = attack_series
 
         metrics_df = metrics_df.drop(['level_0', 'level_1'], axis=1)
-        print(metrics_df, flush=True)
+        
         return metrics_df
 
     def process(self):
