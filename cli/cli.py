@@ -8,8 +8,10 @@ from verifier import retrieve_model, verify, pre_verify
 
 @click.command()
 @click.argument('source')
+@click.argument('renditions', multiple=True)
 @click.argument('model_uri')
-@click.option('--renditions', multiple=True)
+@click.argument('pre_verification_parameters')
+@click.option('--do_profiling', default=0)
 @click.option('--max_samples', type=int, default=10)
 @click.option('--do_profiling', default=0)
 def cli(source, renditions, do_profiling, max_samples, model_uri):

@@ -197,7 +197,7 @@ class VideoAssetProcessor:
         metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
 
         # Then we can combine each rendition
-        for rendition in self.renditions_paths:
+        for rendition in self.renditions_list:
             # For the current rendition, we need an empty dictionary
             rendition_dict = {}
 
@@ -208,8 +208,7 @@ class VideoAssetProcessor:
                 original_df = metrics_df[metrics_df['path'] == self.original_path][metric]
                 original_df = original_df.reset_index(drop=True).transpose().dropna().astype(float)
                 # Obtain a Pandas DataFrame from the current rendition and build its time series
-                rendition_df = metrics_df[metrics_df['path'] == rendition][metric]
-                rendition_df = rendition_df.reset_index(drop=True).transpose().dropna().astype(float)
+                rendition_df = metrics_df[metrics_df['path'] == rendition['path']][metric]
 
                 # For those metrics that have a temporal character, we need to make a further aggregation
                 # We are basically using the Manhattan and euclidean distances, and statistically meaningful
@@ -237,16 +236,16 @@ class VideoAssetProcessor:
 
             # Size is an important feature of an asset, as it gives important information
             # regarding the potential compression effect
-            rendition_dict['size'] = os.path.getsize(rendition)
+            rendition_dict['size'] = os.path.getsize(rendition['path'])
             rendition_dict['fps'] = self.fps
-            rendition_dict['path'] = rendition
+            rendition_dict['path'] = rendition['path']
 
             #Extract the dimensions of the rendition
-            dimensions_df = metrics_df[metrics_df['path'] == rendition]['dimensions']
+            dimensions_df = metrics_df[metrics_df['path'] == rendition['path']]['dimensions']
             rendition_dict['dimension'] = int(dimensions_df.unique()[0].split(':')[1])
                 
             # Store the rendition values in the dictionary of renditions for the present asset
-            renditions_dict[rendition] = rendition_dict
+            renditions_dict[rendition['path']] = rendition_dict
 
         # Add the current asset values to the global metrics_dict
         metrics_dict[self.original_path] = renditions_dict
@@ -276,7 +275,8 @@ class VideoAssetProcessor:
             self.compare_renditions_instant = self.cpu_profiler(self.compare_renditions_instant)
 
         # Iterate through renditions
-        for path in self.renditions_paths:
+        for rendition in self.renditions_list:
+            path = rendition['path']
             try:
                 capture = cv2.VideoCapture(path)
                 height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)

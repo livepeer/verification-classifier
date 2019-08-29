@@ -21,8 +21,39 @@ sys.path.insert(0, 'scripts/asset_processor')
 
 from video_asset_processor import VideoAssetProcessor
 
+def pre_verify(source_file, rendition):
+    '''
+    Function to verify that rendition conditions and specifications
+    are met as prescribed by the Broadcaster
+    '''
+    # Extract data from video capture
+    video_file = retrieve_video_file(rendition['uri'])
+    rendition_capture = cv2.VideoCapture(video_file)
+    fps = int(rendition_capture.get(cv2.CAP_PROP_FPS))
 
-def verify(asset, renditions, do_profiling, max_samples, model_dir, model_name):
+    # Create dictionary with passed / failed verification parameters
+    pre_verification_dict = {}
+    pre_verification_dict['path'] = video_file
+    pre_verification_dict['uri'] = rendition['uri']
+
+    for key in rendition:
+        if key == 'resolution':
+            height = rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            width = rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+            pre_verification_dict['height'] = height == rendition['resolution'].height
+            pre_verification_dict['width'] = width == rendition['resolution'].width
+
+        if key == 'frame_rate':
+            pre_verification_dict['frame_rate'] = fps == rendition['framerate']
+
+        if key == 'bitrate':
+            # Compute bitrate
+            frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            duration = float(frame_count) / float(fps) # in seconds
+            bitrate = os.path.getsize(video_file) / duration
+            pre_verification_dict['bitrate'] = bitrate == rendition['bitrate']
+
+    return pre_verification_dict
     seconds = 2
     
     total_start = time.clock()
@@ -39,11 +70,18 @@ def verify(asset, renditions, do_profiling, max_samples, model_dir, model_name):
         params = json.load(json_file)
         features = params['features']
 
-    # Prepare input and renditions for verification
-    original_asset = asset
-    renditions_list = list(renditions)
+    # Prepare source and renditions for verification
+    original_asset = {'path':retrieve_video_file(source_uri),
+                      'uri': source_uri}
 
+    # Create a list of preverified renditions
+    pre_verified_renditions = []
+    for rendition in renditions:
     
+        pre_verification = pre_verify(original_asset, rendition)
+
+        pre_verified_renditions.append(pre_verification)
+
     # Remove non numeric features from feature list
     non_numeric_features = ['attack_ID', 'title', 'attack', 'dimension', 'size']
     metrics_list = []
@@ -55,7 +93,14 @@ def verify(asset, renditions, do_profiling, max_samples, model_dir, model_name):
     start = time.clock()
     start_user = time.time()
     
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, max_samples, do_profiling)
+    # Instantiate VideoAssetProcessor class
+    asset_processor = VideoAssetProcessor(original_asset,
+                                          pre_verified_renditions,
+                                          metrics_list,
+                                          seconds,
+                                          max_samples,
+                                          do_profiling)
+
     initialize_time = time.clock() - start
     initialize_time_user = time.time() - start_user
     

@@ -12,7 +12,7 @@ def post_route():
     if request.method == 'POST':
 
         data = request.get_json()
-        renditions = []
+        
         source_uri = data['source']
         model_uri = data['model']
 
@@ -21,11 +21,11 @@ def post_route():
         do_profiling = False
         max_samples = 10
 
-        predictions = verify(source_file, renditions, do_profiling, max_samples, model_file, model_name)
+        predictions = verify(source_uri, data['renditions'], do_profiling, max_samples, model_file, model_name)
         results = []
         i = 0
-        for rendition_uri in data['renditions']:
-            results.append({rendition_uri : predictions[i]})
+        for rendition in data['renditions']:
+            results.append({rendition['uri'] : predictions[i]})
             i += 1
         return 'Results: {}\n'.format(results)
 
