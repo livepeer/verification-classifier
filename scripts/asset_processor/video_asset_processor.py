@@ -108,7 +108,7 @@ class VideoAssetProcessor:
                 i += 1
                 # Add the frame to the list
                 if i in self.random_sampler:
-                    frame = cv2.resize(frame, (960, 540), interpolation=cv2.INTER_LINEAR)
+                    frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
                     #frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     frame_list.append(frame)

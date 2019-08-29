@@ -379,7 +379,7 @@ class VideoMetrics:
                                                                    rendition_frame_gray)
 
             if metric == 'temporal_dct':
-                rendition_metrics[metric] = self.dct(gauss_reference_frame,
+                rendition_metrics[metric] = self.dct(reference_frame_gray,
                                                      rendition_frame_gray)
 
             if metric == 'temporal_gaussian':
@@ -393,7 +393,7 @@ class VideoMetrics:
             if metric == 'temporal_gaussian_difference_threshold':
                 rendition_metrics[metric] = self.gaussian_difference_threshold(gauss_reference_frame,
                                                                                gauss_rendition_frame,
-                                                                               reference_frame_gray,
+                                                                               rendition_frame_gray,
                                                                                next_reference_frame_gray)
             if metric == 'temporal_spatial_complexity':
                 rendition_metrics[metric] = self.spatial_complexity(reference_frame_gray)
