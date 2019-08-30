@@ -37,7 +37,8 @@ def compute_metrics(asset, renditions):
                     'temporal_dct'
                     ]
 
-    asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, False)
+    max_samples = 30
+    asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, False, max_samples)
 
     metrics_df = asset_processor.process()
 
@@ -57,7 +58,7 @@ def add_asset_input(client, title, input_data):
     datastore
     '''
 
-    entity_name = 'features_input_30_540'
+    entity_name = 'features_input_540'
     key = client.key(entity_name, title, namespace='livepeer-verifier-training')
     video = datastore.Entity(key)
     #input_data['created'] = datetime.datetime.utcnow()
@@ -91,15 +92,14 @@ def dataset_generator_http(request):
         os.makedirs(local_folder)
 
     # Get the file that has been uploaded to GCS
-    asset_path = '{}/{}'.format(local_folder, asset_name)
+    asset_path = {'path': '{}/{}'.format(local_folder, asset_name)}
     
-    print(asset_path)
-    renditions_paths=[]
+    renditions_paths = []
     url = 'https://storage.googleapis.com/{}/{}'.format(original_bucket, asset_name)
     print('Downloading {}'.format(url))
     try:
-        urllib.request.urlretrieve(url, asset_path)
-        renditions_paths.append(asset_path)
+        urllib.request.urlretrieve(url, asset_path['path'])
+        renditions_paths.append({'path': asset_path['path']})
     except:
         print('Unable to download {}'.format(url))
         pass
@@ -178,7 +178,7 @@ def dataset_generator_http(request):
         print('Downloading {}'.format(url))
         try:
             urllib.request.urlretrieve (url, local_file)
-            renditions_paths.append(local_file)        
+            renditions_paths.append({'path': local_file})
         except:
             print('Unable to download {}'.format(url))
             pass
