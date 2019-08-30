@@ -16,13 +16,19 @@ sys.path.insert(0, 'imports')
 
 from imports.video_asset_processor import VideoAssetProcessor
 
-datastore_client = datastore.Client()
+DATASTORE_CLIENT = datastore.Client()
 
 def compute_metrics(asset, renditions):
+    '''
+    Function that instantiates the VideoAssetProcessor class with a list
+    of metrics to be computed.
+    The feature_list argument is left void as every descriptor of each
+    temporal metric is potentially used for model training
+    '''
     start_time = time.time()
 
     original_asset = asset
-    max_samples = 30
+
     renditions_list = renditions
     metrics_list = ['temporal_difference',
                     'temporal_gaussian', 
@@ -31,7 +37,7 @@ def compute_metrics(asset, renditions):
                     'temporal_dct'
                     ]
 
-    asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, max_samples, False)
+    asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, False)
 
     metrics_df = asset_processor.process()
 
@@ -40,14 +46,19 @@ def compute_metrics(asset, renditions):
         for column in metrics_df.columns:
             if 'series' in column:
                 line[column] = np.array2string(np.around(line[column], decimals=5))
-        add_asset_input(datastore_client,'{}/{}'.format(row['title'],row['attack']), line)
+        add_asset_input(DATASTORE_CLIENT, '{}/{}'.format(row['title'],row['attack']), line)
 
     elapsed_time = time.time() - start_time
     print('Computation time:', elapsed_time)
 
 def add_asset_input(client, title, input_data):
+    '''
+    Function to incorporate computed data for each rendition in the 
+    datastore
+    '''
+
     entity_name = 'features_input_30_540'
-    key = client.key(entity_name, title, namespace = 'livepeer-verifier-training')
+    key = client.key(entity_name, title, namespace='livepeer-verifier-training')
     video = datastore.Entity(key)
     #input_data['created'] = datetime.datetime.utcnow()
     video.update(input_data)

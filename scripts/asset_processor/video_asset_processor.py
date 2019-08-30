@@ -18,22 +18,25 @@ class VideoAssetProcessor:
     It is instantiated as part of the data creation as well
     as in the inference, both in the CLI as in the notebooks.
     '''
-    def __init__(self, original, renditions, metrics_list, max_samples, do_profiling, features_list=[]):
+    def __init__(self, original, renditions, metrics_list, do_profiling, max_samples=-1, features_list=[]):
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
-        # Maximum number of frames to random sample
-        self.max_samples = max_samples
+
         # Stores system path to original asset
         self.original_path = original['path']
         # Initializes original asset to OpenCV VideoCapture class
         self.original_capture = cv2.VideoCapture(self.original_path)
         # Frames Per Second of the original asset
         self.fps = int(self.original_capture.get(cv2.CAP_PROP_FPS))
-        # Counts number of frames of the asset
-        self.asset_length = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        # Defines whether to use all frames or leap frog skip_frames frames
-        self.skip_frames = 1
+        # Obtains number of frames of the original
+        self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        # Maximum number of frames to random sample
+        if max_samples == -1:
+            self.max_samples = self.max_frames
+        else:
+            self.max_samples = max_samples
+
         # Size of the hash for frame hash analysis in video_metrics
         self.hash_size = 16
         # Dictionary containing dict of metrics
@@ -50,8 +53,7 @@ class VideoAssetProcessor:
         self.height = self.original_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
         # Obtains horizontal dimension of the frames of the original
         self.width = self.original_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-        # Obtains number of frames of the original
-        self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        
         # Collects both dimensional values in a string
         self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
 
@@ -63,7 +65,6 @@ class VideoAssetProcessor:
         self.do_profiling = do_profiling
         # Instance of the video_metrics class
         self.video_metrics = VideoMetrics(self.metrics_list,
-                                          self.skip_frames,
                                           self.hash_size,
                                           int(self.height),
                                           self.cpu_profiler,
@@ -71,9 +72,7 @@ class VideoAssetProcessor:
 
         # Convert OpenCV video captures of original to list
         # of numpy arrays for better performance of numerical computations
-        if self.max_samples >= self.max_frames:
-            self.max_samples = self.max_frames
-
+        
         self.random_sampler = list(np.random.choice(self.max_frames,
                                                     self.max_samples,
                                                     replace=False))

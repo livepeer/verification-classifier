@@ -103,8 +103,8 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     asset_processor = VideoAssetProcessor(original_asset,
                                           pre_verified_renditions,
                                           metrics_list,
-                                          max_samples,
                                           do_profiling,
+                                          max_samples,
                                           features)
 
     # Record time for class initialization
