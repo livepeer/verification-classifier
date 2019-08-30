@@ -29,7 +29,8 @@ def compute_metrics(asset, renditions):
     start_time = time.time()
 
     original_asset = asset
-
+    seconds = 1
+    max_samples = 60
     renditions_list = renditions
     metrics_list = ['temporal_difference',
                     'temporal_gaussian', 
@@ -55,13 +56,8 @@ def compute_metrics(asset, renditions):
 
 
 def add_asset_input(client, title, input_data):
-    '''
-    Function to incorporate computed data for each rendition in the 
-    datastore
-    '''
-
     entity_name = 'features_input_540'
-    key = client.key(entity_name, title, namespace='livepeer-verifier-training')
+    key = client.key(entity_name, title, namespace = 'livepeer-verifier-training')
     video = datastore.Entity(key)
     #input_data['created'] = datetime.datetime.utcnow()
     video.update(input_data)
