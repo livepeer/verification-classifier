@@ -35,5 +35,6 @@ def cli(source, renditions, model_uri, do_profiling, max_samples):
         i += 1
     return 'Results: {}\n'.format(results)
 
+
 if __name__ == '__main__':
     cli()

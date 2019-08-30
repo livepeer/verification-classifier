@@ -18,6 +18,7 @@ from imports.video_asset_processor import VideoAssetProcessor
 
 DATASTORE_CLIENT = datastore.Client()
 
+
 def compute_metrics(asset, renditions):
     '''
     Function that instantiates the VideoAssetProcessor class with a list
@@ -52,6 +53,7 @@ def compute_metrics(asset, renditions):
     elapsed_time = time.time() - start_time
     print('Computation time:', elapsed_time)
 
+
 def add_asset_input(client, title, input_data):
     '''
     Function to incorporate computed data for each rendition in the 
@@ -65,6 +67,8 @@ def add_asset_input(client, title, input_data):
     video.update(input_data)
 
     client.put(video)
+
+
 def dataset_generator_http(request):
     """HTTP Cloud Function.
     Args:

@@ -11,6 +11,7 @@ from skimage.measure import compare_ssim as ssim
 from skimage.measure import shannon_entropy
 from skimage.feature import local_binary_pattern as LBP
 from skimage.filters import gaussian
+from mahotas.features import haralick
 
 class VideoMetrics:
     '''
@@ -92,6 +93,7 @@ class VideoMetrics:
         BRIEF descriptor with many modifications to enhance the performance.
         '''
         # Initialize ORB detector
+
         orb = cv2.ORB_create()
 
         # Find the keypoints and descriptors with ORB
@@ -100,6 +102,7 @@ class VideoMetrics:
 
         # create Brute Force Matcher object
         bf_matcher = cv2.BFMatcher(normType=cv2.NORM_HAMMING, crossCheck=False)
+
 
         # Match descriptors.
         matches = bf_matcher.knnMatch(descriptor_current, descriptor_next, k=2)
@@ -115,6 +118,50 @@ class VideoMetrics:
 
         # Return the number of matching points between one frame and the next
         return len(good)
+
+    @staticmethod
+    def dtw_distance(ts_a, ts_b, d = lambda x,y: abs(x-y)):
+        """Returns the DTW similarity distance between two 2-D
+        timeseries numpy arrays.
+
+        Arguments
+        ---------
+        ts_a, ts_b : array of shape [n_samples, n_timepoints]
+            Two arrays containing n_samples of timeseries data
+            whose DTW distance between each sample of A and B
+            will be compared
+
+        d : DistanceMetric object (default = abs(x-y))
+            the distance measure used for A_i - B_j in the
+            DTW dynamic programming function
+
+        Returns
+        -------
+        DTW distance between A and B
+        """
+        max_warping_window=10000
+        # Create cost matrix via broadcasting with large int
+        ts_a, ts_b = np.array(ts_a), np.array(ts_b)
+        M, N = len(ts_a), len(ts_b)
+        cost = sys.maxsize * np.ones((M, N))
+
+        # Initialize the first row and column
+        cost[0, 0] = d(ts_a[0], ts_b[0])
+        for i in range(1, M):
+            cost[i, 0] = cost[i-1, 0] + d(ts_a[i], ts_b[0])
+
+        for j in range(1, N):
+            cost[0, j] = cost[0, j-1] + d(ts_a[0], ts_b[j])
+
+        # Populate rest of cost matrix within window
+        for i in range(1, M):
+            for j in range(max(1, i - max_warping_window),
+                           min(N, i + max_warping_window)):
+                choices = cost[i - 1, j - 1], cost[i, j-1], cost[i-1, j]
+                cost[i, j] = min(choices) + d(ts_a[i], ts_b[j])
+
+        # Return DTW distance given window
+        return cost[-1, -1]
 
     @staticmethod
     def difference(current_frame, next_frame):
@@ -305,15 +352,17 @@ class VideoMetrics:
 
         return sum_th
 
-    def compute_metrics(self, rendition_frame,
-                        next_rendition_frame,
-                        reference_frame,
-                        next_reference_frame):
-        '''
-        Main function of the class.
-        It uses the class' metrics_list to run those methods that are required
-        by the caller of the class
-        '''
+
+    @staticmethod
+    def evaluate_texture_instant(reference_frame, rendition_frame):
+        # Function to compute the instantaneous difference between the textures of each frames
+
+        reference_texture = haralick(reference_frame)
+        rendition_texture = haralick(rendition_frame)
+
+        return mean_squared_error(reference_texture, rendition_texture)
+
+    def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
 
         if self.profiling:
@@ -332,6 +381,7 @@ class VideoMetrics:
             self.ssim = self.cpu_profiler(self.ssim)
             self.orb = self.cpu_profiler(self.orb)
             self.rescale_pair = self.cpu_profiler(self.rescale_pair)
+            self.evaluate_texture_instant = self.cpu_profiler(self.evaluate_texture_instant)
 
         # Some metrics only need the luminance channel
         reference_frame_gray = reference_frame
@@ -396,6 +446,9 @@ class VideoMetrics:
                                                                                next_reference_frame_gray)
             if metric == 'temporal_spatial_complexity':
                 rendition_metrics[metric] = self.spatial_complexity(reference_frame_gray)
+
+            if metric == 'temporal_texture':
+                rendition_metrics[metric] = self.evaluate_texture_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_entropy':
                 rendition_metrics[metric] = self.entropy(reference_frame_gray,
