@@ -269,6 +269,7 @@ class VideoAssetProcessor:
                     rendition_dict['{}-mean'.format(metric)] = np.mean(x_rendition)
                     rendition_dict['{}-max'.format(metric)] = np.max(x_rendition)
                     rendition_dict['{}-std'.format(metric)] = np.std(x_rendition)
+                    rendition_dict['{}-corr'.format(metric)] = np.correlate(x_original, x_rendition, mode='same').mean()
                     rendition_dict['{}-series'.format(metric)] = x_rendition
 
                 # Other metrics do not need time evaluation
@@ -313,20 +314,16 @@ class VideoAssetProcessor:
         Cleanup the resulting pandas dataframe and convert it to a numpy array
         to pass to the prediction model
         '''
-        for column in metrics_df.columns:
-            if 'series' in column:
-                metrics_df = metrics_df.drop([column], axis=1)
-
-        # Cleanup unneeded features from feature list
-        features.remove('attack_ID')
-
-        # Filter out features from metrics dataframe
-        metrics_df = metrics_df[features]
-
-        # Cleanup unneeded features from metrics dataframe
-        metrics_df = metrics_df.drop('title', axis=1)
-        metrics_df = metrics_df.drop('attack', axis=1)
-
+   
+        if features != []:    
+            if 'attack_ID' in features:
+                features.remove('attack_ID')
+            # Filter out features from metrics dataframe
+            metrics_df = metrics_df[features]
+            # Cleanup unneeded features from metrics dataframe
+            metrics_df = metrics_df.drop('title', axis=1)
+            metrics_df = metrics_df.drop('attack', axis=1)
+        
         # Scale measured metrics according to their resolution for better accuracy
         metrics_df = self.rescale_to_resolution(metrics_df, features)
 
