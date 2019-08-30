@@ -1,19 +1,16 @@
-from google.cloud import datastore
+'''
+Main function to be called from GCE's cloud function
+This function is in charge of adding training data to
+the datastore for later generation of models and feature study
+'''
 
-import tarfile
-import pickle
+import sys
+import os
 import time
 import urllib
 import numpy as np
-import math
-from scipy.spatial import distance
-import cv2
-import pandas as pd
-import os
-from concurrent.futures.thread import ThreadPoolExecutor
-import datetime
 
-import sys
+from google.cloud import datastore
 
 sys.path.insert(0, 'imports')
 
