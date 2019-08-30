@@ -18,9 +18,8 @@ class VideoMetrics:
     It wraps up different machine learning and Computer Vision techniques that serve
     to evaluate and extract characteristics of frames of two videos.
     '''
-    def __init__(self, metrics_list, skip_frames, hash_size, dimension, cpu_profiler, do_profiling):
+    def __init__(self, metrics_list, hash_size, dimension, cpu_profiler, do_profiling):
         self.hash_size = hash_size
-        self.skip_frames = skip_frames
         self.metrics_list = metrics_list
         self.dimension = dimension
         self.profiling = do_profiling
