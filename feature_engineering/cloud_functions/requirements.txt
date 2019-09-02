@@ -1,6 +1,5 @@
 google-cloud-storage
 google-cloud-datastore 
-mahotas==1.4.7  
 scikit-learn==0.20.3
 opencv-python==4.0.0.21
 click==7.0
