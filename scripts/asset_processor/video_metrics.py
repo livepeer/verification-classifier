@@ -355,7 +355,7 @@ class VideoMetrics:
 
 
     @staticmethod
-    def evaluate_texture_instant(reference_frame, rendition_frame):
+    def texture_instant(reference_frame, rendition_frame):
         '''
         Haralick features date back to as far as 1970s and were one 
         of the first used to classify aerial imagery collected from satellites.
@@ -389,6 +389,36 @@ class VideoMetrics:
 
         return mean_squared_error(reference_texture, rendition_texture)
 
+    @staticmethod
+    def image_match_instant(pixelsA, pixelsB, v):  
+        '''
+        Original go implementation:
+        https://github.com/mkrufky/coersion/
+        
+        func imageMatch(wg *sync.WaitGroup, pixelsA, pixelsB [][]Pixel, v uint64, pass, fail *int) {
+            defer wg.Done()
+            *pass = 0
+            *fail = 0
+            for x, a := range pixelsA {
+                for y, b := range a {
+                    if math.Abs(float64(b.R-pixelsB[x][y].R)) < float64(v) &&
+                        math.Abs(float64(b.G-pixelsB[x][y].G)) < float64(v) &&
+                        math.Abs(float64(b.B-pixelsB[x][y].B)) < float64(v) &&
+                        math.Abs(float64(b.A-pixelsB[x][y].A)) < float64(v) {
+                        *pass++
+                    } else {
+                        *fail++
+                    }
+                }
+            }
+        }
+        '''
+
+
+        pass_count = np.sum(np.abs(np.float64(pixelsA - pixelsB)) < v)
+        
+        return pass_count / np.size(pixelsA)
+
     def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
 
@@ -408,7 +438,8 @@ class VideoMetrics:
             self.ssim = self.cpu_profiler(self.ssim)
             self.orb = self.cpu_profiler(self.orb)
             self.rescale_pair = self.cpu_profiler(self.rescale_pair)
-            self.evaluate_texture_instant = self.cpu_profiler(self.evaluate_texture_instant)
+            self.texture_instant = self.cpu_profiler(self.texture_instant)
+            self.image_match_instant = self.cpu_profiler(self.image_match_instant)
 
         # Some metrics only need the luminance channel
         reference_frame_gray = reference_frame
@@ -475,7 +506,11 @@ class VideoMetrics:
                 rendition_metrics[metric] = self.spatial_complexity(reference_frame_gray)
 
             if metric == 'temporal_texture':
-                rendition_metrics[metric] = self.evaluate_texture_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.texture_instant(reference_frame_gray, rendition_frame_gray)
+
+            if metric == 'temporal_match':
+                match_threshold = 10
+                rendition_metrics[metric] = self.image_match_instant(reference_frame_gray, rendition_frame_gray, match_threshold)
 
             if metric == 'temporal_entropy':
                 rendition_metrics[metric] = self.entropy(reference_frame_gray,
