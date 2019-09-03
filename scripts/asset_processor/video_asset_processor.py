@@ -18,7 +18,7 @@ class VideoAssetProcessor:
     It is instantiated as part of the data creation as well
     as in the inference, both in the CLI as in the notebooks.
     '''
-    def __init__(self, original, renditions, metrics_list, do_profiling, max_samples=-1, features_list=[]):
+    def __init__(self, original, renditions, metrics_list, do_profiling=False, max_samples=-1, features_list=[]):
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
