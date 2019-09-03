@@ -223,12 +223,12 @@ def random_forest(x_train, y_train, x_test, y_test, random_forest_results):
     estimators = [150, 200]
     dimensions = [int(i*x_test.shape[1]) for i in [1]]
 
-    for n in dimensions:
+    for estimator in estimators:
 
-        x_reduced_pca, test_reduced_pca = reduce_dimensionality(n, x_train, x_test, 'PCA')
-        x_reduced_rp, test_reduced_rp = reduce_dimensionality(n, x_train, x_test, 'RP')
+        for n in dimensions:
 
-        for estimator in estimators:
+            x_reduced_pca, test_reduced_pca = reduce_dimensionality(n, x_train, x_test, 'PCA')
+            x_reduced_rp, test_reduced_rp = reduce_dimensionality(n, x_train, x_test, 'RP')
 
             classifier = RandomForestClassifier(n_estimators=estimator, n_jobs=7)
 
@@ -257,6 +257,21 @@ def random_forest(x_train, y_train, x_test, y_test, random_forest_results):
                                                                   'auc': area,
                                                                   'f_beta': fb,
                                                                   'projection': 'RP'}, ignore_index=True)
+
+            classifier = RandomForestClassifier(n_estimators=estimator, n_jobs=7)
+
+        classifier.fit(x_train, y_train)
+        fb, area, tnr, tpr = supervised_evaluation(classifier, x_test, y_test)
+
+        random_forest_results = random_forest_results.append({'estimators': estimator,
+                                                              'n_components': x_test.shape[1],
+                                                              'TPR': tpr,
+                                                              'TNR': tnr,
+                                                              'model': 'random_forest',
+                                                              'auc': area,
+                                                              'f_beta': fb,
+                                                              'projection': 'None'}, ignore_index=True)
+
     return random_forest_results
 
 
@@ -384,6 +399,22 @@ def xg_boost(x_train, y_train, x_test, y_test, xg_boost_results):
             'auc': area,
             'f_beta': fb,
             'projection': 'RP'}, ignore_index=True)
+
+    classifier = xgb.XGBClassifier()
+    grid = {'max_depth': 10}
+    classifier.set_params(**grid)
+
+    classifier.fit(x_train, y_train)
+    fb, area, tnr, tpr = supervised_evaluation(classifier, x_test, y_test)
+
+    xg_boost_results = xg_boost_results.append({
+        'n_components': x_test.shape[1],
+        'TPR': tpr,
+        'TNR': tnr,
+        'model': 'xgboost',
+        'auc': area,
+        'f_beta': fb,
+        'projection': 'None'}, ignore_index=True)
 
     return xg_boost_results
 

@@ -9,6 +9,7 @@ from sklearn.metrics import mean_squared_error
 from skimage.measure import compare_ssim as ssim
 from skimage.measure import shannon_entropy
 from skimage.feature import local_binary_pattern as LBP
+from mahotas.features import haralick
 
 
 class video_metrics:
@@ -302,6 +303,14 @@ class video_metrics:
 
         return sum_th
 
+    def evaluate_texture_instant(self, reference_frame, rendition_frame):
+        # Function to compute the instantaneous difference between the textures of each frames
+
+        reference_texture = haralick(reference_frame)
+        rendition_texture = haralick(rendition_frame)
+
+        return mean_squared_error(reference_texture, rendition_texture)
+
     def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
 
@@ -321,8 +330,9 @@ class video_metrics:
             self.evaluate_ssim_instant = self.cpu_profiler(self.evaluate_ssim_instant)
             self.evaluate_orb_instant = self.cpu_profiler(self.evaluate_orb_instant)
             self.rescale_pair = self.cpu_profiler(self.rescale_pair)
+            self.evaluate_texture_instant = self.cpu_profiler(self.evaluate_texture_instant)
 
-        # Some metrics only need the luminance channel
+    # Some metrics only need the luminance channel
         reference_frame_gray = reference_frame
         rendition_frame_gray = rendition_frame
         next_reference_frame_gray = next_reference_frame
@@ -380,6 +390,9 @@ class video_metrics:
                                                                                                 next_rendition_frame_gray)
             if metric == 'temporal_spatial_complexity':
                 rendition_metrics[metric] = self.evaluate_spatial_complexity(reference_frame_gray)
+
+            if metric == 'temporal_texture':
+                rendition_metrics[metric] = self.evaluate_texture_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_entropy':
                 rendition_metrics[metric] = self.evaluate_entropy_instant(reference_frame_gray, rendition_frame_gray)

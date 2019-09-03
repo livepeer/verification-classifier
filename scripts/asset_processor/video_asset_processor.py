@@ -13,7 +13,7 @@ class video_asset_processor:
     # Class to extract and aggregate values from video sequences.
     # It is instantiated as part of the data creation as well
     # as in the inference, both in the CLI as in the notebooks
-    def __init__(self, original_path, renditions_paths, metrics_list, duration, max_samples, do_profiling):
+    def __init__(self, original_path, renditions_paths, metrics_list, duration, max_samples, do_profiling=False):
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
