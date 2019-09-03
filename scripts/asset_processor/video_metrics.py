@@ -441,7 +441,7 @@ class VideoMetrics:
             self.texture_instant = self.cpu_profiler(self.texture_instant)
             self.image_match_instant = self.cpu_profiler(self.image_match_instant)
 
-        # Some metrics only need the luminance channel
+    # Some metrics only need the luminance channel
         reference_frame_gray = reference_frame
         rendition_frame_gray = rendition_frame
         next_reference_frame_gray = next_reference_frame
@@ -511,6 +511,9 @@ class VideoMetrics:
             if metric == 'temporal_match':
                 match_threshold = 10
                 rendition_metrics[metric] = self.image_match_instant(reference_frame_gray, rendition_frame_gray, match_threshold)
+
+            if metric == 'temporal_texture':
+                rendition_metrics[metric] = self.evaluate_texture_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_entropy':
                 rendition_metrics[metric] = self.entropy(reference_frame_gray,
