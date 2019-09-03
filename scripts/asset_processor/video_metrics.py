@@ -512,9 +512,6 @@ class VideoMetrics:
                 match_threshold = 10
                 rendition_metrics[metric] = self.image_match_instant(reference_frame_gray, rendition_frame_gray, match_threshold)
 
-            if metric == 'temporal_texture':
-                rendition_metrics[metric] = self.evaluate_texture_instant(reference_frame_gray, rendition_frame_gray)
-
             if metric == 'temporal_entropy':
                 rendition_metrics[metric] = self.entropy(reference_frame_gray,
                                                          rendition_frame_gray)

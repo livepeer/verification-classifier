@@ -19,7 +19,7 @@ class VideoAssetProcessor:
     It is instantiated as part of the data creation as well
     as in the inference, both in the CLI as in the notebooks.
     """
-    def __init__(self, original, renditions, metrics_list, do_profiling, max_samples=-1, features_list=[]):
+    def __init__(self, original, renditions, metrics_list, do_profiling=False, max_samples=-1, features_list=[]):
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
@@ -108,7 +108,6 @@ class VideoAssetProcessor:
                 if i in self.random_sampler:
                     frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-                    #frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     frame_list.append(frame)
 
             # Break the loop when frames cannot be taken from original
@@ -282,7 +281,7 @@ class VideoAssetProcessor:
             rendition_dict['fps'] = self.fps
             rendition_dict['path'] = rendition['path']
 
-            #Extract the dimensions of the rendition
+            # Extract the dimensions of the rendition
             dimensions_df = metrics_df[metrics_df['path'] == rendition['path']]['dimensions']
             rendition_dict['dimension'] = int(dimensions_df.unique()[0].split(':')[1])
 
@@ -335,79 +334,79 @@ class VideoAssetProcessor:
         Function that improves model accuracy by scaling those features that
         """
         feat_labels = ['dimension',
-                    'size',
-                    'fps',
-                    'temporal_difference-euclidean',
-                    'temporal_difference-manhattan',
-                    'temporal_difference-max',
-                    'temporal_difference-mean',
-                    'temporal_difference-std',
-                    'temporal_cross_correlation-euclidean',
-                    'temporal_cross_correlation-manhattan',
-                    'temporal_cross_correlation-max',
-                    'temporal_cross_correlation-mean',
-                    'temporal_cross_correlation-std',
-                    'temporal_dct-euclidean',
-                    'temporal_dct-manhattan',
-                    'temporal_dct-max',
-                    'temporal_dct-mean',
-                    'temporal_dct-std',
-                    'temporal_canny-euclidean',
-                    'temporal_canny-manhattan',
-                    'temporal_canny-max',
-                    'temporal_canny-mean',
-                    'temporal_canny-std',
-                    'temporal_gaussian-euclidean',
-                    'temporal_gaussian-manhattan',
-                    'temporal_gaussian-max',
-                    'temporal_gaussian-mean',
-                    'temporal_gaussian-std',
-                    'temporal_gaussian_difference-euclidean',
-                    'temporal_gaussian_difference-manhattan',
-                    'temporal_gaussian_difference-max',
-                    'temporal_gaussian_difference-mean',
-                    'temporal_gaussian_difference-std',
-                    'temporal_gaussian_difference_threshold-euclidean',
-                    'temporal_gaussian_difference_threshold-manhattan',
-                    'temporal_gaussian_difference_threshold-max',
-                    'temporal_gaussian_difference_threshold-mean',
-                    'temporal_gaussian_difference_threshold-std',
-                    'temporal_histogram_distance-euclidean',
-                    'temporal_histogram_distance-manhattan',
-                    'temporal_histogram_distance-max',
-                    'temporal_histogram_distance-mean',
-                    'temporal_histogram_distance-std',
-                    'temporal_ssim-euclidean',
-                    'temporal_ssim-manhattan',
-                    'temporal_ssim-max',
-                    'temporal_ssim-mean',
-                    'temporal_ssim-std',
-                    'temporal_psnr-euclidean',
-                    'temporal_psnr-manhattan',
-                    'temporal_psnr-max',
-                    'temporal_psnr-mean',
-                    'temporal_psnr-std',
-                    'temporal_entropy-euclidean',
-                    'temporal_entropy-manhattan',
-                    'temporal_entropy-max',
-                    'temporal_entropy-mean',
-                    'temporal_entropy-std',
-                    'temporal_lbp-euclidean',
-                    'temporal_lbp-manhattan',
-                    'temporal_lbp-max',
-                    'temporal_lbp-mean',
-                    'temporal_lbp-std',
-                    'temporal_orb-euclidean',
-                    'temporal_orb-manhattan',
-                    'temporal_orb-max',
-                    'temporal_orb-mean',
-                    'temporal_orb-std',
-                    ]
+                       'size',
+                       'fps',
+                       'temporal_difference-euclidean',
+                       'temporal_difference-manhattan',
+                       'temporal_difference-max',
+                       'temporal_difference-mean',
+                       'temporal_difference-std',
+                       'temporal_cross_correlation-euclidean',
+                       'temporal_cross_correlation-manhattan',
+                       'temporal_cross_correlation-max',
+                       'temporal_cross_correlation-mean',
+                       'temporal_cross_correlation-std',
+                       'temporal_dct-euclidean',
+                       'temporal_dct-manhattan',
+                       'temporal_dct-max',
+                       'temporal_dct-mean',
+                       'temporal_dct-std',
+                       'temporal_canny-euclidean',
+                       'temporal_canny-manhattan',
+                       'temporal_canny-max',
+                       'temporal_canny-mean',
+                       'temporal_canny-std',
+                       'temporal_gaussian-euclidean',
+                       'temporal_gaussian-manhattan',
+                       'temporal_gaussian-max',
+                       'temporal_gaussian-mean',
+                       'temporal_gaussian-std',
+                       'temporal_gaussian_difference-euclidean',
+                       'temporal_gaussian_difference-manhattan',
+                       'temporal_gaussian_difference-max',
+                       'temporal_gaussian_difference-mean',
+                       'temporal_gaussian_difference-std',
+                       'temporal_gaussian_difference_threshold-euclidean',
+                       'temporal_gaussian_difference_threshold-manhattan',
+                       'temporal_gaussian_difference_threshold-max',
+                       'temporal_gaussian_difference_threshold-mean',
+                       'temporal_gaussian_difference_threshold-std',
+                       'temporal_histogram_distance-euclidean',
+                       'temporal_histogram_distance-manhattan',
+                       'temporal_histogram_distance-max',
+                       'temporal_histogram_distance-mean',
+                       'temporal_histogram_distance-std',
+                       'temporal_ssim-euclidean',
+                       'temporal_ssim-manhattan',
+                       'temporal_ssim-max',
+                       'temporal_ssim-mean',
+                       'temporal_ssim-std',
+                       'temporal_psnr-euclidean',
+                       'temporal_psnr-manhattan',
+                       'temporal_psnr-max',
+                       'temporal_psnr-mean',
+                       'temporal_psnr-std',
+                       'temporal_entropy-euclidean',
+                       'temporal_entropy-manhattan',
+                       'temporal_entropy-max',
+                       'temporal_entropy-mean',
+                       'temporal_entropy-std',
+                       'temporal_lbp-euclidean',
+                       'temporal_lbp-manhattan',
+                       'temporal_lbp-max',
+                       'temporal_lbp-mean',
+                       'temporal_lbp-std',
+                       'temporal_orb-euclidean',
+                       'temporal_orb-manhattan',
+                       'temporal_orb-max',
+                       'temporal_orb-mean',
+                       'temporal_orb-std',
+                       ]
         df_features = pd.DataFrame(data)
         downscale_features = ['temporal_psnr',
-                            'temporal_ssim',
-                            'temporal_cross_correlation'
-                            ]
+                              'temporal_ssim',
+                              'temporal_cross_correlation'
+                             ]
 
         upscale_features = ['temporal_difference',
                             'temporal_dct',
