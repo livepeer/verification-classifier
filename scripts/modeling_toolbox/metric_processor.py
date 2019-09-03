@@ -58,9 +58,9 @@ class MetricProcessor:
             if row['attack'] in renditions_list:
                 attack_IDs.append(renditions_list.index(row['attack']))
             elif 'watermark' in row['attack']:
-                    attack_IDs.append(11)
+                attack_IDs.append(11)
             elif 'low_bitrate_4' in row['attack']:
-                    attack_IDs.append(12)
+                attack_IDs.append(12)
             else:
                 attack_IDs.append(10)
 
@@ -237,6 +237,16 @@ class MetricProcessor:
                        'temporal_orb-max',
                        'temporal_orb-mean',
                        'temporal_orb-std',
+                       'temporal_texture-euclidean',
+                       'temporal_texture-manhattan',
+                       'temporal_texture-max',
+                       'temporal_texture-mean',
+                       'temporal_texture-std',
+                       'temporal_match-euclidean',
+                       'temporal_match-manhattan',
+                       'temporal_match-max',
+                       'temporal_match-mean',
+                       'temporal_match-std',
                       ]
         df = pd.DataFrame(data)
         downscale_features = [
@@ -253,7 +263,9 @@ class MetricProcessor:
                             'temporal_gaussian_difference', 
                             'temporal_histogram_distance',
                             'temporal_entropy',
-                            'temporal_lbp'
+                            'temporal_lbp',
+                            'temporal_texture',
+                            'temporal_match',
                            ]
 
         for label in feat_labels:

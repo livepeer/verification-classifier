@@ -1,21 +1,28 @@
-import cv2
-import numpy as np
+"""
+Module for management, evaluation and computation of video metrics
+"""
 import math
 import sys
+import cv2
+import numpy as np
 from scipy.spatial import distance
-
-from skimage.filters import gaussian
 from sklearn.metrics import mean_squared_error
 from skimage.measure import compare_ssim as ssim
 from skimage.measure import shannon_entropy
 from skimage.feature import local_binary_pattern as LBP
-from mahotas.features import haralick
+from skimage.feature import greycomatrix
+from skimage.feature import greycoprops
+from skimage.filters import gaussian
 
 
-class video_metrics:
-    def __init__(self, metrics_list, skip_frames, hash_size, dimension, cpu_profiler, do_profiling):
+class VideoMetrics:
+    """
+    Class in charge of managing all video metrics for verification on a per-frame basis.
+    It wraps up different machine learning and Computer Vision techniques that serve
+    to evaluate and extract characteristics of frames of two videos.
+    """
+    def __init__(self, metrics_list, hash_size, dimension, cpu_profiler, do_profiling):
         self.hash_size = hash_size
-        self.skip_frames = skip_frames
         self.metrics_list = metrics_list
         self.dimension = dimension
         self.profiling = do_profiling
@@ -23,39 +30,47 @@ class video_metrics:
             self.cpu_profiler = cpu_profiler
 
     @staticmethod
-    def rescale_pair(img_A, img_B):
-        # Limit the scale to the minimum of the dimensions
-        width = min(img_A.shape[0], img_B.shape[0])
-        height = min(img_A.shape[1], img_B.shape[1])
+    def rescale_pair(reference_frame, rendition_frame):
+        """
+        Limit the scale to the minimum of the dimensions
+        """
+        width = min(reference_frame.shape[0], rendition_frame.shape[0])
+        height = min(reference_frame.shape[1], rendition_frame.shape[1])
 
-        resized_A = cv2.resize(img_A, (height, width))
-        resized_B = cv2.resize(img_B, (height, width))
+        resized_a = cv2.resize(reference_frame, (height, width))
+        resized_b = cv2.resize(rendition_frame, (height, width))
 
-        return resized_A, resized_B
+        return resized_a, resized_b
 
-    @staticmethod
-    def mse(img_A, img_B):
-        # Function to compute the Mean Square Error (MSE) between two images
-        return np.mean((img_A - img_B) ** 2)
+    def mse(self, reference_frame, rendition_frame):
+        """
+        Function to compute the Mean Square Error (MSE) between two images
+        """
 
-    @staticmethod
-    def psnr(img_A, img_B):
-        # Function to compute the Peak to Signal Noise Ratio (PSNR)
-        # of a pair of images. img_A is considered the original and img_B
-        # is treated as the noisy signal
+        reference_frame, rendition_frame = self.rescale_pair(reference_frame, rendition_frame)
+        return np.mean((reference_frame - rendition_frame) ** 2)
 
+    def psnr(self, reference_frame, rendition_frame):
+        """
+        Function to compute the Peak to Signal Noise Ratio (PSNR)
+        of a pair of images. img_A is considered the original and img_B
+        is treated as the noisy signal
+        """
+        reference_frame, rendition_frame = self.rescale_pair(reference_frame, rendition_frame)
         # Compute the Mean Square Error (MSE) between original and copy
-        mse = np.mean((img_A - img_B) ** 2)
+        mse = np.mean((reference_frame - rendition_frame) ** 2)
 
         # Compute PSNR as per definition in Wikipedia:
         # https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio
         if mse == 0:
             return 100
-        PIXEL_MAX = 255.0
-        return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
+        pixel_max = 255.0
+        return 20 * math.log10(pixel_max / math.sqrt(mse))
 
     def dhash(self, image):
-        # Function to compute the perceptual hash of an image
+        """
+        Function to compute the perceptual hash of an image
+        """
 
         # Resize the input image, adding a single column (width) so we
         # can compute the horizontal gradient
@@ -65,35 +80,46 @@ class video_metrics:
         diff = resized[:, 1:] > resized[:, :-1]
 
         # convert the difference image to a hash
-        hash = sum([2 ** i for (i, v) in enumerate(diff.flatten()) if v])
-        hash_array = [int(x) for x in str(hash)]
+        image_hash = sum([2 ** i for (i, v) in enumerate(diff.flatten()) if v])
+        hash_array = [int(x) for x in str(image_hash)]
         # Return only the first 15 elements of the array
         return hash_array[:15]
 
     @staticmethod
-    def evaluate_orb_instant(current_frame, next_frame):
-       
-        # Initiate SIFT detector
+    def orb(reference_frame, rendition_frame):
+        """
+        Function to detect and describe keypoints on the first frame,
+        It does detect and describe keypoints, then matches them using
+        a bruteforce matcher
+        ORB is basically a fusion of FAST keypoint detector and
+        BRIEF descriptor with many modifications to enhance the performance.
+        """
+        # Initialize ORB detector
+
         orb = cv2.ORB_create()
 
-        # # find the keypoints and descriptors with SIFT
-        kp1, des1 = orb.detectAndCompute(current_frame, None)
-        kp2, des2 = orb.detectAndCompute(next_frame, None)
+        # Find the keypoints and descriptors with ORB
+        _, descriptor_current = orb.detectAndCompute(reference_frame, None)
+        _, descriptor_next = orb.detectAndCompute(rendition_frame, None)
 
-                # create BFMatcher object
-        bf = cv2.BFMatcher(normType=cv2.NORM_HAMMING, crossCheck=False)
+        # create Brute Force Matcher object
+        bf_matcher = cv2.BFMatcher(normType=cv2.NORM_HAMMING, crossCheck=False)
+
 
         # Match descriptors.
-        matches = bf.knnMatch(des1,des2, k=2)
+        matches = bf_matcher.knnMatch(descriptor_current, descriptor_next, k=2)
 
-        if len(np.array(matches).shape)!=2 or np.array(matches).shape[1]!=2:
+        if len(np.array(matches).shape) != 2 or np.array(matches).shape[1] != 2:
             return 0
+
         # Apply ratio test
         good = []
-        for m,n in matches:
-            if 0.50*n.distance<m.distance < 0.80*n.distance:
-                good.append([m])
-        return len(good) 
+        for match_1, match_2 in matches:
+            if 0.50 * match_2.distance < match_1.distance < 0.80 * match_2.distance:
+                good.append([match_1])
+
+        # Return the number of matching points between one frame and the next
+        return len(good)
 
     @staticmethod
     def dtw_distance(ts_a, ts_b, d = lambda x,y: abs(x-y)):
@@ -106,11 +132,11 @@ class video_metrics:
             Two arrays containing n_samples of timeseries data
             whose DTW distance between each sample of A and B
             will be compared
-        
+
         d : DistanceMetric object (default = abs(x-y))
             the distance measure used for A_i - B_j in the
             DTW dynamic programming function
-        
+
         Returns
         -------
         DTW distance between A and B
@@ -132,17 +158,20 @@ class video_metrics:
         # Populate rest of cost matrix within window
         for i in range(1, M):
             for j in range(max(1, i - max_warping_window),
-                            min(N, i + max_warping_window)):
+                           min(N, i + max_warping_window)):
                 choices = cost[i - 1, j - 1], cost[i, j-1], cost[i-1, j]
                 cost[i, j] = min(choices) + d(ts_a[i], ts_b[j])
 
-        # Return DTW distance given window 
+        # Return DTW distance given window
         return cost[-1, -1]
 
     @staticmethod
-    def evaluate_difference_instant(current_frame, next_frame):
-        # Function to compute the instantaneous difference between a frame
-        # and its subsequent
+    def difference(current_frame, next_frame):
+        """
+        Function to compute the instantaneous difference between a frame
+        and its subsequent
+        """
+
         total_size = current_frame.shape[0] * current_frame.shape[1]
         difference = np.abs(np.float32(next_frame) - np.float32(current_frame))
         difference_ratio = np.mean(difference) / total_size
@@ -150,31 +179,40 @@ class video_metrics:
         return difference_ratio.round(decimals=5)
 
     @staticmethod
-    def evaluate_entropy_instant(reference_frame, rendition_frame):
-        # Function that computes the difference in Shannon entropy between
-        # two images
+    def entropy(reference_frame, rendition_frame):
+        """
+        Function that computes the difference in Shannon entropy between
+        two images
+        """
+
         entropy_difference = shannon_entropy(reference_frame) - shannon_entropy(rendition_frame)
 
         return entropy_difference
 
     @staticmethod
-    def evaluate_lbp_instant(reference_frame, rendition_frame):
-        # Function that computes the difference in Local Binary patterns between
-        # two images
-
+    def lbp(reference_frame, rendition_frame):
+        """
+        Function that computes the difference in Local Binary patterns between
+        two images
+        """
         # Settings for LBP
         radius = 3
         n_points = 8 * radius
-        METHOD = 'uniform'
+        method = 'uniform'
 
         total_pixels = reference_frame.shape[0] * reference_frame.shape[1]
-        lbp_difference = LBP(reference_frame, n_points, radius, METHOD) - LBP(rendition_frame, n_points, radius, METHOD)
+
+        lbp_reference = LBP(reference_frame, n_points, radius, method)
+        lbp_rendition = LBP(rendition_frame, n_points, radius, method)
+        lbp_difference = lbp_reference - lbp_rendition
 
         return np.count_nonzero(lbp_difference) / total_pixels
 
     @staticmethod
-    def evaluate_spatial_complexity(current_frame):
+    def spatial_complexity(current_frame):
+        """
         # Function to compute the spatial complexity of a video
+        """
 
         sobel_x = cv2.Sobel(current_frame, cv2.CV_64F, 0, 1)
         sobel_y = cv2.Sobel(current_frame, cv2.CV_64F, 1, 0)
@@ -182,9 +220,12 @@ class video_metrics:
         return np.mean(np.sqrt(sobel_x**2 + sobel_y**2))
 
     @staticmethod
-    def evaluate_dct_instant(reference_frame, rendition_frame):
-        # Function that computes the Discrete Cosine Transform function included in OpenCV and outputs the
+    def dct(reference_frame, rendition_frame):
+        """
+        # Function that computes the Discrete Cosine Transform
+        # function included in OpenCV and outputs the
         # Maximum value
+        """
 
         reference_frame_float = np.float32(reference_frame)/255.0  # float conversion/scale
         reference_dct = cv2.dct(reference_frame_float)           # the dct
@@ -197,21 +238,26 @@ class video_metrics:
         return max_val
 
     @staticmethod
-    def evaluate_cross_correlation_instant(reference_frame, rendition_frame):
+    def cross_correlation(reference_frame, rendition_frame):
+        """
         # Function that computes the matchTemplate function included in OpenCV and outputs the
         # Maximum value
+        """
 
         # Apply template Matching
-        res = cv2.matchTemplate(reference_frame,rendition_frame, cv2.TM_CCORR_NORMED)
+        res = cv2.matchTemplate(reference_frame, rendition_frame, cv2.TM_CCORR_NORMED)
         _, max_val, _, _ = cv2.minMaxLoc(res)
 
         return max_val
 
-    def evaluate_difference_canny_instant(self, reference_frame, rendition_frame):
+    def difference_canny(self, reference_frame, rendition_frame):
+        """
         # Function to compute the instantaneous difference between a frame
         # and its subsequent, applying a Canny filter
+        """
 
-        # Compute the Canny edges for the reference frame, its next frame and the next frame of the rendition
+        # Compute the Canny edges for the reference frame,
+        # its next frame and the next frame of the rendition
         lower = 100
         upper = 200
 
@@ -221,35 +267,23 @@ class video_metrics:
         return self.mse(reference_edges, rendition_edges)
 
     @staticmethod
-    def evaluate_ssim_instant(reference_frame, rendition_frame):
-        # Function to compute the instantaneous SSIM between a frame
-        # and its correspondent in the rendition
+    def ssim(reference_frame, rendition_frame):
+        """
+        Function to compute the instantaneous SSIM between a frame
+        and its correspondent in the rendition
+        """
+
         return ssim(reference_frame, rendition_frame,
                     data_range=rendition_frame.max() - rendition_frame.min())
 
-    def evaluate_psnr_instant(self, reference_frame,  rendition_frame):
-        # Function to compute the instantaneous PSNR between a frame
-        #  and its correspondent in the rendition
-
-        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
-        difference_psnr = self.psnr(scaled_reference, scaled_rendition)
-        return difference_psnr
-
-    def evaluate_mse_instant(self, reference_frame, rendition_frame):
-        # Function to compute the instantaneous difference between a frame
-        #  and its correspondant in the rendition
-
-        scaled_reference, scaled_rendition = self.rescale_pair(reference_frame, rendition_frame)
-        difference_mse = self.mse(scaled_reference, scaled_rendition)
-
-        return difference_mse
-
     @staticmethod
     def histogram_distance(reference_frame, rendition_frame, bins=None, eps=1e-10):
-        # compute a 3D histogram in the RGB colorspace,
-        # then normalize the histogram so that images
-        # with the same content, but either scaled larger
-        # or smaller will have (roughly) the same histogram
+        """
+        Compute a 3D histogram in the RGB colorspace,
+        then normalizes the histogram so that images
+        with the same content, but either scaled larger
+        or smaller will have (roughly) the same histogram
+        """
 
         if bins is None:
             bins = [8, 8, 8]
@@ -266,71 +300,146 @@ class video_metrics:
         hist_b = hist_b.flatten()
 
         # Return the chi squared distance of the histograms
-        d = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(hist_a, hist_b)])
-        return d
+        chi_dist = 0.5 * np.sum([((a - b) ** 2) / (a + b + eps) for (a, b) in zip(hist_a, hist_b)])
+        return chi_dist
 
     @staticmethod
-    def evaluate_gaussian_instant(reference_frame, rendition_frame, sigma=4):
+    def gaussian(gauss_reference_frame, gauss_rendition_frame):
+        """
+        Function that evaluates the mse between a reference
+        frame and its rendition.
+        Inputs are expected to be the gaussian
+        filtered version of the frames.
+        """
 
-        reference_frame = gaussian(reference_frame, sigma=sigma)
-        rendition_frame = gaussian(rendition_frame, sigma=sigma)
-
-        mse = mean_squared_error(reference_frame, rendition_frame)
+        mse = mean_squared_error(gauss_reference_frame, gauss_rendition_frame)
         return mse
 
     @staticmethod
-    def evaluate_gaussian_difference_instant(reference_frame, rendition_frame, sigma=4):
-        reference_frame = gaussian(reference_frame, sigma=sigma)
-        rendition_frame = gaussian(rendition_frame, sigma=sigma)
+    def gaussian_difference(gauss_reference_frame, gauss_rendition_frame):
+        """
+        Function that evaluates the total sum of the difference between a reference
+        frame and its rendition.
+        Inputs are expected to be the gaussian filtered version of the frames.
+        """
 
-        difference = np.abs(np.float32(reference_frame - rendition_frame))
+        difference = np.abs(np.float32(gauss_reference_frame - gauss_rendition_frame))
 
         return np.sum(difference)
 
     @staticmethod
-    def evaluate_gaussian_difference_threshold_instant(reference_frame, rendition_frame, next_reference_frame, next_rendition_frame, sigma=4):
-        
-        temporal_difference = np.abs(np.float32((next_reference_frame / 255) - (rendition_frame / 255)))
+    def gaussian_difference_threshold(gauss_reference_frame,
+                                      gauss_rendition_frame,
+                                      rendition_frame,
+                                      next_reference_frame):
+        """
+        Function that evaluates the total sum of the number of pixels above a
+        threshold that is defined by the difference between a reference
+        frame and its rendition.
+        The threshold is defined as the standard deviation of the difference between
+        frames prior to the gaussian filter.
+        """
+        # Normalize the input frames by dividing between 255 and make the subtraction
+        # between the next source frame and the current in the rendition
+        temporal_difference = (next_reference_frame / 255) - (rendition_frame / 255)
+        # Convert the difference to its absolute value
+        temporal_difference = np.abs(np.float32(temporal_difference))
 
-        gauss_reference_frame = gaussian(reference_frame, sigma=sigma)
-        gauss_rendition_frame = gaussian(rendition_frame, sigma=sigma)
-
+        # Compute the difference between current rendition frame and the reference
         difference = np.abs(np.float32(gauss_reference_frame - gauss_rendition_frame))
 
-        _, threshold = cv2.threshold(difference, temporal_difference.std() , 1, cv2.THRESH_BINARY) 
+        _, threshold = cv2.threshold(difference, temporal_difference.std(), 1, cv2.THRESH_BINARY)
 
-        sum_th = np.sum(threshold) 
+        sum_th = np.sum(threshold)
 
         return sum_th
 
-    def evaluate_texture_instant(self, reference_frame, rendition_frame):
-        # Function to compute the instantaneous difference between the textures of each frames
+    @staticmethod
+    def texture_instant(reference_frame, rendition_frame):
+        """
+        Haralick features date back to as far as 1970s and were one 
+        of the first used to classify aerial imagery collected from satellites.
 
-        reference_texture = haralick(reference_frame)
-        rendition_texture = haralick(rendition_frame)
+        The idea behind haralick feature extraction is to:
+
+        1.- Compute co-occurence matrix from the image 
+        (generated by counting the number of times a pixel with 
+        value i is adjacent to a pixel with value j)
+        2.- Compute statistics of the matrix like contrast, correlation, variation etc.
+        Credit on the above must be given to:
+        http://kampta.github.io/Performance-Shootout-mahotas-vs-skimage-vs-opencv-part2/
+        """
+        # 1.- Compute co-occurence matrix from the reference image
+        reference_frame = greycomatrix(reference_frame, 
+                                       range(4),
+                                       np.pi/4*np.arange(4),
+                                       levels=256,
+                                       symmetric=True,
+                                       normed=True)
+        # 2.- Compute co-occurence matrix from the rendition image
+        rendition_frame = greycomatrix(rendition_frame, 
+                                       range(4),
+                                       np.pi/4*np.arange(4),
+                                       levels=256,
+                                       symmetric=True,
+                                       normed=True)                                                       
+        # 3.- Compute statistics of the matrix like contrast, correlation, variation
+        reference_texture = greycoprops(reference_frame)
+        rendition_texture = greycoprops(rendition_frame)
 
         return mean_squared_error(reference_texture, rendition_texture)
+
+    @staticmethod
+    def image_match_instant(pixelsA, pixelsB, v):  
+        """
+        Original go implementation:
+        https://github.com/mkrufky/coersion/
+        
+        func imageMatch(wg *sync.WaitGroup, pixelsA, pixelsB [][]Pixel, v uint64, pass, fail *int) {
+            defer wg.Done()
+            *pass = 0
+            *fail = 0
+            for x, a := range pixelsA {
+                for y, b := range a {
+                    if math.Abs(float64(b.R-pixelsB[x][y].R)) < float64(v) &&
+                        math.Abs(float64(b.G-pixelsB[x][y].G)) < float64(v) &&
+                        math.Abs(float64(b.B-pixelsB[x][y].B)) < float64(v) &&
+                        math.Abs(float64(b.A-pixelsB[x][y].A)) < float64(v) {
+                        *pass++
+                    } else {
+                        *fail++
+                    }
+                }
+            }
+        }
+        """
+
+
+        pass_count = np.sum(np.abs(np.float64(pixelsA - pixelsB)) < v)
+        
+        return pass_count / np.size(pixelsA)
 
     def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
         rendition_metrics = {}
 
         if self.profiling:
-            self.evaluate_cross_correlation_instant = self.cpu_profiler(self.evaluate_cross_correlation_instant)
-            self.evaluate_dct_instant = self.cpu_profiler(self.evaluate_dct_instant)
-            self.evaluate_entropy_instant = self.cpu_profiler(self.evaluate_entropy_instant)
-            self.evaluate_lbp_instant = self.cpu_profiler(self.evaluate_lbp_instant)
-            self.evaluate_difference_canny_instant = self.cpu_profiler(self.evaluate_difference_canny_instant)
-            self.evaluate_difference_instant = self.cpu_profiler(self.evaluate_difference_instant)
-            self.evaluate_spatial_complexity = self.cpu_profiler(self.evaluate_spatial_complexity)
-            self.evaluate_gaussian_instant = self.cpu_profiler(self.evaluate_gaussian_instant)
-            self.evaluate_gaussian_difference_instant = self.cpu_profiler(self.evaluate_gaussian_difference_instant)
-            self.evaluate_gaussian_difference_threshold_instant = self.cpu_profiler(self.evaluate_gaussian_difference_threshold_instant)
-            self.evaluate_mse_instant = self.cpu_profiler(self.evaluate_mse_instant)
-            self.evaluate_psnr_instant = self.cpu_profiler(self.evaluate_psnr_instant)
-            self.evaluate_ssim_instant = self.cpu_profiler(self.evaluate_ssim_instant)
-            self.evaluate_orb_instant = self.cpu_profiler(self.evaluate_orb_instant)
+            self.cross_correlation = self.cpu_profiler(self.cross_correlation)
+            self.dct = self.cpu_profiler(self.dct)
+            self.entropy = self.cpu_profiler(self.entropy)
+            self.lbp = self.cpu_profiler(self.lbp)
+            self.difference_canny = self.cpu_profiler(self.difference_canny)
+            self.difference = self.cpu_profiler(self.difference)
+            self.spatial_complexity = self.cpu_profiler(self.spatial_complexity)
+            self.gaussian = self.cpu_profiler(self.gaussian)
+            self.gaussian_difference = self.cpu_profiler(self.gaussian_difference)
+            self.gaussian_difference_threshold = self.cpu_profiler(self.gaussian_difference_threshold)
+            self.mse = self.cpu_profiler(self.mse)
+            self.psnr = self.cpu_profiler(self.psnr)
+            self.ssim = self.cpu_profiler(self.ssim)
+            self.orb = self.cpu_profiler(self.orb)
             self.rescale_pair = self.cpu_profiler(self.rescale_pair)
-            self.evaluate_texture_instant = self.cpu_profiler(self.evaluate_texture_instant)
+            self.texture_instant = self.cpu_profiler(self.texture_instant)
+            self.image_match_instant = self.cpu_profiler(self.image_match_instant)
 
     # Some metrics only need the luminance channel
         reference_frame_gray = reference_frame
@@ -338,67 +447,81 @@ class video_metrics:
         next_reference_frame_gray = next_reference_frame
         next_rendition_frame_gray = next_rendition_frame
 
+        sigma = 4
+        gauss_reference_frame = gaussian(reference_frame_gray, sigma=sigma)
+        gauss_rendition_frame = gaussian(rendition_frame_gray, sigma=sigma)
+
         for metric in self.metrics_list:
 
             if metric == 'temporal_histogram_distance':
-                rendition_metrics[metric] = self.histogram_distance(reference_frame, rendition_frame)
+                rendition_metrics[metric] = self.histogram_distance(reference_frame,
+                                                                    rendition_frame)
 
             if metric == 'temporal_difference':
-                # Compute the temporal inter frame difference
-                rendition_metrics[metric] = self.evaluate_difference_instant(rendition_frame_gray,
-                                                                             next_rendition_frame_gray)
+                rendition_metrics[metric] = self.difference(rendition_frame_gray,
+                                                            next_rendition_frame_gray)
 
             if metric == 'temporal_orb':
-                # Compute the temporal inter frame psnr
-                rendition_metrics[metric] = self.evaluate_orb_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.orb(reference_frame_gray,
+                                                     rendition_frame_gray)
 
             if metric == 'temporal_psnr':
-                # Compute the temporal inter frame psnr
-                rendition_metrics[metric] = self.evaluate_psnr_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.psnr(reference_frame_gray,
+                                                      rendition_frame_gray)
 
             if metric == 'temporal_ssim':
-                # Compute the temporal inter frame ssim
-                rendition_metrics[metric] = self.evaluate_ssim_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.ssim(reference_frame_gray,
+                                                      rendition_frame_gray)
 
             if metric == 'temporal_mse':
-                # Compute the temporal inter frame mse
-                rendition_metrics[metric] = self.evaluate_mse_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.mse(reference_frame_gray,
+                                                     rendition_frame_gray)
 
             if metric == 'temporal_canny':
-                # Compute the temporal inter frame difference of the canny version of the frame
-                rendition_metrics[metric] = self.evaluate_difference_canny_instant(reference_frame_gray,
-                                                                                   rendition_frame_gray)
+                rendition_metrics[metric] = self.difference_canny(reference_frame_gray,
+                                                                  rendition_frame_gray)
 
             if metric == 'temporal_cross_correlation':
-                rendition_metrics[metric] = self.evaluate_cross_correlation_instant(reference_frame_gray,
-                                                                                    rendition_frame_gray)
+                rendition_metrics[metric] = self.cross_correlation(reference_frame_gray,
+                                                                   rendition_frame_gray)
 
             if metric == 'temporal_dct':
-                rendition_metrics[metric] = self.evaluate_dct_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.dct(reference_frame_gray,
+                                                     rendition_frame_gray)
 
             if metric == 'temporal_gaussian':
-                rendition_metrics[metric] = self.evaluate_gaussian_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.gaussian(gauss_reference_frame,
+                                                          gauss_rendition_frame)
 
             if metric == 'temporal_gaussian_difference':
-                rendition_metrics[metric] = self.evaluate_gaussian_difference_instant(reference_frame_gray,
-                                                                                      rendition_frame_gray)
+                rendition_metrics[metric] = self.gaussian_difference(gauss_reference_frame,
+                                                                     gauss_rendition_frame)
 
             if metric == 'temporal_gaussian_difference_threshold':
-                rendition_metrics[metric] = self.evaluate_gaussian_difference_threshold_instant(reference_frame_gray,
-                                                                                                rendition_frame_gray,
-                                                                                                next_reference_frame_gray,
-                                                                                                next_rendition_frame_gray)
+                rendition_metrics[metric] = self.gaussian_difference_threshold(gauss_reference_frame,
+                                                                               gauss_rendition_frame,
+                                                                               rendition_frame_gray,
+                                                                               next_reference_frame_gray)
             if metric == 'temporal_spatial_complexity':
-                rendition_metrics[metric] = self.evaluate_spatial_complexity(reference_frame_gray)
+                rendition_metrics[metric] = self.spatial_complexity(reference_frame_gray)
+
+            if metric == 'temporal_texture':
+                rendition_metrics[metric] = self.texture_instant(reference_frame_gray, rendition_frame_gray)
+
+            if metric == 'temporal_match':
+                match_threshold = 10
+                rendition_metrics[metric] = self.image_match_instant(reference_frame_gray, rendition_frame_gray, match_threshold)
 
             if metric == 'temporal_texture':
                 rendition_metrics[metric] = self.evaluate_texture_instant(reference_frame_gray, rendition_frame_gray)
 
             if metric == 'temporal_entropy':
-                rendition_metrics[metric] = self.evaluate_entropy_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.entropy(reference_frame_gray,
+                                                         rendition_frame_gray)
 
             if metric == 'temporal_lbp':
-                rendition_metrics[metric] = self.evaluate_lbp_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.lbp(reference_frame_gray,
+                                                     rendition_frame_gray)
 
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)
