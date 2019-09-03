@@ -47,6 +47,10 @@ class MetricProcessor:
 
         df = pd.DataFrame(data)
 
+        # Fix attack column to contain only its name
+        df['attack'] = df['attack'].apply(lambda x: x.split('/')[-2])
+        display(df.head())
+ 
         if self.scale:
             df = self.rescale_to_resolution(df)
 
@@ -54,7 +58,6 @@ class MetricProcessor:
         attack_IDs = []
 
         for _, row in df.iterrows():
-
             if row['attack'] in renditions_list:
                 attack_IDs.append(renditions_list.index(row['attack']))
             elif 'watermark' in row['attack']:
