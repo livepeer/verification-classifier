@@ -54,7 +54,6 @@ class MetricProcessor:
         if self.scale:
             df = self.rescale_to_resolution(df)
 
-        df['attack'] = df['attack'].apply(lambda x: x.split('/')[-2])
         del data
         attack_IDs = []
 
