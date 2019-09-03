@@ -1,6 +1,6 @@
-'''
+"""
 Module for management and parallelization of verification jobs.
-'''
+"""
 
 import os
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -12,12 +12,13 @@ from scipy.spatial import distance
 
 from video_metrics import VideoMetrics
 
+
 class VideoAssetProcessor:
-    '''
+    """
     Class to extract and aggregate values from video sequences.
     It is instantiated as part of the data creation as well
     as in the inference, both in the CLI as in the notebooks.
-    '''
+    """
     def __init__(self, original, renditions, metrics_list, do_profiling=False, max_samples=-1, features_list=[]):
         # ************************************************************************
         # Initialize global variables
@@ -84,10 +85,10 @@ class VideoAssetProcessor:
                                                         self.dimensions)
 
     def capture_to_array(self, capture):
-        '''
+        """
         Function to convert OpenCV video capture to a list of
         numpy arrays for faster processing and analysis
-        '''
+        """
 
         # List of numpy arrays
         frame_list = []
@@ -118,13 +119,13 @@ class VideoAssetProcessor:
         return np.array(frame_list)
 
     def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
-        '''
+        """
         Function to compare pairs of numpy arrays extracting their corresponding metrics.
         It basically takes the global original frame at frame_pos and its subsequent to
         compare them against the corresponding ones in frame_list (a rendition).
         It then extracts the metrics defined in the constructor under the metrics_list.
         Methods of comparison are implemented in the video_metrics class
-        '''
+        """
 
         # Dictionary of metrics
         frame_metrics = {}
@@ -161,14 +162,14 @@ class VideoAssetProcessor:
         return rendition_metrics, frame_pos
 
     def compute(self, frame_list, path, dimensions):
-        '''
+        """
         Function to compare lists of numpy arrays extracting their corresponding metrics.
         It basically takes the global original list of frames and the input frame_list
         of numpy arrrays to extract the metrics defined in the constructor.
         frame_pos establishes the index of the frames to be compared.
         It is optimized by means of the ThreadPoolExecutor of Python's concurrent package
         for better parallel performance.
-        '''
+        """
 
         # Dictionary of metrics
         rendition_metrics = {}
@@ -205,10 +206,10 @@ class VideoAssetProcessor:
         return rendition_metrics
 
     def aggregate(self, metrics):
-        '''
+        """
         Function to aggregate computed values of metrics and renditions into a
         pandas DataFrame.
-        '''
+        """
 
         # Dictionary for containing all metrics
         metrics_dict = {}
@@ -308,10 +309,10 @@ class VideoAssetProcessor:
         return metrics_df
 
     def cleanup_dataframe(self, metrics_df, features):
-        '''
+        """
         Cleanup the resulting pandas dataframe and convert it to a numpy array
         to pass to the prediction model
-        '''
+        """
    
         if features != []:    
             if 'attack_ID' in features:
@@ -329,9 +330,9 @@ class VideoAssetProcessor:
 
     @staticmethod
     def rescale_to_resolution(data, features):
-        '''
+        """
         Function that improves model accuracy by scaling those features that
-        '''
+        """
         feat_labels = ['dimension',
                        'size',
                        'fps',
@@ -429,10 +430,10 @@ class VideoAssetProcessor:
         return df_features
 
     def process(self):
-        '''
+        """
         Function to aggregate computed values of metrics
         of iterated renditions into a pandas DataFrame.
-        '''
+        """
         if self.do_profiling:
 
             self.capture_to_array = self.cpu_profiler(self.capture_to_array)

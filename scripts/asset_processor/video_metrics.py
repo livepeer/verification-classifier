@@ -1,8 +1,8 @@
-'''
+"""
 Module for management, evaluation and computation of video metrics
-'''
+"""
 import math
-
+import sys
 import cv2
 import numpy as np
 from scipy.spatial import distance
@@ -14,12 +14,13 @@ from skimage.feature import greycomatrix
 from skimage.feature import greycoprops
 from skimage.filters import gaussian
 
+
 class VideoMetrics:
-    '''
+    """
     Class in charge of managing all video metrics for verification on a per-frame basis.
     It wraps up different machine learning and Computer Vision techniques that serve
     to evaluate and extract characteristics of frames of two videos.
-    '''
+    """
     def __init__(self, metrics_list, hash_size, dimension, cpu_profiler, do_profiling):
         self.hash_size = hash_size
         self.metrics_list = metrics_list
@@ -30,9 +31,9 @@ class VideoMetrics:
 
     @staticmethod
     def rescale_pair(reference_frame, rendition_frame):
-        '''
+        """
         Limit the scale to the minimum of the dimensions
-        '''
+        """
         width = min(reference_frame.shape[0], rendition_frame.shape[0])
         height = min(reference_frame.shape[1], rendition_frame.shape[1])
 
@@ -42,19 +43,19 @@ class VideoMetrics:
         return resized_a, resized_b
 
     def mse(self, reference_frame, rendition_frame):
-        '''
+        """
         Function to compute the Mean Square Error (MSE) between two images
-        '''
+        """
 
         reference_frame, rendition_frame = self.rescale_pair(reference_frame, rendition_frame)
         return np.mean((reference_frame - rendition_frame) ** 2)
 
     def psnr(self, reference_frame, rendition_frame):
-        '''
+        """
         Function to compute the Peak to Signal Noise Ratio (PSNR)
         of a pair of images. img_A is considered the original and img_B
         is treated as the noisy signal
-        '''
+        """
         reference_frame, rendition_frame = self.rescale_pair(reference_frame, rendition_frame)
         # Compute the Mean Square Error (MSE) between original and copy
         mse = np.mean((reference_frame - rendition_frame) ** 2)
@@ -67,9 +68,9 @@ class VideoMetrics:
         return 20 * math.log10(pixel_max / math.sqrt(mse))
 
     def dhash(self, image):
-        '''
+        """
         Function to compute the perceptual hash of an image
-        '''
+        """
 
         # Resize the input image, adding a single column (width) so we
         # can compute the horizontal gradient
@@ -86,13 +87,13 @@ class VideoMetrics:
 
     @staticmethod
     def orb(reference_frame, rendition_frame):
-        '''
+        """
         Function to detect and describe keypoints on the first frame,
         It does detect and describe keypoints, then matches them using
         a bruteforce matcher
         ORB is basically a fusion of FAST keypoint detector and
         BRIEF descriptor with many modifications to enhance the performance.
-        '''
+        """
         # Initialize ORB detector
 
         orb = cv2.ORB_create()
@@ -166,10 +167,10 @@ class VideoMetrics:
 
     @staticmethod
     def difference(current_frame, next_frame):
-        '''
+        """
         Function to compute the instantaneous difference between a frame
         and its subsequent
-        '''
+        """
 
         total_size = current_frame.shape[0] * current_frame.shape[1]
         difference = np.abs(np.float32(next_frame) - np.float32(current_frame))
@@ -179,10 +180,10 @@ class VideoMetrics:
 
     @staticmethod
     def entropy(reference_frame, rendition_frame):
-        '''
+        """
         Function that computes the difference in Shannon entropy between
         two images
-        '''
+        """
 
         entropy_difference = shannon_entropy(reference_frame) - shannon_entropy(rendition_frame)
 
@@ -190,10 +191,10 @@ class VideoMetrics:
 
     @staticmethod
     def lbp(reference_frame, rendition_frame):
-        '''
+        """
         Function that computes the difference in Local Binary patterns between
         two images
-        '''
+        """
         # Settings for LBP
         radius = 3
         n_points = 8 * radius
@@ -209,9 +210,9 @@ class VideoMetrics:
 
     @staticmethod
     def spatial_complexity(current_frame):
-        '''
+        """
         # Function to compute the spatial complexity of a video
-        '''
+        """
 
         sobel_x = cv2.Sobel(current_frame, cv2.CV_64F, 0, 1)
         sobel_y = cv2.Sobel(current_frame, cv2.CV_64F, 1, 0)
@@ -220,11 +221,11 @@ class VideoMetrics:
 
     @staticmethod
     def dct(reference_frame, rendition_frame):
-        '''
+        """
         # Function that computes the Discrete Cosine Transform
         # function included in OpenCV and outputs the
         # Maximum value
-        '''
+        """
 
         reference_frame_float = np.float32(reference_frame)/255.0  # float conversion/scale
         reference_dct = cv2.dct(reference_frame_float)           # the dct
@@ -238,10 +239,10 @@ class VideoMetrics:
 
     @staticmethod
     def cross_correlation(reference_frame, rendition_frame):
-        '''
+        """
         # Function that computes the matchTemplate function included in OpenCV and outputs the
         # Maximum value
-        '''
+        """
 
         # Apply template Matching
         res = cv2.matchTemplate(reference_frame, rendition_frame, cv2.TM_CCORR_NORMED)
@@ -250,10 +251,10 @@ class VideoMetrics:
         return max_val
 
     def difference_canny(self, reference_frame, rendition_frame):
-        '''
+        """
         # Function to compute the instantaneous difference between a frame
         # and its subsequent, applying a Canny filter
-        '''
+        """
 
         # Compute the Canny edges for the reference frame,
         # its next frame and the next frame of the rendition
@@ -267,22 +268,22 @@ class VideoMetrics:
 
     @staticmethod
     def ssim(reference_frame, rendition_frame):
-        '''
+        """
         Function to compute the instantaneous SSIM between a frame
         and its correspondent in the rendition
-        '''
+        """
 
         return ssim(reference_frame, rendition_frame,
                     data_range=rendition_frame.max() - rendition_frame.min())
 
     @staticmethod
     def histogram_distance(reference_frame, rendition_frame, bins=None, eps=1e-10):
-        '''
+        """
         Compute a 3D histogram in the RGB colorspace,
         then normalizes the histogram so that images
         with the same content, but either scaled larger
         or smaller will have (roughly) the same histogram
-        '''
+        """
 
         if bins is None:
             bins = [8, 8, 8]
@@ -304,23 +305,23 @@ class VideoMetrics:
 
     @staticmethod
     def gaussian(gauss_reference_frame, gauss_rendition_frame):
-        '''
+        """
         Function that evaluates the mse between a reference
         frame and its rendition.
         Inputs are expected to be the gaussian
         filtered version of the frames.
-        '''
+        """
 
         mse = mean_squared_error(gauss_reference_frame, gauss_rendition_frame)
         return mse
 
     @staticmethod
     def gaussian_difference(gauss_reference_frame, gauss_rendition_frame):
-        '''
+        """
         Function that evaluates the total sum of the difference between a reference
         frame and its rendition.
         Inputs are expected to be the gaussian filtered version of the frames.
-        '''
+        """
 
         difference = np.abs(np.float32(gauss_reference_frame - gauss_rendition_frame))
 
@@ -331,13 +332,13 @@ class VideoMetrics:
                                       gauss_rendition_frame,
                                       rendition_frame,
                                       next_reference_frame):
-        '''
+        """
         Function that evaluates the total sum of the number of pixels above a
         threshold that is defined by the difference between a reference
         frame and its rendition.
         The threshold is defined as the standard deviation of the difference between
         frames prior to the gaussian filter.
-        '''
+        """
         # Normalize the input frames by dividing between 255 and make the subtraction
         # between the next source frame and the current in the rendition
         temporal_difference = (next_reference_frame / 255) - (rendition_frame / 255)
@@ -353,10 +354,9 @@ class VideoMetrics:
 
         return sum_th
 
-
     @staticmethod
     def texture_instant(reference_frame, rendition_frame):
-        '''
+        """
         Haralick features date back to as far as 1970s and were one 
         of the first used to classify aerial imagery collected from satellites.
 
@@ -368,7 +368,7 @@ class VideoMetrics:
         2.- Compute statistics of the matrix like contrast, correlation, variation etc.
         Credit on the above must be given to:
         http://kampta.github.io/Performance-Shootout-mahotas-vs-skimage-vs-opencv-part2/
-        '''
+        """
         # 1.- Compute co-occurence matrix from the reference image
         reference_frame = greycomatrix(reference_frame, 
                                        range(4),
@@ -391,7 +391,7 @@ class VideoMetrics:
 
     @staticmethod
     def image_match_instant(pixelsA, pixelsB, v):  
-        '''
+        """
         Original go implementation:
         https://github.com/mkrufky/coersion/
         
@@ -412,7 +412,7 @@ class VideoMetrics:
                 }
             }
         }
-        '''
+        """
 
 
         pass_count = np.sum(np.abs(np.float64(pixelsA - pixelsB)) < v)
