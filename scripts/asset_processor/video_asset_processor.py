@@ -1,80 +1,100 @@
+"""
+Module for management and parallelization of verification jobs.
+"""
+
+import os
+from concurrent.futures.thread import ThreadPoolExecutor
+
 import cv2
 import numpy as np
 import pandas as pd
-import os
-from video_metrics import video_metrics
-from concurrent.futures.thread import ThreadPoolExecutor
 from scipy.spatial import distance
-from memory_profiler import profile as mem_profiler
+
+from video_metrics import VideoMetrics
 
 
-
-class video_asset_processor:
-    # Class to extract and aggregate values from video sequences.
-    # It is instantiated as part of the data creation as well
-    # as in the inference, both in the CLI as in the notebooks
-    def __init__(self, original_path, renditions_paths, metrics_list, duration, max_samples, do_profiling):
+class VideoAssetProcessor:
+    """
+    Class to extract and aggregate values from video sequences.
+    It is instantiated as part of the data creation as well
+    as in the inference, both in the CLI as in the notebooks.
+    """
+    def __init__(self, original, renditions, metrics_list, do_profiling=False, max_samples=-1, features_list=[]):
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
-        self.max_samples = max_samples                                                          # Maximum number of frames to random sample
-        self.original_path = original_path                                                      # Stores system path to original asset
-        self.original = cv2.VideoCapture(self.original_path)                                    # Initializes original asset to OpenCV VideoCapture class
-        self.fps = int(self.original.get(cv2.CAP_PROP_FPS))                                     # Frames Per Second of the original asset
-        self.asset_length = int(self.original.get(cv2.CAP_PROP_FRAME_COUNT))                    # Counts number of frames of the asset
-        self.duration = duration                                                                # Establishes how many seconds of the original asset are used
-        self.skip_frames = 1                                                                    # Defines whether to use all frames or leap frog skip_frames frames
-        self.hash_size = 16                                                                     # Size of the hash for frame hash analysis in video_metrics
-        self.renditions = {}                                                                    # Dictionary containing dict of renditions ('frame_list',
-                                                                                                #                                           'dimensions',
-                                                                                                #                                           'ID')
-        self.metrics = {}                                                                       # Dictionary containing dict of metrics
-        self.metrics_list = metrics_list                                                        # List of metrics to be extracted from the asset and its renditions
-        self.renditions_paths = renditions_paths                                                # List of paths to renditions
+
+        # Stores system path to original asset
+        self.original_path = original['path']
+        # Initializes original asset to OpenCV VideoCapture class
+        self.original_capture = cv2.VideoCapture(self.original_path)
+        # Frames Per Second of the original asset
+        self.fps = int(self.original_capture.get(cv2.CAP_PROP_FPS))
+        # Obtains number of frames of the original
+        self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        # Maximum number of frames to random sample
+        if max_samples == -1:
+            self.max_samples = self.max_frames
+        else:
+            self.max_samples = max_samples
+
+        # Size of the hash for frame hash analysis in video_metrics
+        self.hash_size = 16
+        # Dictionary containing dict of metrics
+        self.metrics = {}
+        # List of metrics to be extracted from the asset and its renditions
+        self.metrics_list = metrics_list
+        # List of features to be extracted from the metrics list
+        self.features_list = features_list
+        # List of preverified renditions
+        self.renditions_list = renditions
 
         # Retrieve original rendition dimensions
-        self.height = self.original.get(cv2.CAP_PROP_FRAME_HEIGHT)                              # Obtains vertical dimension of the frames of the original
-        self.width = self.original.get(cv2.CAP_PROP_FRAME_WIDTH)                                # Obtains horizontal dimension of the frames of the original
-        self.max_frames = int(self.original.get(cv2.CAP_PROP_FRAME_COUNT))                           # Obtains number of frames of the original
-        self.dimensions = '{}:{}'.format(int(self.width), int(self.height))                     # Collects both dimensional values in a string
+        # Obtains vertical dimension of the frames of the original
+        self.height = self.original_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        # Obtains horizontal dimension of the frames of the original
+        self.width = self.original_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+        
+        # Collects both dimensional values in a string
+        self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
+
         if do_profiling:
-            import line_profiler  
+            import line_profiler
             self.cpu_profiler = line_profiler.LineProfiler()
         else:
-            self.cpu_profiler=None
+            self.cpu_profiler = None
         self.do_profiling = do_profiling
-        self.video_metrics = video_metrics(self.metrics_list,
-                                           self.skip_frames,
-                                           self.hash_size,
-                                           int(self.dimensions[self.dimensions.find(':') + 1:]),
-                                           self.cpu_profiler,
-                                           self.do_profiling)                                   # Instance of the video_metrics class
+        # Instance of the video_metrics class
+        self.video_metrics = VideoMetrics(self.metrics_list,
+                                          self.hash_size,
+                                          int(self.height),
+                                          self.cpu_profiler,
+                                          self.do_profiling)
 
         # Convert OpenCV video captures of original to list
         # of numpy arrays for better performance of numerical computations
-        if self.max_samples >= self.max_frames:
-            self.max_samples = self.max_frames
+        
+        self.random_sampler = list(np.random.choice(self.max_frames,
+                                                    self.max_samples,
+                                                    replace=False))
 
-        self.random_sampler = list(np.random.choice(self.max_frames, self.max_samples, replace=False))
-
-        self.original = self.capture_to_array(self.original)
+        self.original_capture = self.capture_to_array(self.original_capture)
         # Compute its features
-        self.metrics[self.original_path] = self.compute(self.original, self.original_path, self.dimensions)
-        # Store the value in the renditions dictionary
-        self.renditions['original'] = {'frame_list': self.original,
-                                       'dimensions': self.dimensions,
-                                       'ID': self.original_path.split('/')[-2]}
+        self.metrics[self.original_path] = self.compute(self.original_capture,
+                                                        self.original_path,
+                                                        self.dimensions)
 
     def capture_to_array(self, capture):
-        # ************************************************************************
-        # Function to convert OpenCV video capture to a list of
-        # numpy arrays for faster processing and analysis
-        # ************************************************************************
+        """
+        Function to convert OpenCV video capture to a list of
+        numpy arrays for faster processing and analysis
+        """
 
-        frame_list = []                                                                         # List of numpy arrays
-                                                                          # Number of frames processed
+        # List of numpy arrays
+        frame_list = []
+
         i = 0
-        
+
         # Iterate through each frame in the video
         while capture.isOpened():
 
@@ -88,7 +108,6 @@ class video_asset_processor:
                 if i in self.random_sampler:
                     frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-                    #frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     frame_list.append(frame)
 
             # Break the loop when frames cannot be taken from original
@@ -100,33 +119,42 @@ class video_asset_processor:
         return np.array(frame_list)
 
     def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
-        # ************************************************************************
-        # Function to compare pairs of numpy arrays extracting their corresponding metrics.
-        # It basically takes the global original frame at frame_pos and its subsequent to
-        # compare them against the corresponding ones in frame_list (a rendition).
-        # It then extracts the metrics defined in the constructor under the metrics_list.
-        # Methods of comparison are implemented in the video_metrics class
-        # ************************************************************************
+        """
+        Function to compare pairs of numpy arrays extracting their corresponding metrics.
+        It basically takes the global original frame at frame_pos and its subsequent to
+        compare them against the corresponding ones in frame_list (a rendition).
+        It then extracts the metrics defined in the constructor under the metrics_list.
+        Methods of comparison are implemented in the video_metrics class
+        """
 
-        frame_metrics = {}                                                                      # Dictionary of metrics
-        reference_frame = self.original[frame_pos]                                                # Original frame to compare against
-        next_reference_frame = self.original[frame_pos+1]                        # Original's subsequent frame
-        rendition_frame = frame_list[frame_pos]                                                 # Rendition frame
-        next_rendition_frame = frame_list[frame_pos+1]                         # Rendition's subsequent frame
+        # Dictionary of metrics
+        frame_metrics = {}
+        # Original frame to compare against
+        reference_frame = self.original_capture[frame_pos]
+        # Original's subsequent frame
+        next_reference_frame = self.original_capture[frame_pos+1]
+        # Rendition frame
+        rendition_frame = frame_list[frame_pos]
+        # Rendition's subsequent frame
+        next_rendition_frame = frame_list[frame_pos+1]
 
-        # Compute the metrics defined in the global metrics_list. Uses the global instance of video_metrics
-        # Some metrics use a frame-to-frame comparison, but other require current and forward frames to extract
+        # Compute the metrics defined in the global metrics_list.
+        # Uses the global instance of video_metrics
+        # Some metrics use a frame-to-frame comparison,
+        # but other require current and forward frames to extract
         # their comparative values.
-        rendition_metrics = self.video_metrics.compute_metrics(rendition_frame, next_rendition_frame,
-                                                               reference_frame, next_reference_frame)
+        rendition_metrics = self.video_metrics.compute_metrics(rendition_frame,
+                                                               next_rendition_frame,
+                                                               reference_frame,
+                                                               next_reference_frame)
 
         # Retrieve rendition dimensions for further evaluation
         rendition_metrics['dimensions'] = dimensions
 
-        # Retrieve rendition ID for further identification
-        rendition_metrics['ID'] = path.split('/')[-2]
+        # Retrieve rendition path for further identification
+        rendition_metrics['ID'] = self.original_path
 
-        # Identify rendition uniquely by its ID and store metric data in frame_metrics dict
+        # Identify rendition uniquely by its path and store metric data in frame_metrics dict
         frame_metrics[path] = rendition_metrics
 
         # Return the metrics, together with the position of the frame
@@ -134,18 +162,21 @@ class video_asset_processor:
         return rendition_metrics, frame_pos
 
     def compute(self, frame_list, path, dimensions):
-        # ************************************************************************
-        # Function to compare lists of numpy arrays extracting their corresponding metrics.
-        # It basically takes the global original list of frames and the input frame_list
-        # of numpy arrrays to extract the metrics defined in the constructor.
-        # frame_pos establishes the index of the frames to be compared.
-        # It is optimized by means of the ThreadPoolExecutor of Python's concurrent package
-        # for better parallel performance.
-        # ************************************************************************
+        """
+        Function to compare lists of numpy arrays extracting their corresponding metrics.
+        It basically takes the global original list of frames and the input frame_list
+        of numpy arrrays to extract the metrics defined in the constructor.
+        frame_pos establishes the index of the frames to be compared.
+        It is optimized by means of the ThreadPoolExecutor of Python's concurrent package
+        for better parallel performance.
+        """
 
-        rendition_metrics = {}                                                                  # Dictionary of metrics
-        frame_pos = 0                                                                           # Position of the frame
-        frames_to_process = []                                                                  # List of frames to be processed
+        # Dictionary of metrics
+        rendition_metrics = {}
+        # Position of the frame
+        frame_pos = 0
+        # List of frames to be processed
+        frames_to_process = []
 
         # Iterate frame by frame and fill a list with their values
         # to be passed to the ThreadPoolExecutor. Stop when maximum
@@ -157,27 +188,33 @@ class video_asset_processor:
         # future_list is a dictionary storing all computed values from each thread
         with ThreadPoolExecutor() as executor:
             # Compare the original asset against its renditions
-            future_list = {executor.submit(self.compare_renditions_instant, i, frame_list, dimensions, path): i for i in frames_to_process}
+            future_list = {executor.submit(self.compare_renditions_instant,
+                                           i,
+                                           frame_list,
+                                           dimensions,
+                                           path): i for i in frames_to_process}
 
         # Once all frames in frame_list have been iterated, we can retrieve their values
         for future in future_list:
             # Values are retrieved in a dict, as a result of the executor's process
             result_rendition_metrics, frame_pos = future.result()
             # The computed values at a given frame
-            
+
             rendition_metrics[frame_pos] = result_rendition_metrics
 
         # Return the metrics for the currently processed rendition
         return rendition_metrics
 
     def aggregate(self, metrics):
-        # ************************************************************************
-        # Function to aggregate computed values of metrics and renditions into a
-        # pandas DataFrame.
-        # ************************************************************************
+        """
+        Function to aggregate computed values of metrics and renditions into a
+        pandas DataFrame.
+        """
 
-        metrics_dict = {}                                                                       # Dictionary for containing all metrics
-        renditions_dict = {}                                                                    # Dictionary for containing all renditions
+        # Dictionary for containing all metrics
+        metrics_dict = {}
+        # Dictionary for containing all renditions
+        renditions_dict = {}
 
         # Aggregate dictionary with all values for all renditions into a Pandas DataFrame
         # All values are stored and obtained in a per-frame basis, then in a per-rendition
@@ -186,57 +223,70 @@ class video_asset_processor:
         # First, we combine the frames
         dict_of_df = {k: pd.DataFrame(v) for k, v in metrics.items()}
         metrics_df = pd.concat(dict_of_df, axis=1, sort=True).transpose().reset_index(inplace=False)
-        # Pandas concat function creates a level_0 and level_1 extra columns. They need to be renamed
-        metrics_df = metrics_df.rename(index=str, columns={"level_1": "frame_num", "level_0": "path"})
+
+        # Pandas concat function creates a level_0 and level_1 extra columns.
+        # They need to be renamed
+        metrics_df = metrics_df.rename(index=str,
+                                       columns={"level_1": "frame_num", "level_0": "path"})
 
         # Then we can combine each rendition
-        for rendition in self.renditions_paths:
+        for rendition in self.renditions_list:
             # For the current rendition, we need an empty dictionary
             rendition_dict = {}
 
             # We have a number of different metrics that have been computed.
-            # See the list in the video_metrics class
+            # These are an input for the constructor of the class an vary according to 
+            # what metrics are of interest in the research
             for metric in self.metrics_list:
                 # Obtain a Pandas DataFrame from the original and build the original time series
                 original_df = metrics_df[metrics_df['path'] == self.original_path][metric]
                 original_df = original_df.reset_index(drop=True).transpose().dropna().astype(float)
                 # Obtain a Pandas DataFrame from the current rendition and build its time series
-                rendition_df = metrics_df[metrics_df['path'] == rendition][metric]
-                rendition_df = rendition_df.reset_index(drop=True).transpose().dropna().astype(float)
+                rendition_df = metrics_df[metrics_df['path'] == rendition['path']][metric]
+                rendition_df = rendition_df.reset_index(drop=True)
+                rendition_df = rendition_df.transpose().dropna().astype(float)
 
-                # For those metrics that have a temporal character, we need to make a further aggregation
-                # We are basically using the Manhattan and euclidean distances, and statistically meaningful
+                # For those metrics that have a temporal character,
+                # we need to make a further aggregation
+                # We are basically using the Manhattan and euclidean distances,
+                # and statistically meaningful
                 # values such as mean, max and standard deviation.
-                # The whole time series is also provided for later exploration in the analysis part.
+                # The whole time series is also provided for later exploration
+                #  in the analysis part.
                 if 'temporal' in metric:
                     x_original = np.array(original_df[rendition_df.index].values)
                     x_rendition = np.array(rendition_df.values)
 
-                    [[manhattan]] = distance.cdist(x_original.reshape(1, -1), x_rendition.reshape(1, -1),
+                    [[manhattan]] = distance.cdist(x_original.reshape(1, -1),
+                                                   x_rendition.reshape(1, -1),
                                                    metric='cityblock')
 
-                    
-                    rendition_dict['{}-euclidean'.format(metric)] = distance.euclidean(x_original, x_rendition)
-                    rendition_dict['{}-dwt'.format(metric)] = self.video_metrics.dtw_distance(x_original, x_rendition) 
+
+                    rendition_dict['{}-euclidean'.format(metric)] = distance.euclidean(x_original,
+                                                                                       x_rendition)
                     rendition_dict['{}-manhattan'.format(metric)] = manhattan
                     rendition_dict['{}-mean'.format(metric)] = np.mean(x_rendition)
                     rendition_dict['{}-max'.format(metric)] = np.max(x_rendition)
                     rendition_dict['{}-std'.format(metric)] = np.std(x_rendition)
+                    rendition_dict['{}-corr'.format(metric)] = np.correlate(x_original, x_rendition, mode='same').mean()
                     rendition_dict['{}-series'.format(metric)] = x_rendition
 
                 # Other metrics do not need time evaluation
                 else:
                     rendition_dict[metric] = rendition_df.mean()
 
-                # Size is an important feature of an asset, as it gives important information
-                # regarding the potential compression effect
-                rendition_dict['size'] = os.path.getsize(rendition)
-                rendition_dict['fps'] = self.fps
-                rendition_dict['path'] = rendition
-                rendition_dict['dimension'] = self.height
+            # Size is an important feature of an asset, as it gives important information
+            # regarding the potential compression effect
+            rendition_dict['size'] = os.path.getsize(rendition['path'])
+            rendition_dict['fps'] = self.fps
+            rendition_dict['path'] = rendition['path']
+
+            # Extract the dimensions of the rendition
+            dimensions_df = metrics_df[metrics_df['path'] == rendition['path']]['dimensions']
+            rendition_dict['dimension'] = int(dimensions_df.unique()[0].split(':')[1])
 
             # Store the rendition values in the dictionary of renditions for the present asset
-            renditions_dict[rendition] = rendition_dict
+            renditions_dict[rendition['path']] = rendition_dict
 
         # Add the current asset values to the global metrics_dict
         metrics_dict[self.original_path] = renditions_dict
@@ -246,27 +296,152 @@ class video_asset_processor:
 
         metrics_df['title'] = metrics_df['level_0']
         attack_series = []
-        
+
         for _, row in metrics_df.iterrows():
-            attack_series.append(row['level_1'].split('/')[-2])
+            attack_series.append(row['level_1'])
 
         metrics_df['attack'] = attack_series
 
         metrics_df = metrics_df.drop(['level_0', 'level_1'], axis=1)
+        
+        metrics_df = self.cleanup_dataframe(metrics_df, self.features_list)
+
         return metrics_df
 
+    def cleanup_dataframe(self, metrics_df, features):
+        """
+        Cleanup the resulting pandas dataframe and convert it to a numpy array
+        to pass to the prediction model
+        """
+   
+        if features != []:    
+            if 'attack_ID' in features:
+                features.remove('attack_ID')
+            # Filter out features from metrics dataframe
+            metrics_df = metrics_df[features]
+            # Cleanup unneeded features from metrics dataframe
+            metrics_df = metrics_df.drop('title', axis=1)
+            metrics_df = metrics_df.drop('attack', axis=1)
+        
+        # Scale measured metrics according to their resolution for better accuracy
+        metrics_df = self.rescale_to_resolution(metrics_df, features)
+
+        return metrics_df
+
+    @staticmethod
+    def rescale_to_resolution(data, features):
+        """
+        Function that improves model accuracy by scaling those features that
+        """
+        feat_labels = ['dimension',
+                       'size',
+                       'fps',
+                       'temporal_difference-euclidean',
+                       'temporal_difference-manhattan',
+                       'temporal_difference-max',
+                       'temporal_difference-mean',
+                       'temporal_difference-std',
+                       'temporal_cross_correlation-euclidean',
+                       'temporal_cross_correlation-manhattan',
+                       'temporal_cross_correlation-max',
+                       'temporal_cross_correlation-mean',
+                       'temporal_cross_correlation-std',
+                       'temporal_dct-euclidean',
+                       'temporal_dct-manhattan',
+                       'temporal_dct-max',
+                       'temporal_dct-mean',
+                       'temporal_dct-std',
+                       'temporal_canny-euclidean',
+                       'temporal_canny-manhattan',
+                       'temporal_canny-max',
+                       'temporal_canny-mean',
+                       'temporal_canny-std',
+                       'temporal_gaussian-euclidean',
+                       'temporal_gaussian-manhattan',
+                       'temporal_gaussian-max',
+                       'temporal_gaussian-mean',
+                       'temporal_gaussian-std',
+                       'temporal_gaussian_difference-euclidean',
+                       'temporal_gaussian_difference-manhattan',
+                       'temporal_gaussian_difference-max',
+                       'temporal_gaussian_difference-mean',
+                       'temporal_gaussian_difference-std',
+                       'temporal_gaussian_difference_threshold-euclidean',
+                       'temporal_gaussian_difference_threshold-manhattan',
+                       'temporal_gaussian_difference_threshold-max',
+                       'temporal_gaussian_difference_threshold-mean',
+                       'temporal_gaussian_difference_threshold-std',
+                       'temporal_histogram_distance-euclidean',
+                       'temporal_histogram_distance-manhattan',
+                       'temporal_histogram_distance-max',
+                       'temporal_histogram_distance-mean',
+                       'temporal_histogram_distance-std',
+                       'temporal_ssim-euclidean',
+                       'temporal_ssim-manhattan',
+                       'temporal_ssim-max',
+                       'temporal_ssim-mean',
+                       'temporal_ssim-std',
+                       'temporal_psnr-euclidean',
+                       'temporal_psnr-manhattan',
+                       'temporal_psnr-max',
+                       'temporal_psnr-mean',
+                       'temporal_psnr-std',
+                       'temporal_entropy-euclidean',
+                       'temporal_entropy-manhattan',
+                       'temporal_entropy-max',
+                       'temporal_entropy-mean',
+                       'temporal_entropy-std',
+                       'temporal_lbp-euclidean',
+                       'temporal_lbp-manhattan',
+                       'temporal_lbp-max',
+                       'temporal_lbp-mean',
+                       'temporal_lbp-std',
+                       'temporal_orb-euclidean',
+                       'temporal_orb-manhattan',
+                       'temporal_orb-max',
+                       'temporal_orb-mean',
+                       'temporal_orb-std',
+                       ]
+        df_features = pd.DataFrame(data)
+        downscale_features = ['temporal_psnr',
+                              'temporal_ssim',
+                              'temporal_cross_correlation'
+                             ]
+
+        upscale_features = ['temporal_difference',
+                            'temporal_dct',
+                            'temporal_canny',
+                            'temporal_gaussian',
+                            'temporal_gaussian_difference',
+                            'temporal_histogram_distance',
+                            'temporal_entropy',
+                            'temporal_lbp'
+                            ]
+
+        for label in feat_labels:
+
+            if label in features:
+                if label.split('-')[0] in downscale_features:
+                    df_features[label] = df_features[label] / df_features['dimension']
+                    print('Downscaling', label, flush=True)
+                elif label.split('-')[0] in upscale_features:
+                    df_features[label] = df_features[label] * df_features['dimension']
+                    print('Upscaling', label, flush=True)
+        return df_features
+
     def process(self):
-        # ************************************************************************
-        # Function to aggregate computed values of metrics
-        # of iterated renditions into a pandas DataFrame.
-        # ************************************************************************
+        """
+        Function to aggregate computed values of metrics
+        of iterated renditions into a pandas DataFrame.
+        """
         if self.do_profiling:
 
             self.capture_to_array = self.cpu_profiler(self.capture_to_array)
             self.compare_renditions_instant = self.cpu_profiler(self.compare_renditions_instant)
 
         # Iterate through renditions
-        for path in self.renditions_paths:
+        for rendition in self.renditions_list:
+            path = rendition['path']
             try:
                 capture = cv2.VideoCapture(path)
                 height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)

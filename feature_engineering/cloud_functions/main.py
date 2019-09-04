@@ -1,40 +1,48 @@
-from google.cloud import datastore
+'''
+Main function to be called from GCE's cloud function
+This function is in charge of adding training data to
+the datastore for later generation of models and feature study
+'''
 
-import tarfile
-import pickle
+import sys
+import os
 import time
 import urllib
 import numpy as np
-import math
-from scipy.spatial import distance
-import cv2
-import pandas as pd
-import os
-from concurrent.futures.thread import ThreadPoolExecutor
-import datetime
 
-import sys
+from google.cloud import datastore
 
 sys.path.insert(0, 'imports')
 
-from imports.video_asset_processor import video_asset_processor
+from imports.video_asset_processor import VideoAssetProcessor
 
-datastore_client = datastore.Client()
+DATASTORE_CLIENT = datastore.Client()
+
 
 def compute_metrics(asset, renditions):
+    '''
+    Function that instantiates the VideoAssetProcessor class with a list
+    of metrics to be computed.
+    The feature_list argument is left void as every descriptor of each
+    temporal metric is potentially used for model training
+    '''
     start_time = time.time()
 
     original_asset = asset
-    seconds = 1
-    max_samples = 10
+
+    max_samples = 60
     renditions_list = renditions
-    metrics_list = ['temporal_gaussian', 
+    metrics_list = ['temporal_difference',
+                    'temporal_gaussian', 
                     'temporal_gaussian_difference', 
                     'temporal_gaussian_difference_threshold', 
-                    'temporal_dct'
+                    'temporal_dct',
+                    'temporal_texture',
+                    'temporal_match'
                     ]
 
-    asset_processor = video_asset_processor(original_asset, renditions_list, metrics_list, seconds, max_samples, False)
+    max_samples = 30
+    asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, False, max_samples)
 
     metrics_df = asset_processor.process()
 
@@ -43,19 +51,22 @@ def compute_metrics(asset, renditions):
         for column in metrics_df.columns:
             if 'series' in column:
                 line[column] = np.array2string(np.around(line[column], decimals=5))
-        add_asset_input(datastore_client,'{}/{}'.format(row['title'],row['attack']), line)
+        add_asset_input(DATASTORE_CLIENT, '{}/{}'.format(row['title'],row['attack']), line)
 
     elapsed_time = time.time() - start_time
     print('Computation time:', elapsed_time)
 
+
 def add_asset_input(client, title, input_data):
-    entity_name = 'features_input'
+    entity_name = 'features_input_60_540'
     key = client.key(entity_name, title, namespace = 'livepeer-verifier-training')
     video = datastore.Entity(key)
     #input_data['created'] = datetime.datetime.utcnow()
     video.update(input_data)
 
     client.put(video)
+
+
 def dataset_generator_http(request):
     """HTTP Cloud Function.
     Args:
@@ -83,15 +94,14 @@ def dataset_generator_http(request):
         os.makedirs(local_folder)
 
     # Get the file that has been uploaded to GCS
-    asset_path = '{}/{}'.format(local_folder, asset_name)
+    asset_path = {'path': '{}/{}'.format(local_folder, asset_name)}
     
-    print(asset_path)
-    renditions_paths=[]
+    renditions_paths = []
     url = 'https://storage.googleapis.com/{}/{}'.format(original_bucket, asset_name)
     print('Downloading {}'.format(url))
     try:
-        urllib.request.urlretrieve(url, asset_path)
-        renditions_paths.append(asset_path)
+        urllib.request.urlretrieve(url, asset_path['path'])
+        renditions_paths.append({'path': asset_path['path']})
     except:
         print('Unable to download {}'.format(url))
         pass
@@ -170,7 +180,7 @@ def dataset_generator_http(request):
         print('Downloading {}'.format(url))
         try:
             urllib.request.urlretrieve (url, local_file)
-            renditions_paths.append(local_file)        
+            renditions_paths.append({'path': local_file})
         except:
             print('Unable to download {}'.format(url))
             pass
