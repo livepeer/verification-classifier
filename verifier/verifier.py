@@ -30,15 +30,17 @@ def pre_verify(source_file, rendition):
     video_file = retrieve_video_file(rendition['uri'])
     rendition_capture = cv2.VideoCapture(video_file)
     fps = int(rendition_capture.get(cv2.CAP_PROP_FPS))
-
-    # Create dictionary with passed / failed verification parameters
+    frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     rendition['path'] = video_file
-
+    
+    # Create dictionary with passed / failed verification parameters
+    
     for key in rendition:
         if key == 'resolution':
-            height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+            
             rendition['resolution']['height'] = height == float(rendition['resolution']['height'])
             rendition['resolution']['width'] = width == float(rendition['resolution']['width'])
 
@@ -47,10 +49,12 @@ def pre_verify(source_file, rendition):
 
         if key == 'bitrate':
             # Compute bitrate
-            frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
             duration = float(frame_count) / float(fps) # in seconds
             bitrate = os.path.getsize(video_file) / duration
             rendition['bitrate'] = bitrate == rendition['bitrate']
+        
+        if key == 'pixels':
+            rendition['pixels'] = frame_count * height * width
 
     return rendition
 
