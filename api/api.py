@@ -7,6 +7,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 
+
 @app.route('/verify', methods=['POST'])
 def post_route():
     if request.method == 'POST':
@@ -25,10 +26,10 @@ def post_route():
         results = []
         i = 0
         for rendition in data['renditions']:
-            results.append({rendition['uri'] : predictions[i]})
+            results.append({rendition['uri']: predictions[i]})
             i += 1
         return jsonify(results)
   
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(host='0.0.0.0')

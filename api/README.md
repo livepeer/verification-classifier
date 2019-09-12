@@ -30,8 +30,8 @@ Once the Docker container is running, a Flask HTTP server will made available in
 params: [{
     "source": "http://127.0.0.1/stream/abcd/5.ts",
     "renditions": [
-        "uri": "http://127.0.0.1/stream/abcd/P720p30fps4x3/5.ts",
-        "uri": "http://127.0.0.1/stream/abcd/P720p60fps16x9/5.ts"
+        {"uri": "http://127.0.0.1/stream/abcd/P720p30fps4x3/5.ts"},
+        {"uri": "http://127.0.0.1/stream/abcd/P720p60fps16x9/5.ts"}
     ],
     "model": "http://127.0.0.1/model/verification.tar.gz"
 }]
@@ -50,8 +50,8 @@ A sample call to the API is provided below:
 curl localhost:5000/verify -d '{"source": "https://storage.googleapis.com/livepeer-verifier-originals/-3MYFnEaYu4.mp4", 
 
                                 "renditions": [
-                                                "https://storage.googleapis.com/livepeer-verifier-renditions/1080p_black_and_white/-3MYFnEaYu4.mp4", 
-                                                "https://storage.googleapis.com/livepeer-verifier-renditions/720p_watermark/-3MYFnEaYu4.mp4"
+                                                {"uri": "https://storage.googleapis.com/livepeer-verifier-renditions/1080p_black_and_white/-3MYFnEaYu4.mp4"}, 
+                                                {"uri": "https://storage.googleapis.com/livepeer-verifier-renditions/720p_watermark/-3MYFnEaYu4.mp4"}
                                                ], 
 
                                 "model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}' 

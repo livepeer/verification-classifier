@@ -1,8 +1,8 @@
-'''
+"""
 Module wrapping up VideoAssetProcessor class in order to serve as interface for
 CLI and API.
 It manages pre-verification and tamper verfication of assets
-'''
+"""
 
 import uuid
 import time
@@ -14,18 +14,18 @@ import urllib
 
 import pickle
 import numpy as np
-import pandas as pd
 import cv2
 
 sys.path.insert(0, 'scripts/asset_processor')
 
 from video_asset_processor import VideoAssetProcessor
 
+
 def pre_verify(source_file, rendition):
-    '''
+    """
     Function to verify that rendition conditions and specifications
     are met as prescribed by the Broadcaster
-    '''
+    """
     # Extract data from video capture
     video_file = retrieve_video_file(rendition['uri'])
     rendition_capture = cv2.VideoCapture(video_file)
@@ -48,23 +48,24 @@ def pre_verify(source_file, rendition):
         if key == 'bitrate':
             # Compute bitrate
             frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-            duration = float(frame_count) / float(fps) # in seconds
+            duration = float(frame_count) / float(fps)  # in seconds
             bitrate = os.path.getsize(video_file) / duration
             rendition['bitrate'] = bitrate == rendition['bitrate']
 
     return rendition
 
+
 def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name):
-    '''
+    """
     Function that returns the predicted compliance of a list of renditions
     with respect to a given source file using a specified model.
-    '''
+    """
 
     total_start = time.clock()
     total_start_user = time.time()
 
     # Prepare source and renditions for verification
-    original_asset = {'path':retrieve_video_file(source_uri),
+    original_asset = {'path': retrieve_video_file(source_uri),
                       'uri': source_uri}
 
     # Create a list of preverified renditions
@@ -132,14 +133,13 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
 
     # Make predictions for given data
     start = time.clock()
-    y_pred = loaded_model.predict(x_renditions)
+    y_pred = loaded_model.decision_function(x_renditions)
     prediction_time = time.clock() - start
 
-    
     # Add predictions to rendition dictionary
     for i, rendition in enumerate(renditions):
         rendition.pop('path', None)
-        rendition['tamper'] = int(y_pred[i])
+        rendition['tamper'] = np.round(y_pred[i], 6)
 
     if do_profiling:
         print('Features used:', features)
@@ -154,22 +154,20 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
 
     return renditions
 
+
 def retrieve_model(uri):
-    '''
+    """
     Function to obtain pre-trained model for verification predictions
-    '''
+    """
 
     model_dir = '/tmp/model'
     model_file = uri.split('/')[-1]
     # Create target Directory if don't exist
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
-        print("Directory ", model_dir, " Created ")
+        print('Directory ', model_dir, ' Created ')
         print('Model download started!')
-        filename, _ = urllib.request.urlretrieve(uri,
-                                                 filename='{}/{}'.format(model_dir,
-                                                                         model_file)
-                                                )
+        filename, _ = urllib.request.urlretrieve(uri, filename='{}/{}'.format(model_dir, model_file))
         print('Model downloaded')
         try:
             with tarfile.open(filename) as tar_f:
@@ -178,13 +176,14 @@ def retrieve_model(uri):
         except Exception:
             return 'Unable to untar model'
     else:
-        print("Directory ", model_dir, " already exists, skipping download")
+        print('Directory ', model_dir, ' already exists, skipping download')
         return model_dir, model_file
 
+
 def retrieve_video_file(uri):
-    '''
+    """
     Function to obtain a path to a video file from url or local path
-    '''
+    """
 
     if 'http' in uri:
         file_name = '/tmp/{}'.format(uuid.uuid4())
