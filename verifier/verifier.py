@@ -65,7 +65,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     total_start_user = time.time()
 
     # Prepare source and renditions for verification
-    original_asset = {'path':retrieve_video_file(source_uri),
+    original_asset = {'path': retrieve_video_file(source_uri),
                       'uri': source_uri}
 
     # Create a list of preverified renditions
@@ -133,13 +133,13 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
 
     # Make predictions for given data
     start = time.clock()
-    y_pred = loaded_model.predict(x_renditions)
+    y_pred = loaded_model.decision_function(x_renditions)
     prediction_time = time.clock() - start
 
     # Add predictions to rendition dictionary
     for i, rendition in enumerate(renditions):
         rendition.pop('path', None)
-        rendition['tamper'] = int(y_pred[i])
+        rendition['tamper'] = np.round(y_pred[i], 6)
 
     if do_profiling:
         print('Features used:', features)
@@ -165,7 +165,7 @@ def retrieve_model(uri):
     # Create target Directory if don't exist
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
-        print("Directory ", model_dir, " Created ")
+        print('Directory ', model_dir, ' Created ')
         print('Model download started!')
         filename, _ = urllib.request.urlretrieve(uri, filename='{}/{}'.format(model_dir, model_file))
         print('Model downloaded')
@@ -176,7 +176,7 @@ def retrieve_model(uri):
         except Exception:
             return 'Unable to untar model'
     else:
-        print("Directory ", model_dir, " already exists, skipping download")
+        print('Directory ', model_dir, ' already exists, skipping download')
         return model_dir, model_file
 
 

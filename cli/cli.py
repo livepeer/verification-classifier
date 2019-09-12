@@ -1,16 +1,16 @@
 import click
-import urllib
 import sys
 
 sys.path.insert(0, 'scripts/asset_processor')
 # Minimal app for serving Livepeer verification
 from verifier import retrieve_model, verify, pre_verify
 
+
 @click.command()
 @click.argument('source')
-@click.argument('renditions', multiple=True)
+@click.option('--renditions', multiple=True)
 @click.argument('model_uri')
-@click.argument('pre_verification_parameters')
+@click.option('--pre_verification_parameters')
 @click.option('--do_profiling', default=0)
 @click.option('--max_samples', type=int, default=10)
 def cli(source, renditions, model_uri, do_profiling, max_samples):
@@ -22,7 +22,7 @@ def cli(source, renditions, model_uri, do_profiling, max_samples):
     # -renditions:                  A list of paths in disk where renditions are located
     # -do_profiling:                Enables / disables profiling tools for debugging purposes
     # -max_samples:                 Number o random sampling frames to be used to make predictions
-    # -model_uri:                   Path to location in disk where pre-traind model is located
+    # -model_uri:                   Path to location in disk where trained model is located
     # ************************************************************************
 
     model_dir, model_file = retrieve_model(model_uri)
@@ -31,7 +31,7 @@ def cli(source, renditions, model_uri, do_profiling, max_samples):
     results = []
     i = 0
     for rendition_uri in renditions:
-        results.append({rendition_uri : predictions[i]})
+        results.append({rendition_uri: predictions[i]})
         i += 1
     return 'Results: {}\n'.format(results)
 
