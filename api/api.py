@@ -1,6 +1,6 @@
 # Minimal app for serving Livepeer verification
 from verifier import verify, retrieve_model
-from flask import Flask, request
+from flask import Flask, request, jsonify
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -27,7 +27,7 @@ def post_route():
         for rendition in data['renditions']:
             results.append({rendition['uri'] : predictions[i]})
             i += 1
-        return 'Results: {}\n'.format(results)
+        return jsonify(results)
   
 
 if __name__ == '__main__':

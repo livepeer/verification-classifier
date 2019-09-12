@@ -139,7 +139,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     # Add predictions to rendition dictionary
     for i, rendition in enumerate(renditions):
         rendition.pop('path', None)
-        rendition['tamper'] = y_pred[i]
+        rendition['tamper'] = int(y_pred[i])
 
     if do_profiling:
         print('Features used:', features)
