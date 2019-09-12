@@ -21,7 +21,7 @@ sys.path.insert(0, 'scripts/asset_processor')
 from video_asset_processor import VideoAssetProcessor
 
 
-def pre_verify(source_file, rendition):
+def pre_verify(rendition):
     """
     Function to verify that rendition conditions and specifications
     are met as prescribed by the Broadcaster
@@ -34,27 +34,28 @@ def pre_verify(source_file, rendition):
     height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
 
+    rendition_copy = rendition.copy()
     rendition['path'] = video_file
-    
+
     # Create dictionary with passed / failed verification parameters
-    
-    for key in rendition:
+
+    for key in rendition_copy:
         if key == 'resolution':
-            
-            rendition['resolution']['height'] = height == float(rendition['resolution']['height'])
-            rendition['resolution']['width'] = width == float(rendition['resolution']['width'])
+
+            rendition['resolution']['height_pre_verification'] = height / float(rendition['resolution']['height'])
+            rendition['resolution']['width_pre_verification'] = width / float(rendition['resolution']['width'])
 
         if key == 'frame_rate':
-            rendition['frame_rate'] = 0.99 <= fps / rendition['frame_rate'] <= 1.01
+            rendition['frame_rate'] = 0.99 <= fps / float(rendition['frame_rate']) <= 1.01
 
         if key == 'bitrate':
             # Compute bitrate
             duration = float(frame_count) / float(fps) # in seconds
             bitrate = os.path.getsize(video_file) / duration
             rendition['bitrate'] = bitrate == rendition['bitrate']
-        
+
         if key == 'pixels':
-            rendition['pixels'] = frame_count * height * width
+            rendition['pixels_pre_verification'] = float(rendition['pixels']) / frame_count * height * width
 
     return rendition
 
@@ -75,7 +76,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     # Create a list of preverified renditions
     pre_verified_renditions = []
     for rendition in renditions:
-        pre_verification = pre_verify(original_asset, rendition)
+        pre_verification = pre_verify(rendition)
         pre_verified_renditions.append(pre_verification)
 
     # Configure model for inference
@@ -121,7 +122,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     start_user = time.time()
 
     # Assemble output dataframe with processed metrics
-    metrics_df = asset_processor.process()
+    metrics_df, pixels_df, dimensions_df = asset_processor.process()
 
     # Record time for processing of assets metrics
     process_time = time.clock() - start
@@ -144,6 +145,12 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     for i, rendition in enumerate(renditions):
         rendition.pop('path', None)
         rendition['tamper'] = np.round(y_pred[i], 6)
+        # Append the post-verification of resolution and pixel count
+        if 'pixels' in rendition:
+            rendition['pixels_post_verification'] = float(rendition['pixels']) / pixels_df[i]
+        if 'resolution' in rendition:
+            rendition['resolution']['height_post_verification'] = float(rendition['resolution']['height']) / int(dimensions_df[i].split(':')[0])
+            rendition['resolution']['width_post_verification'] = float(rendition['resolution']['width']) / int(dimensions_df[i].split(':')[1])
 
     if do_profiling:
         print('Features used:', features)
@@ -171,7 +178,8 @@ def retrieve_model(uri):
         os.mkdir(model_dir)
         print('Directory ', model_dir, ' Created ')
         print('Model download started!')
-        filename, _ = urllib.request.urlretrieve(uri, filename='{}/{}'.format(model_dir, model_file))
+        filename, _ = urllib.request.urlretrieve(uri,
+                                                 filename='{}/{}'.format(model_dir, model_file))
         print('Model downloaded')
         try:
             with tarfile.open(filename) as tar_f:

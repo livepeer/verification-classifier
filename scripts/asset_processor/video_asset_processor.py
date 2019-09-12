@@ -19,7 +19,8 @@ class VideoAssetProcessor:
     It is instantiated as part of the data creation as well
     as in the inference, both in the CLI as in the notebooks.
     """
-    def __init__(self, original, renditions, metrics_list, do_profiling=False, max_samples=-1, features_list=[]):
+    def __init__(self, original, renditions, metrics_list,
+                 do_profiling=False, max_samples=-1, features_list=None):
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
@@ -49,40 +50,34 @@ class VideoAssetProcessor:
         # List of preverified renditions
         self.renditions_list = renditions
 
-        # Retrieve original rendition dimensions
-        # Obtains vertical dimension of the frames of the original
-        self.height = self.original_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        # Obtains horizontal dimension of the frames of the original
-        self.width = self.original_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-        
-        # Collects both dimensional values in a string
-        self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
-
         if do_profiling:
             import line_profiler
             self.cpu_profiler = line_profiler.LineProfiler()
         else:
             self.cpu_profiler = None
         self.do_profiling = do_profiling
+
+        # Convert OpenCV video captures of original to list
+        # of numpy arrays for better performance of numerical computations
+        self.random_sampler = list(np.random.choice(self.max_frames,
+                                                    self.max_samples,
+                                                    replace=False))
+
+        self.original_capture, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
+
         # Instance of the video_metrics class
         self.video_metrics = VideoMetrics(self.metrics_list,
                                           self.hash_size,
                                           int(self.height),
                                           self.cpu_profiler,
                                           self.do_profiling)
-
-        # Convert OpenCV video captures of original to list
-        # of numpy arrays for better performance of numerical computations
-        
-        self.random_sampler = list(np.random.choice(self.max_frames,
-                                                    self.max_samples,
-                                                    replace=False))
-
-        self.original_capture = self.capture_to_array(self.original_capture)
+        # Collects both dimensional values in a string
+        self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
         # Compute its features
         self.metrics[self.original_path] = self.compute(self.original_capture,
                                                         self.original_path,
-                                                        self.dimensions)
+                                                        self.dimensions,
+                                                        self.original_pixels)
 
     def capture_to_array(self, capture):
         """
@@ -94,7 +89,7 @@ class VideoAssetProcessor:
         frame_list = []
 
         i = 0
-
+        pixels = 0
         # Iterate through each frame in the video
         while capture.isOpened():
 
@@ -104,7 +99,12 @@ class VideoAssetProcessor:
             # If read successful, then append the retrieved numpy array to a python list
             if ret_frame:
                 i += 1
-                # Add the frame to the list
+                # Count the number of pixels
+                height = frame.shape[1]
+                width = frame.shape[0]
+                pixels += height * width
+
+                # Add the frame to the list if it belong to the random sampling list
                 if i in self.random_sampler:
                     frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
@@ -116,9 +116,9 @@ class VideoAssetProcessor:
         # Clean up memory
         capture.release()
 
-        return np.array(frame_list)
+        return np.array(frame_list), pixels, height, width
 
-    def compare_renditions_instant(self, frame_pos, frame_list, dimensions, path):
+    def compare_renditions_instant(self, frame_pos, frame_list, dimensions, pixels, path):
         """
         Function to compare pairs of numpy arrays extracting their corresponding metrics.
         It basically takes the global original frame at frame_pos and its subsequent to
@@ -151,6 +151,9 @@ class VideoAssetProcessor:
         # Retrieve rendition dimensions for further evaluation
         rendition_metrics['dimensions'] = dimensions
 
+        # Retrieve rendition number of pixels for further verification
+        rendition_metrics['pixels'] = pixels
+
         # Retrieve rendition path for further identification
         rendition_metrics['ID'] = self.original_path
 
@@ -161,7 +164,7 @@ class VideoAssetProcessor:
         # frame_pos is needed for the ThreadPoolExecutor optimizations
         return rendition_metrics, frame_pos
 
-    def compute(self, frame_list, path, dimensions):
+    def compute(self, frame_list, path, dimensions, pixels):
         """
         Function to compare lists of numpy arrays extracting their corresponding metrics.
         It basically takes the global original list of frames and the input frame_list
@@ -192,6 +195,7 @@ class VideoAssetProcessor:
                                            i,
                                            frame_list,
                                            dimensions,
+                                           pixels,
                                            path): i for i in frames_to_process}
 
         # Once all frames in frame_list have been iterated, we can retrieve their values
@@ -235,7 +239,7 @@ class VideoAssetProcessor:
             rendition_dict = {}
 
             # We have a number of different metrics that have been computed.
-            # These are an input for the constructor of the class an vary according to 
+            # These are an input for the constructor of the class an vary according to
             # what metrics are of interest in the research
             for metric in self.metrics_list:
                 # Obtain a Pandas DataFrame from the original and build the original time series
@@ -268,7 +272,9 @@ class VideoAssetProcessor:
                     rendition_dict['{}-mean'.format(metric)] = np.mean(x_rendition)
                     rendition_dict['{}-max'.format(metric)] = np.max(x_rendition)
                     rendition_dict['{}-std'.format(metric)] = np.std(x_rendition)
-                    rendition_dict['{}-corr'.format(metric)] = np.correlate(x_original, x_rendition, mode='same').mean()
+                    rendition_dict['{}-corr'.format(metric)] = np.correlate(x_original,
+                                                                            x_rendition,
+                                                                            mode='same').mean()
                     rendition_dict['{}-series'.format(metric)] = x_rendition
 
                 # Other metrics do not need time evaluation
@@ -285,6 +291,10 @@ class VideoAssetProcessor:
             dimensions_df = metrics_df[metrics_df['path'] == rendition['path']]['dimensions']
             rendition_dict['dimension'] = int(dimensions_df.unique()[0].split(':')[1])
 
+            # Extract the pixels for this rendition
+            pixels_df = metrics_df[metrics_df['path'] == rendition['path']]['pixels']
+            rendition_dict['pixels'] = int(pixels_df.unique())
+
             # Store the rendition values in the dictionary of renditions for the present asset
             renditions_dict[rendition['path']] = rendition_dict
 
@@ -294,35 +304,30 @@ class VideoAssetProcessor:
         dict_of_df = {k: pd.DataFrame(v) for k, v in metrics_dict.items()}
         metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
 
-        metrics_df['title'] = metrics_df['level_0']
-        attack_series = []
+        pixels_df = metrics_df['pixels']
 
-        for _, row in metrics_df.iterrows():
-            attack_series.append(row['level_1'])
-
-        metrics_df['attack'] = attack_series
-
-        metrics_df = metrics_df.drop(['level_0', 'level_1'], axis=1)
-        
         metrics_df = self.cleanup_dataframe(metrics_df, self.features_list)
 
-        return metrics_df
+        return metrics_df, pixels_df, dimensions_df
 
     def cleanup_dataframe(self, metrics_df, features):
         """
         Cleanup the resulting pandas dataframe and convert it to a numpy array
         to pass to the prediction model
         """
-   
-        if features != []:    
+
+        metrics_df = metrics_df.rename(columns={'level_0': 'title', 'level_1': 'attack'})
+
+        if features is not None:
             if 'attack_ID' in features:
                 features.remove('attack_ID')
             # Filter out features from metrics dataframe
+
             metrics_df = metrics_df[features]
             # Cleanup unneeded features from metrics dataframe
             metrics_df = metrics_df.drop('title', axis=1)
             metrics_df = metrics_df.drop('attack', axis=1)
-        
+
         # Scale measured metrics according to their resolution for better accuracy
         metrics_df = self.rescale_to_resolution(metrics_df, features)
 
@@ -444,13 +449,12 @@ class VideoAssetProcessor:
             path = rendition['path']
             try:
                 capture = cv2.VideoCapture(path)
-                height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
-                width = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-                dimensions = '{}:{}'.format(int(width), int(height))
+
                 # Turn openCV capture to a list of numpy arrays
-                frame_list = self.capture_to_array(capture)
+                frame_list, pixels, height, width = self.capture_to_array(capture)
+                dimensions = '{}:{}'.format(int(width), int(height))
                 # Compute the metrics for the rendition
-                self.metrics[path] = self.compute(frame_list, path, dimensions)
+                self.metrics[path] = self.compute(frame_list, path, dimensions, pixels)
 
             except Exception as err:
                 print('Unable to compute metrics for {}'.format(path))
