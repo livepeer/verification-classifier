@@ -43,7 +43,7 @@ def pre_verify(source_file, rendition):
             rendition['resolution']['width'] = width == float(rendition['resolution']['width'])
 
         if key == 'frame_rate':
-            rendition['frame_rate'] = fps == rendition['frame_rate']
+            rendition['frame_rate'] = 0.99 <= fps / rendition['frame_rate'] <= 1.01
 
         if key == 'bitrate':
             # Compute bitrate
