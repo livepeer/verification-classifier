@@ -4,11 +4,10 @@ opencv_contrib_python==4.1.0.25
 click==7.0
 numpy==1.16.2
 pandas==0.24.2
-xgboost==0.82
 scikit-image==0.15.0
 py-spy==0.1.11
 memory-profiler==0.55.0
 line_profiler==2.1.2
 flask==1.1.1
 flask-restful==0.3.7
-mahotas==1.4.7
+bjoern==3.0.1

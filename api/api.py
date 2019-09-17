@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-app = Flask(__name__)
+import bjoern
 
 
 @app.route('/verify', methods=['POST'])
@@ -32,4 +32,10 @@ def post_route():
   
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    HOST = '0.0.0.0'
+    PORT = 5000
+
+    LOGGER.info('Verifier server listening in port %s', PORT)
+
+    bjoern.listen(APP, HOST, PORT)
+    bjoern.run()
