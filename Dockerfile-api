@@ -1,4 +1,4 @@
 FROM verifier:v1
-COPY /api /scripts
+COPY /api ./scripts
 ENTRYPOINT ["python"]
 CMD ["scripts/api.py"]
