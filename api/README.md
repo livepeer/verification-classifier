@@ -45,41 +45,135 @@ An object that indicates whether each rendition passed/failed verification.
 A sample call to the API is provided below:
 
 *Request (remote assets)*
+
 ```
 
-curl localhost:5000/verify -d '{"source": "https://storage.googleapis.com/livepeer-verifier-originals/-3MYFnEaYu4.mp4", 
+ curl localhost:5000/verify -d '{"source": "https://storage.googleapis.com/livepeer-verifier-renditions/480p/-3MYFnEaYu4.mp4",
 
                                 "renditions": [
-                                                {"uri": "https://storage.googleapis.com/livepeer-verifier-renditions/1080p_black_and_white/-3MYFnEaYu4.mp4"}, 
-                                                {"uri": "https://storage.googleapis.com/livepeer-verifier-renditions/720p_watermark/-3MYFnEaYu4.mp4"}
-                                               ], 
+                                                {
+                                                    "uri": "https://storage.googleapis.com/livepeer-verifier-renditions/144p_black_and_white/-3MYFnEaYu4.mp4"
+                                                },
+                                                {
+                                                    "uri": "https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4",
+                                                    "resolution":{
+                                                        "height":"144",
+                                                        "width":"256"},
+                                                    "frame_rate": "24",
+                                                    "pixels":"1034500"
+                                                }
+                                            ],
 
-                                "model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}' 
+                                "orchestratorID": "foo",
+
+                                model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}'
 
                                 -H 'Content-Type: application/json'
+
+
 ```
+
 *Response (remote assets)*
+
 ```
-Results: [{'https://storage.googleapis.com/livepeer-verifier-renditions/1080p_black_and_white/-3MYFnEaYu4.mp4': -1}, 
-          {'https://storage.googleapis.com/livepeer-verifier-renditions/720p_watermark/-3MYFnEaYu4.mp4': -1}]
+
+{"orchestrator_id":"foo",
+"results":[
+    {
+        "https://storage.googleapis.com/livepeer-verifier-renditions/144p_black_and_white/-3MYFnEaYu4.mp4":
+        {
+            "available":true,
+            "tamper":-1.195989,
+            "uri":"https://storage.googleapis.com/livepeer-verifier-renditions/144p_black_and_white/-3MYFnEaYu4.mp4"
+        }
+    },
+    {
+        "https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4":
+        {
+            "available":true,
+            "frame_rate":false,
+            "pixels":"1034500",
+            "pixels_post_verification":0.09354202835648148,
+            "pixels_pre_verification":127119360.0,
+            "resolution":
+            {
+                "height":"144",
+                "height_post_verification":1.0,
+                "height_pre_verification":1.0,
+                "width":"256",
+                "width_post_verification":1.0,
+                "width_pre_verification":1.0
+            },
+            "tamper":1.219913,
+            "uri":"https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4"
+        }
+    }],
+    "source":"https://storage.googleapis.com/livepeer-verifier-renditions/480p/-3MYFnEaYu4.mp4"}
+
 ```
 
 *Request (local assets)*
+
 ```
 
-curl localhost:5000/verify -d '{"source": "stream/sources/-3MYFnEaYu4.mp4", 
+curl localhost:5000/verify -d '{
+    "source": "stream/sources/1HWSFYQXa1Q.mp4",
+    "renditions": [
+        {
+            "uri": "stream/144p_black_and_white/1HWSFYQXa1Q.mp4"
+        },
+        {
+            "uri": "stream/144p/1HWSFYQXa1Q.mp4",
+            "resolution":{
+                "height":"144",
+                "width":"256"
+                },
+            "frame_rate": "24",
+            "pixels":"1034500"
+        }
+        ],
+        "orchestratorID": "foo",
+        "model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}'
+        -H 'Content-Type: application/json'
 
-                                "renditions": [
-                                                "stream/1080p_black_and_white/-3MYFnEaYu4.mp4", 
-                                                "stream/720p_watermark/-3MYFnEaYu4.mp4"
-                                               ], 
-
-                                "model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}' 
-
-                                -H 'Content-Type: application/json'
 ```
+
 *Response (local assets)*
 ```
-Results: [{'stream/1080p_black_and_white/-3MYFnEaYu4.mp4': -1}, 
-          {'stream/720p_watermark/-3MYFnEaYu4.mp4': -1}]
+
+{"orchestrator_id":"foo",
+"results":
+[
+    {
+        "stream/144p_black_and_white/1HWSFYQXa1Q.mp4":
+        {
+            "available":true,
+            "tamper":-9.408425,
+            "uri":"stream/144p_black_and_white/1HWSFYQXa1Q.mp4"
+        }
+    },
+    {
+        "stream/144p/1HWSFYQXa1Q.mp4":
+        {
+            "available":true,
+            "frame_rate":false,
+            "pixels":"1034500",
+            "pixels_post_verification":0.09354202835648148,
+            "pixels_pre_verification":127119360.0,
+            "resolution":
+            {
+                "height":"144",
+                "height_post_verification":1.0,
+                "height_pre_verification":1.0,
+                "width":"256",
+                "width_post_verification":1.0,
+                "width_pre_verification":1.0
+            },
+            "tamper":1.200134,
+            "uri":"stream/144p/1HWSFYQXa1Q.mp4"
+        }
+    }
+],
+"source":"stream/sources/1HWSFYQXa1Q.mp4"}
+
 ```
