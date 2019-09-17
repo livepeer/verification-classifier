@@ -27,35 +27,38 @@ def pre_verify(rendition):
     are met as prescribed by the Broadcaster
     """
     # Extract data from video capture
-    video_file = retrieve_video_file(rendition['uri'])
-    rendition_capture = cv2.VideoCapture(video_file)
-    fps = int(rendition_capture.get(cv2.CAP_PROP_FPS))
-    frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-    height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    video_file, available = retrieve_video_file(rendition['uri'])
+    rendition['available'] = available
 
-    rendition_copy = rendition.copy()
-    rendition['path'] = video_file
+    if available:
+        rendition_capture = cv2.VideoCapture(video_file)
+        fps = int(rendition_capture.get(cv2.CAP_PROP_FPS))
+        frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
 
-    # Create dictionary with passed / failed verification parameters
+        rendition_copy = rendition.copy()
+        rendition['path'] = video_file
 
-    for key in rendition_copy:
-        if key == 'resolution':
+        # Create dictionary with passed / failed verification parameters
 
-            rendition['resolution']['height_pre_verification'] = height / float(rendition['resolution']['height'])
-            rendition['resolution']['width_pre_verification'] = width / float(rendition['resolution']['width'])
+        for key in rendition_copy:
+            if key == 'resolution':
 
-        if key == 'frame_rate':
-            rendition['frame_rate'] = 0.99 <= fps / float(rendition['frame_rate']) <= 1.01
+                rendition['resolution']['height_pre_verification'] = height / float(rendition['resolution']['height'])
+                rendition['resolution']['width_pre_verification'] = width / float(rendition['resolution']['width'])
 
-        if key == 'bitrate':
-            # Compute bitrate
-            duration = float(frame_count) / float(fps) # in seconds
-            bitrate = os.path.getsize(video_file) / duration
-            rendition['bitrate'] = bitrate == rendition['bitrate']
+            if key == 'frame_rate':
+                rendition['frame_rate'] = 0.99 <= fps / float(rendition['frame_rate']) <= 1.01
 
-        if key == 'pixels':
-            rendition['pixels_pre_verification'] = float(rendition['pixels']) / frame_count * height * width
+            if key == 'bitrate':
+                # Compute bitrate
+                duration = float(frame_count) / float(fps) # in seconds
+                bitrate = os.path.getsize(video_file) / duration
+                rendition['bitrate'] = bitrate == rendition['bitrate']
+
+            if key == 'pixels':
+                rendition['pixels_pre_verification'] = float(rendition['pixels']) / frame_count * height * width
 
     return rendition
 
@@ -69,99 +72,106 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     total_start = time.clock()
     total_start_user = time.time()
 
+    source_path, available = retrieve_video_file(source_uri)
+
+    if available:
     # Prepare source and renditions for verification
-    original_asset = {'path': retrieve_video_file(source_uri),
-                      'uri': source_uri}
+        source_video = {'path': source_path,
+                        'uri': source_uri}
 
-    # Create a list of preverified renditions
-    pre_verified_renditions = []
-    for rendition in renditions:
-        pre_verification = pre_verify(rendition)
-        pre_verified_renditions.append(pre_verification)
+        # Create a list of preverified renditions
+        pre_verified_renditions = []
+        for rendition in renditions:
+            pre_verification = pre_verify(rendition)
+            if rendition['available']:
+                pre_verified_renditions.append(pre_verification)
 
-    # Configure model for inference
-    model_name = 'OCSVM'
-    scaler_type = 'StandardScaler'
-    learning_type = 'UL'
-    loaded_model = pickle.load(open('{}/{}.pickle.dat'.format(model_dir,
-                                                              model_name), 'rb'))
-    loaded_scaler = pickle.load(open('{}/{}_{}.pickle.dat'.format(model_dir,
-                                                                  learning_type,
-                                                                  scaler_type), 'rb'))
+        # Configure model for inference
+        model_name = 'OCSVM'
+        scaler_type = 'StandardScaler'
+        learning_type = 'UL'
+        loaded_model = pickle.load(open('{}/{}.pickle.dat'.format(model_dir,
+                                                                model_name), 'rb'))
+        loaded_scaler = pickle.load(open('{}/{}_{}.pickle.dat'.format(model_dir,
+                                                                    learning_type,
+                                                                    scaler_type), 'rb'))
 
-    # Open model configuration file
-    with open('{}/param_{}.json'.format(model_dir, model_name)) as json_file:
-        params = json.load(json_file)
-        features = params['features']
+        # Open model configuration file
+        with open('{}/param_{}.json'.format(model_dir, model_name)) as json_file:
+            params = json.load(json_file)
+            features = params['features']
 
-    # Remove non numeric features from feature list
-    non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size']
-    metrics_list = []
-    for metric in features:
-        if metric not in non_temporal_features:
-            metrics_list.append(metric.split('-')[0])
+        # Remove non numeric features from feature list
+        non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size']
+        metrics_list = []
+        for metric in features:
+            if metric not in non_temporal_features:
+                metrics_list.append(metric.split('-')[0])
 
-    # Initialize times for assets processing profiling
-    start = time.clock()
-    start_user = time.time()
+        # Initialize times for assets processing profiling
+        start = time.clock()
+        start_user = time.time()
 
-    # Instantiate VideoAssetProcessor class
-    asset_processor = VideoAssetProcessor(original_asset,
-                                          pre_verified_renditions,
-                                          metrics_list,
-                                          do_profiling,
-                                          max_samples,
-                                          features)
+        # Instantiate VideoAssetProcessor class
+        asset_processor = VideoAssetProcessor(source_video,
+                                            pre_verified_renditions,
+                                            metrics_list,
+                                            do_profiling,
+                                            max_samples,
+                                            features)
 
-    # Record time for class initialization
-    initialize_time = time.clock() - start
-    initialize_time_user = time.time() - start_user
+        # Record time for class initialization
+        initialize_time = time.clock() - start
+        initialize_time_user = time.time() - start_user
 
-    # Register times for asset processing
-    start = time.clock()
-    start_user = time.time()
+        # Register times for asset processing
+        start = time.clock()
+        start_user = time.time()
 
-    # Assemble output dataframe with processed metrics
-    metrics_df, pixels_df, dimensions_df = asset_processor.process()
+        # Assemble output dataframe with processed metrics
+        metrics_df, pixels_df, dimensions_df = asset_processor.process()
 
-    # Record time for processing of assets metrics
-    process_time = time.clock() - start
-    process_time_user = time.time() - start_user
+        # Record time for processing of assets metrics
+        process_time = time.clock() - start
+        process_time_user = time.time() - start_user
 
-    # Normalize input data using the associated scaler
-    x_renditions = np.asarray(metrics_df)
-    x_renditions = loaded_scaler.transform(x_renditions)
+        # Normalize input data using the associated scaler
+        x_renditions = np.asarray(metrics_df)
+        x_renditions = loaded_scaler.transform(x_renditions)
 
-    # Remove further features that model may not need
-    matrix = pickle.load(open('{}/reduction_{}.pickle.dat'.format(model_dir, model_name), 'rb'))
-    x_renditions = matrix.transform(x_renditions)
+        # Remove further features that model may not need
+        matrix = pickle.load(open('{}/reduction_{}.pickle.dat'.format(model_dir, model_name), 'rb'))
+        x_renditions = matrix.transform(x_renditions)
 
-    # Make predictions for given data
-    start = time.clock()
-    y_pred = loaded_model.decision_function(x_renditions)
-    prediction_time = time.clock() - start
+        # Make predictions for given data
+        start = time.clock()
+        y_pred = loaded_model.decision_function(x_renditions)
+        prediction_time = time.clock() - start
 
-    # Add predictions to rendition dictionary
-    for i, rendition in enumerate(renditions):
-        rendition.pop('path', None)
-        rendition['tamper'] = np.round(y_pred[i], 6)
-        # Append the post-verification of resolution and pixel count
-        if 'pixels' in rendition:
-            rendition['pixels_post_verification'] = float(rendition['pixels']) / pixels_df[i]
-        if 'resolution' in rendition:
-            rendition['resolution']['height_post_verification'] = float(rendition['resolution']['height']) / int(dimensions_df[i].split(':')[0])
-            rendition['resolution']['width_post_verification'] = float(rendition['resolution']['width']) / int(dimensions_df[i].split(':')[1])
+        # Add predictions to rendition dictionary
+        i = 0
+        for n, rendition in enumerate(renditions):
+            if rendition['available']:
+                rendition.pop('path', None)
+                rendition['tamper'] = np.round(y_pred[i], 6)
+                # Append the post-verification of resolution and pixel count
+                if 'pixels' in rendition:
+                    rendition['pixels_post_verification'] = float(rendition['pixels']) / pixels_df[i]
+                if 'resolution' in rendition:
+                    rendition['resolution']['height_post_verification'] = float(rendition['resolution']['height']) / int(dimensions_df[i].split(':')[0])
+                    rendition['resolution']['width_post_verification'] = float(rendition['resolution']['width']) / int(dimensions_df[i].split(':')[1])
+                i += 1
 
-    if do_profiling:
-        print('Features used:', features)
-        print('Total CPU time:', time.clock() - total_start)
-        print('Total user time:', time.time() - total_start_user)
-        print('Initialization CPU time:', initialize_time)
-        print('Initialization user time:', initialize_time_user)
+        if do_profiling:
+            print('Features used:', features)
+            print('Total CPU time:', time.clock() - total_start)
+            print('Total user time:', time.time() - total_start_user)
+            print('Initialization CPU time:', initialize_time)
+            print('Initialization user time:', initialize_time_user)
 
-        print('Process CPU time:', process_time)
-        print('Process user time:', process_time_user)
-        print('Prediction CPU time:', prediction_time)
+            print('Process CPU time:', process_time)
+            print('Process user time:', process_time_user)
+            print('Prediction CPU time:', prediction_time)
 
     return renditions
 
@@ -196,14 +206,26 @@ def retrieve_video_file(uri):
     """
     Function to obtain a path to a video file from url or local path
     """
+    video_file = ''
+    available = True
 
     if 'http' in uri:
-        file_name = '/tmp/{}'.format(uuid.uuid4())
+        try:
+            file_name = '/tmp/{}'.format(uuid.uuid4())
 
-        print('File download started!', flush=True)
-        video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
+            print('File download started!', flush=True)
+            video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
 
-        print('File downloaded', flush=True)
+            print('File downloaded', flush=True)
+        except:
+            print('Unable to download video file', flush=True)
+            available = False
     else:
-        video_file = uri
-    return video_file
+        if os.path.isfile(uri):
+            video_file = uri
+            print('File {} available in file system'.format(uri), flush=True)
+        else:
+            available = False
+            print('File {} NOT available in file system'.format(uri), flush=True)
+
+    return video_file, available
