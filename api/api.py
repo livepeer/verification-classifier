@@ -137,7 +137,8 @@ def post_route():
 
         # Append the results to the verification object
         verification['results'] = results
-
+        verification['model'] = model_uri
+        
         VERIFICATIONS_LOGGER.info(verification)
         CONSOLE_LOGGER.info('Verification results: %s', results)
 
