@@ -11,26 +11,40 @@ import tarfile
 import os
 import sys
 import urllib
+import subprocess
 
 import pickle
 import numpy as np
 import cv2
+from scipy.io import wavfile
 
 sys.path.insert(0, 'scripts/asset_processor')
 
 from video_asset_processor import VideoAssetProcessor
 
 
-def pre_verify(rendition):
+def pre_verify(source, rendition):
     """
     Function to verify that rendition conditions and specifications
     are met as prescribed by the Broadcaster
     """
     # Extract data from video capture
-    video_file, available = retrieve_video_file(rendition['uri'])
-    rendition['available'] = available
+    video_file, audio_file, video_available, audio_available = retrieve_video_file(rendition['uri'])
+    rendition['video_available'] = video_available
+    rendition['audio_available'] = audio_available
 
-    if available:
+    if video_available:
+        # Check that the audio exists
+        if audio_available and source['audio_available']:
+
+            _, source_file_series = wavfile.read(source['audio_path'])
+            _, rendition_file_series = wavfile.read(audio_file)
+
+            # Compute the Euclidean distance between source's and rendition's signals
+            rendition['audio_dist'] = np.linalg.norm(source_file_series-rendition_file_series)
+            # Cleanup the audio file generated to avoid cluttering
+            os.remove(audio_file)
+
         rendition_capture = cv2.VideoCapture(video_file)
         fps = int(rendition_capture.get(cv2.CAP_PROP_FPS))
         frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -72,29 +86,35 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     total_start = time.clock()
     total_start_user = time.time()
 
-    source_path, available = retrieve_video_file(source_uri)
+    source_video, source_audio, video_available, audio_available = retrieve_video_file(source_uri)
 
-    if available:
+    if video_available:
     # Prepare source and renditions for verification
-        source_video = {'path': source_path,
-                        'uri': source_uri}
+        source = {'path': source_video,
+                  'audio_path' : source_audio,
+                  'video_available': video_available,
+                  'audio_available': audio_available,
+                  'uri': source_uri}
 
         # Create a list of preverified renditions
         pre_verified_renditions = []
         for rendition in renditions:
-            pre_verification = pre_verify(rendition)
-            if rendition['available']:
+            pre_verification = pre_verify(source, rendition)
+            if rendition['video_available']:
                 pre_verified_renditions.append(pre_verification)
+
+        # Cleanup the audio file generated to avoid cluttering
+        os.remove(source['audio_path'])
 
         # Configure model for inference
         model_name = 'OCSVM'
         scaler_type = 'StandardScaler'
         learning_type = 'UL'
         loaded_model = pickle.load(open('{}/{}.pickle.dat'.format(model_dir,
-                                                                model_name), 'rb'))
+                                                                  model_name), 'rb'))
         loaded_scaler = pickle.load(open('{}/{}_{}.pickle.dat'.format(model_dir,
-                                                                    learning_type,
-                                                                    scaler_type), 'rb'))
+                                                                      learning_type,
+                                                                      scaler_type), 'rb'))
 
         # Open model configuration file
         with open('{}/param_{}.json'.format(model_dir, model_name)) as json_file:
@@ -113,12 +133,12 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         start_user = time.time()
 
         # Instantiate VideoAssetProcessor class
-        asset_processor = VideoAssetProcessor(source_video,
-                                            pre_verified_renditions,
-                                            metrics_list,
-                                            do_profiling,
-                                            max_samples,
-                                            features)
+        asset_processor = VideoAssetProcessor(source,
+                                              pre_verified_renditions,
+                                              metrics_list,
+                                              do_profiling,
+                                              max_samples,
+                                              features)
 
         # Record time for class initialization
         initialize_time = time.clock() - start
@@ -150,8 +170,8 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
 
         # Add predictions to rendition dictionary
         i = 0
-        for n, rendition in enumerate(renditions):
-            if rendition['available']:
+        for _, rendition in enumerate(renditions):
+            if rendition['video_available']:
                 rendition.pop('path', None)
                 rendition['tamper'] = np.round(y_pred[i], 6)
                 # Append the post-verification of resolution and pixel count
@@ -207,7 +227,9 @@ def retrieve_video_file(uri):
     Function to obtain a path to a video file from url or local path
     """
     video_file = ''
-    available = True
+    audio_file = ''
+    video_available = True
+    audio_available = True
 
     if 'http' in uri:
         try:
@@ -216,16 +238,32 @@ def retrieve_video_file(uri):
             print('File download started!', flush=True)
             video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
 
-            print('File downloaded', flush=True)
+            print('File downloaded to {}'.format(video_file), flush=True)
         except:
             print('Unable to download video file', flush=True)
-            available = False
+            video_available = False
     else:
         if os.path.isfile(uri):
             video_file = uri
-            print('File {} available in file system'.format(uri), flush=True)
+
+            print('Video file {} available in file system'.format(video_file), flush=True)
         else:
-            available = False
+            video_available = False
             print('File {} NOT available in file system'.format(uri), flush=True)
 
-    return video_file, available
+    if video_available:
+        audio_file = '{}_audio.wav'.format(uri)
+        subprocess.call(['ffmpeg',
+                         '-i',
+                         video_file,
+                         '-vn',
+                         '-acodec',
+                         'pcm_s16le',
+                         audio_file])
+        if os.path.isfile(audio_file):
+            print('Audio file {} available in file system'.format(audio_file), flush=True)
+        else:
+            print('Audio file {} NOT available in file system'.format(audio_file), flush=True)
+            audio_available = False
+
+    return video_file, audio_file, video_available, audio_available
