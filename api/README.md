@@ -66,7 +66,7 @@ A sample call to the API is provided below:
 
                                 "orchestratorID": "foo",
 
-                                model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}'
+                                "model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}'
 
                                 -H 'Content-Type: application/json'
 
