@@ -39,6 +39,13 @@ class MetricProcessor:
         coeff_ = coeff[:,:nbins]
         return coeff_[0]
 
+    def tryconvert(self, x):
+        try:
+            return x.split('/')[-2] 
+        except:
+            return ''
+
+
     def read_and_process_data(self):
         data = pd.read_csv(self.path)
         if self.reduced:
@@ -46,10 +53,9 @@ class MetricProcessor:
         renditions_list = ['attack', '1080p', '720p', '480p', '360p', '240p', '144p']
 
         df = pd.DataFrame(data)
-
+        
         # Fix attack column to contain only its name
-        df['attack'] = df['attack'].apply(lambda x: x.split('/')[-2])
-        display(df.head())
+        df['attack'] = df['attack'].apply(lambda x: self.tryconvert(x))
  
         if self.scale:
             df = self.rescale_to_resolution(df)
@@ -85,8 +91,7 @@ class MetricProcessor:
             self.features.extend(hist_n_means)
 
         df = df.drop(['Unnamed: 0', 'path', 'kind'], axis=1)
-        df = df.drop(self.series_features_list, axis=1)
-        df = df.dropna(axis=0)
+        df = df.drop(self.series_features_list, axis=1)        
 
         columns = self.features
         columns.extend(self.info_columns)
