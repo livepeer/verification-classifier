@@ -8,6 +8,8 @@
 /.doit.db.dat
 /.doit.db.dir
 stream
+*HD
+*_binaries
 feature_engineering/output/ms-ssim
 feature_engineering/output/psnr
 feature_engineering/output/ssim
