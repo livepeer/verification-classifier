@@ -8,7 +8,7 @@ do
     resolution_array=( 1080 720 480 384 288 144 )
     for resolution in "${resolution_array[@]}"
     do
-        gcloud beta functions call qoe_dataset_generator_http --data '{"name":"'"$filename"'" , "resolution":"'"$resolution"'"}' &
+        gcloud functions call qoe_dataset_generator_http --data '{"name":"'"$filename"'" , "resolution":"'"$resolution"'"}' &
 
         echo "$(date)" "$filename" "$resolution";
         sleep 16

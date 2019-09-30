@@ -5,7 +5,7 @@ do
     # Define a timestamp function
  
     filename="${filename##*/}"
-    gcloud beta functions call dataset_generator_http --data '{"name":"'"$filename"'"}' &
+    gcloud functions call dataset_generator_http --data '{"name":"'"$filename"'"}' &
 
     echo "$(date)" "$filename";
     sleep 7

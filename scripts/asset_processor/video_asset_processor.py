@@ -328,8 +328,8 @@ class VideoAssetProcessor:
             metrics_df = metrics_df.drop('title', axis=1)
             metrics_df = metrics_df.drop('attack', axis=1)
 
-        # Scale measured metrics according to their resolution for better accuracy
-        metrics_df = self.rescale_to_resolution(metrics_df, features)
+            # Scale measured metrics according to their resolution for better accuracy
+            metrics_df = self.rescale_to_resolution(metrics_df, features)
 
         return metrics_df
 

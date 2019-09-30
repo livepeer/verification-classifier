@@ -7,17 +7,45 @@ the datastore for later generation of models and feature study
 import sys
 import os
 import time
-import urllib
 import numpy as np
 
 from google.cloud import datastore
+from google.cloud import storage
+from google.api_core import retry
+
+from urllib3.exceptions import ProtocolError
 
 sys.path.insert(0, 'imports')
 
 from imports.video_asset_processor import VideoAssetProcessor
 
 DATASTORE_CLIENT = datastore.Client()
+STORAGE_CLIENT = storage.Client()
 
+SOURCES_BUCKET = 'livepeer-verifier-originals'
+RENDITIONS_BUCKET = 'livepeer-verifier-renditions'
+ENTITY_NAME = 'features_input_60_540'
+
+def download_to_local(bucket_name, local_folder, local_file, origin_blob_name):
+    """
+    Downloads a file from the bucket.
+    """
+
+    predicate = retry.if_exception_type(ConnectionResetError, ProtocolError)
+    reset_retry = retry.Retry(predicate)
+
+    bucket = STORAGE_CLIENT.get_bucket(bucket_name)
+    blob = bucket.blob('{}'.format(origin_blob_name))
+    # print('Downloading blob {} from bucket {}'.format(origin_blob_name, bucket_name))
+    # print('File download Started…. Wait for the job to complete.')
+    # Create this folder locally if not exists
+    if not os.path.exists(local_folder):
+        os.makedirs(local_folder)
+
+    local_path = '{}/{}'.format(local_folder, local_file)
+    # print('Downloading {} to {}'.format(origin_blob_name, local_path))
+    reset_retry(blob.download_to_filename(local_path))
+    # print('Downloaded {} to {}'.format(origin_blob_name, local_path))
 
 def compute_metrics(asset, renditions):
     '''
@@ -28,40 +56,47 @@ def compute_metrics(asset, renditions):
     '''
     start_time = time.time()
 
-    original_asset = asset
+    source_asset = asset
 
     max_samples = 60
     renditions_list = renditions
     metrics_list = ['temporal_difference',
-                    'temporal_gaussian', 
-                    'temporal_gaussian_difference', 
-                    'temporal_gaussian_difference_threshold', 
+                    'temporal_gaussian',
+                    'temporal_gaussian_difference',
+                    'temporal_gaussian_difference_threshold',
                     'temporal_dct',
-                    'temporal_texture',
-                    'temporal_match'
+                    # 'temporal_texture',
+                    # 'temporal_match'
                     ]
 
-    max_samples = 30
-    asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, False, max_samples)
+    asset_processor = VideoAssetProcessor(source_asset,
+                                          renditions_list,
+                                          metrics_list,
+                                          False,
+                                          max_samples,
+                                          features_list=None)
 
-    metrics_df = asset_processor.process()
+    metrics_df, _, _ = asset_processor.process()
 
-    for _,row in metrics_df.iterrows():
+    for _, row in metrics_df.iterrows():
         line = row.to_dict()
         for column in metrics_df.columns:
             if 'series' in column:
                 line[column] = np.array2string(np.around(line[column], decimals=5))
-        add_asset_input(DATASTORE_CLIENT, '{}/{}'.format(row['title'],row['attack']), line)
+        add_asset_input(DATASTORE_CLIENT, '{}/{}'.format(row['title'], row['attack']), line)
 
     elapsed_time = time.time() - start_time
     print('Computation time:', elapsed_time)
 
 
 def add_asset_input(client, title, input_data):
-    entity_name = 'features_input_60_540'
-    key = client.key(entity_name, title, namespace = 'livepeer-verifier-training')
+    """
+    Function to add the asset's computed data to the database
+    """
+
+    key = client.key(ENTITY_NAME, title, namespace='livepeer-verifier-training')
     video = datastore.Entity(key)
-    #input_data['created'] = datetime.datetime.utcnow()
+
     video.update(input_data)
 
     client.put(video)
@@ -70,119 +105,76 @@ def add_asset_input(client, title, input_data):
 def dataset_generator_http(request):
     """HTTP Cloud Function.
     Args:
-        request (flask.Request): The request object.
-        <http://flask.pocoo.org/docs/1.0/api/#flask.Request>
+        request (flask.Request): The request object, containing the name
+        of the source asset
     Returns:
         The response text, or any set of values that can be turned into a
         Response object using `make_response`
-        <http://flask.pocoo.org/docs/1.0/api/#flask.Flask.make_response>.
     """
     request_json = request.get_json(silent=True)
     request_args = request.args
-  
-    if request_json and 'name' in request_json:
-        asset_name = request_json['name']
-    elif request_args and 'name' in request_args:
-        asset_name = request_args['name']
 
-    original_bucket = 'livepeer-verifier-originals'
-    renditions_bucket = 'livepeer-verifier-renditions'
-    
-    # Create the folder for the original asset
-    local_folder = '/tmp/1080p'
-    if not os.path.exists(local_folder):
-        os.makedirs(local_folder)
+    if request_json and 'name' in request_json:
+        source_name = request_json['name']
+    elif request_args and 'name' in request_args:
+        source_name = request_args['name']
+
+    # Create the folder for the source asset
+    source_folder = '/tmp/1080p'
+    # if not os.path.exists(source_folder):
+    #     os.makedirs(source_folder)
 
     # Get the file that has been uploaded to GCS
-    asset_path = {'path': '{}/{}'.format(local_folder, asset_name)}
-    
-    renditions_paths = []
-    url = 'https://storage.googleapis.com/{}/{}'.format(original_bucket, asset_name)
-    print('Downloading {}'.format(url))
-    try:
-        urllib.request.urlretrieve(url, asset_path['path'])
-        renditions_paths.append({'path': asset_path['path']})
-    except:
-        print('Unable to download {}'.format(url))
-        pass
+    asset_path = {'path': '{}/{}'.format(source_folder, source_name)}
 
-    attacks_list = ['1080p_watermark', 
-                    '1080p_watermark-345x114', 
-                    '1080p_watermark-856x856', 
-                    '1080p_vignette', 
-                    '1080p_flip_vertical',
-                    '1080p_rotate_90_clockwise',
-                    '1080p_black_and_white',
-                    '1080p_low_bitrate_4',
-                    '1080p_low_bitrate_8',
-                    '720p',
-                    '720p_watermark',
-                    '720p_watermark-345x114',
-                    '720p_watermark-856x856',
-                    '720p_vignette',
-                    '720p_black_and_white',
-                    '720p_low_bitrate_4',
-                    '720p_low_bitrate_8',
-                    '720p_flip_vertical',
-                    '720p_rotate_90_clockwise',
-                    '480p',
-                    '480p_watermark',
-                    '480p_watermark-345x114',
-                    '480p_watermark-856x856',
-                    '480p_vignette',
-                    '480p_black_and_white',
-                    '480p_low_bitrate_4',
-                    '480p_low_bitrate_8',
-                    '480p_flip_vertical',
-                    '480p_rotate_90_clockwise',
-                    '360p',
-                    '360p_watermark',
-                    '360p_watermark-345x114',
-                    '360p_watermark-856x856',
-                    '360p_vignette',
-                    '360p_black_and_white',
-                    '360p_low_bitrate_4',
-                    '360p_low_bitrate_8',
-                    '360p_flip_vertical',
-                    '360p_rotate_90_clockwise',
-                    '240p',
-                    '240p_watermark',
-                    '240p_watermark-345x114',
-                    '240p_watermark-856x856',
-                    '240p_vignette',
-                    '240p_black_and_white',
-                    '240p_low_bitrate_4',
-                    '240p_low_bitrate_8',
-                    '240p_flip_vertical',
-                    '240p_rotate_90_clockwise',
-                    '144p',
-                    '144p_watermark',
-                    '144p_watermark-345x114',
-                    '144p_watermark-856x856',
-                    '144p_vignette',
-                    '144p_black_and_white',
-                    '144p_low_bitrate_4',
-                    '144p_low_bitrate_8',
-                    '144p_flip_vertical',
-                    '144p_rotate_90_clockwise',
+    renditions_paths = []
+
+    # Check if the source is not already in the path
+    if not os.path.exists(asset_path['path']):
+        download_to_local(SOURCES_BUCKET, source_folder, source_name, source_name)
+
+    #Bring the attacks to be processed locally
+    resolution_list = ['1080p', '720p', '480p', '360p', '240p', '144p']
+    attack_names = ['watermark',
+                    'watermark-345x114',
+                    'watermark-856x856',
+                    'vignette',
+                    'flip_vertical',
+                    'rotate_90_clockwise',
+                    'black_and_white',
+                    'low_bitrate_4',
+                    'low_bitrate_8']
+
+    # Create a comprehension list with all the possible attacks
+    attacks_list = ['{}_{}'.format(resolution, attack)
+                    for resolution in resolution_list
+                    for attack in attack_names
                     ]
 
+    resolution_list.remove('1080p')
+    attacks_list += resolution_list
+
     for attack in attacks_list:
-        remote_file = '{}/{}'.format(attack, asset_name)
-        url = 'https://storage.googleapis.com/{}/{}'.format(renditions_bucket, remote_file)
-        
+        remote_file = '{}/{}'.format(attack, source_name)
+
         local_folder = '/tmp/{}'.format(attack)
-        local_file = '{}/{}'.format(local_folder, asset_name)
-        
-        if not os.path.exists(local_folder):
-            os.makedirs(local_folder)
 
-        print('Downloading {}'.format(url))
         try:
-            urllib.request.urlretrieve (url, local_file)
-            renditions_paths.append({'path': local_file})
-        except:
-            print('Unable to download {}'.format(url))
-            pass
+            download_to_local(RENDITIONS_BUCKET,
+                              local_folder,
+                              source_name,
+                              remote_file)
 
-    compute_metrics(asset_path, renditions_paths)
+            local_file = '{}/{}'.format(local_folder, source_name)
+            renditions_paths.append({'path': local_file})
+
+        except Exception as err:
+            print('Unable to download {}/{}: {}'.format(attack, source_name, err))
+
+    if len(renditions_paths) > 0:
+        print('Processing the following renditions: {}'.format(renditions_paths))
+        compute_metrics(asset_path, renditions_paths)
+    else:
+        print('Empty renditions list. No renditions to process')
+
+    return 'Process completed: {}'.format(asset_path['path'])
