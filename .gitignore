@@ -20,3 +20,4 @@ feature_engineering/cloud_functions/imports
 out.log
 *.log
 *settings.json
+*secrets
