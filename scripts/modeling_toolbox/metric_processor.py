@@ -176,95 +176,14 @@ class MetricProcessor:
             print('Unknown learning type. Use UL for unsupervised learning and SL for supervised learning')
 
     def rescale_to_resolution(self, data):
-        feat_labels = [
-                       'dimension',
-                       'size',
-                       'fps',
-                       'temporal_difference-euclidean',
-                       'temporal_difference-manhattan',
-                       'temporal_difference-max',
-                       'temporal_difference-mean',
-                       'temporal_difference-std',
-                       'temporal_cross_correlation-euclidean',
-                       'temporal_cross_correlation-manhattan',
-                       'temporal_cross_correlation-max',
-                       'temporal_cross_correlation-mean',
-                       'temporal_cross_correlation-std',
-                       'temporal_dct-euclidean',
-                       'temporal_dct-manhattan',
-                       'temporal_dct-max',
-                       'temporal_dct-mean',
-                       'temporal_dct-std',
-                       'temporal_canny-euclidean',
-                       'temporal_canny-manhattan',
-                       'temporal_canny-max',
-                       'temporal_canny-mean',
-                       'temporal_canny-std',
-                       'temporal_gaussian-euclidean',
-                       'temporal_gaussian-manhattan',
-                       'temporal_gaussian-max',
-                       'temporal_gaussian-mean',
-                       'temporal_gaussian-std',
-                       'temporal_gaussian_difference-euclidean',
-                       'temporal_gaussian_difference-manhattan',
-                       'temporal_gaussian_difference-max',
-                       'temporal_gaussian_difference-mean',
-                       'temporal_gaussian_difference-std',
-                       'temporal_gaussian_difference_threshold-euclidean',
-                       'temporal_gaussian_difference_threshold-manhattan',
-                       'temporal_gaussian_difference_threshold-max',
-                       'temporal_gaussian_difference_threshold-mean',
-                       'temporal_gaussian_difference_threshold-std',
-                       'temporal_histogram_distance-euclidean',
-                       'temporal_histogram_distance-manhattan',
-                       'temporal_histogram_distance-max',
-                       'temporal_histogram_distance-mean',
-                       'temporal_histogram_distance-std',
-                       'temporal_ssim-euclidean',
-                       'temporal_ssim-manhattan',
-                       'temporal_ssim-max',
-                       'temporal_ssim-mean',
-                       'temporal_ssim-std',
-                       'temporal_psnr-euclidean',
-                       'temporal_psnr-manhattan',
-                       'temporal_psnr-max',
-                       'temporal_psnr-mean',
-                       'temporal_psnr-std',
-                       'temporal_entropy-euclidean',
-                       'temporal_entropy-manhattan',
-                       'temporal_entropy-max',
-                       'temporal_entropy-mean',
-                       'temporal_entropy-std',
-                       'temporal_lbp-euclidean',
-                       'temporal_lbp-manhattan',
-                       'temporal_lbp-max',
-                       'temporal_lbp-mean',
-                       'temporal_lbp-std',
-                       'temporal_orb-euclidean',
-                       'temporal_orb-manhattan',
-                       'temporal_orb-max',
-                       'temporal_orb-mean',
-                       'temporal_orb-std',
-                       'temporal_texture-euclidean',
-                       'temporal_texture-manhattan',
-                       'temporal_texture-max',
-                       'temporal_texture-mean',
-                       'temporal_texture-std',
-                       'temporal_match-euclidean',
-                       'temporal_match-manhattan',
-                       'temporal_match-max',
-                       'temporal_match-mean',
-                       'temporal_match-std',
-                      ]
+
         df = pd.DataFrame(data)
-        downscale_features = [
-                              'temporal_psnr',
+        downscale_features = ['temporal_psnr',
                               'temporal_ssim',
                               'temporal_cross_correlation'
                              ]
 
-        upscale_features = [
-                            'temporal_difference', 
+        upscale_features = ['temporal_difference',
                             'temporal_dct', 
                             'temporal_canny', 
                             'temporal_gaussian_mse',
@@ -276,12 +195,18 @@ class MetricProcessor:
                             'temporal_match',
                            ]
 
-        for label in feat_labels:
+        for label in downscale_features:
+            downscale_feature = [feature for feature in self.features if label in feature]
+            if downscale_feature:
+                for feature in downscale_feature:
+                    print('Downscaling', label, feature)
+                    df[feature] = df[feature]/df['dimension']
 
-            if label in self.features:
-                print(label)
-                if label.split('-')[0] in downscale_features:
-                    df[label] = df.apply(lambda row: (row[label]/row['dimension']), axis=1)
-                elif label.split('-')[0] in upscale_features:
-                    df[label] = df.apply(lambda row: (row[label]*row['dimension']), axis=1)
+        for label in upscale_features:
+            upscale_feature = [feature for feature in self.features if label in feature]
+            if upscale_feature:
+                for feature in upscale_feature:
+                    print('Upscaling', label, feature)
+                    df[feature] = df[feature]*df['dimension']
+
         return df
