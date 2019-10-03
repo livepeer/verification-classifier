@@ -5,11 +5,10 @@ from sklearn import random_projection
 from sklearn import svm
 from sklearn.ensemble import IsolationForest
 import matplotlib.pyplot as plt
-from keras.layers import Dense, Input
+from keras.layers import Dense, Input, Dropout
 from keras.models import Model
 from keras import regularizers
 from keras.models import Sequential
-from keras.layers import Dense, Dropout
 from keras.optimizers import Adam
 from keras.regularizers import l2
 from sklearn.ensemble import RandomForestClassifier
@@ -29,9 +28,7 @@ def one_class_svm(x_train, x_test, x_attacks, svm_results):
 
         x_reduced_pca, test_reduced_pca, attack_reduced_pca = reduce_dimensionality(n, x_train, x_test, 'PCA',
                                                                                     attack=x_attacks)
-        x_reduced_rp, test_reduced_rp, attack_reduced_rp = reduce_dimensionality(n, x_train, x_test, 'RP',
-                                                                                 attack=x_attacks)
-
+  
         for nu in nus:
             for gamma in gammas:
 
@@ -49,16 +46,7 @@ def one_class_svm(x_train, x_test, x_attacks, svm_results):
                 # Fit classifier with RP reduced data
                 classifier = svm.OneClassSVM(kernel='rbf', gamma=gamma, nu=nu, cache_size=7000)
 
-                classifier.fit(x_reduced_rp)
-                fb, area, tnr, tpr_train, tpr_test = unsupervised_evaluation(classifier, x_reduced_rp,
-                                                                             test_reduced_rp, attack_reduced_rp)
-
-                svm_results = svm_results.append({'nu': nu, 'gamma': gamma, 'n_components': n, 'TPR_train': tpr_train,
-                                                  'TPR_test': tpr_test, 'TNR': tnr, 'model': 'svm', 'auc': area,
-                                                  'f_beta': fb, 'projection': 'RP'}, ignore_index=True)
-
-                classifier = svm.OneClassSVM(kernel='rbf', gamma=gamma, nu=nu, cache_size=7000)
-
+  
                 classifier.fit(x_train)
                 fb, area, tnr, tpr_train, tpr_test = unsupervised_evaluation(classifier, x_train,
                                                                              x_test, x_attacks)
