@@ -61,9 +61,9 @@ def compute_metrics(asset, renditions):
     max_samples = 60
     renditions_list = renditions
     metrics_list = ['temporal_difference',
-                    'temporal_gaussian',
+                    'temporal_gaussian_mse',
                     'temporal_gaussian_difference',
-                    'temporal_gaussian_difference_threshold',
+                    'temporal_threshold_gaussian_difference',
                     'temporal_dct',
                     # 'temporal_texture',
                     # 'temporal_match'

@@ -267,7 +267,7 @@ class MetricProcessor:
                             'temporal_difference', 
                             'temporal_dct', 
                             'temporal_canny', 
-                            'temporal_gaussian', 
+                            'temporal_gaussian_mse',
                             'temporal_gaussian_difference', 
                             'temporal_histogram_distance',
                             'temporal_entropy',
