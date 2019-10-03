@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-import pywt
-
+    
 class MetricProcessor:
 
     def __init__(self, features, learning_type, path, reduced=False, bins=0, scale=True):
@@ -19,86 +18,65 @@ class MetricProcessor:
 
         self.info_columns = ['attack_ID', 'title', 'attack']
 
-    @staticmethod
-    def compute_fft(row, column):
-        y = np.fromstring(row[column].replace('[', '').replace(']', ''), 
-                                            dtype=np.float, sep=' ')
-        n = len(y)
-        Y = np.fft.fft(y)/n
-        Y = Y[range(int(n/2))]
-
-        return Y
 
     @staticmethod
-    def compute_dwt(row, column, nbins):
-        scales = range(1,10)
-        waveletname = 'morl'
-        signal = np.fromstring(row[column].replace('[', '').replace(']', ''), dtype=np.float, sep=' ')
-        coeff, _ = pywt.cwt(signal, scales, waveletname, 1)
-        
-        coeff_ = coeff[:,:nbins]
-        return coeff_[0]
+    def set_attack_name(x):
 
-    def tryconvert(self, x):
         try:
-            return x.split('/')[-2] 
+            return x.split('/')[-2]
         except:
             return ''
 
+    @staticmethod
+    def set_attack_id(x):
 
+        renditions_list = ['attack', '1080p', '720p', '480p', '360p', '240p', '144p']
+        try:
+            if x in renditions_list:
+                return renditions_list.index(x)
+            elif 'watermark' in x:
+                return 11
+            elif 'low_bitrate_4' in x:
+                return 12
+            else:
+                return 10
+        except:
+            return ''
+        
     def read_and_process_data(self):
+
         data = pd.read_csv(self.path)
         if self.reduced:
             data = data[:self.reduced]
-        renditions_list = ['attack', '1080p', '720p', '480p', '360p', '240p', '144p']
 
         df = pd.DataFrame(data)
         
+        del data
+
+        print('ORIGINAL DATASET:')
+        display(df.head())
+
         # Fix attack column to contain only its name
-        df['attack'] = df['attack'].apply(lambda x: self.tryconvert(x))
- 
+        df['attack'] = df['attack'].apply(lambda x: self.set_attack_name(x))
+        df['attack_ID'] = df['attack'].apply(lambda x: self.set_attack_id(x))
+
         if self.scale:
+            print('Rescaling {}'.format(df.columns))
             df = self.rescale_to_resolution(df)
 
-        del data
-        attack_IDs = []
 
-        for _, row in df.iterrows():
-            if row['attack'] in renditions_list:
-                attack_IDs.append(renditions_list.index(row['attack']))
-            elif 'watermark' in row['attack']:
-                attack_IDs.append(11)
-            elif 'low_bitrate_4' in row['attack']:
-                attack_IDs.append(12)
-            else:
-                attack_IDs.append(10)
-
-        if self.bins != 0:
-            for column in self.series_features_list:
-                print('Computing time series descriptor for ', column)
-                for i in range(self.bins):
-                    print('Computing bin ', i)
-                    # df['{}-hist-{}'.format(column, i)] = df.apply(lambda row: np.histogram((np.fromstring(row[column].replace('[', '').replace(']', ''), 
-                    #                         dtype=np.float, sep=' ')), self.bins)[0][i], axis=1)
-                    # df['{}-mean-{}'.format(column, i)] = df.apply(lambda row: np.array_split((np.fromstring(row[column].replace('[', '').replace(']', ''), 
-                    #                         dtype=np.float, sep=' ')), self.bins)[i].mean(), axis=1)
-                    df['{}-dwt-{}'.format(column, i)] = df.apply(lambda row: self.compute_dwt(row, column, self.bins)[i], axis=1)
-        
-        df['attack_ID'] = attack_IDs
-
-        if self.bins != 0:
             hist_n_means = list(filter(lambda x: '-mean-' in x or '-hist-' in x or '-dwt-' in x, list(df)))
             self.features.extend(hist_n_means)
 
         df = df.drop(['Unnamed: 0', 'path', 'kind'], axis=1)
-        df = df.drop(self.series_features_list, axis=1)        
+        df = df.drop(self.series_features_list, axis=1)
 
         columns = self.features
         columns.extend(self.info_columns)
-        
+
         df = df[columns]
         df = df.dropna()
-        
+
         return df
 
     def split_test_and_train(self, df, train_prop=0.8):
@@ -184,10 +162,10 @@ class MetricProcessor:
                              ]
 
         upscale_features = ['temporal_difference',
-                            'temporal_dct', 
-                            'temporal_canny', 
+                            'temporal_dct',
+                            'temporal_canny',
                             'temporal_gaussian_mse',
-                            'temporal_gaussian_difference', 
+                            'temporal_gaussian_difference',
                             'temporal_histogram_distance',
                             'temporal_entropy',
                             'temporal_lbp',
