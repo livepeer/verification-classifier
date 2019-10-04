@@ -33,12 +33,12 @@ make distclean
 # cd TranscodingVerification && \
 # meson .build && \
 # ninja -C .build install
-RUN git clone https://github.com/lu-zero/libav.git && \
-cd libav && \
-git checkout mea && \
-./configure --enable-libmea && \
-make && \
-make install
+# RUN git clone https://github.com/lu-zero/libav.git && \
+# cd libav && \
+# git checkout mea && \
+# ./configure --enable-libmea && \
+# make && \
+# make install
 RUN pip install -r requirements.txt
 # Make jupyter available from external sources
 RUN sed -i "s/#c.NotebookApp.ip = 'localhost'/c.NotebookApp.ip = '0.0.0.0'/g" /home/jovyan/.jupyter/jupyter_notebook_config.py
