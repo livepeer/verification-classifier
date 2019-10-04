@@ -2,7 +2,6 @@
 FROM jupyter/datascience-notebook
 COPY requirements.txt .
 COPY ./scripts /scripts
-RUN pip install -r requirements.txt
 USER root
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -40,6 +39,7 @@ git checkout mea && \
 ./configure --enable-libmea && \
 make && \
 make install
+RUN pip install -r requirements.txt
 # Make jupyter available from external sources
 RUN sed -i "s/#c.NotebookApp.ip = 'localhost'/c.NotebookApp.ip = '0.0.0.0'/g" /home/jovyan/.jupyter/jupyter_notebook_config.py
 RUN sed -i "s/#c.NotebookApp.open_browser = True/c.NotebookApp.open_browser = False/g" /home/jovyan/.jupyter/jupyter_notebook_config.py
