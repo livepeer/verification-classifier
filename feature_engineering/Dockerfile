@@ -29,10 +29,10 @@ cd ffmpeg-4.1.1 && \
 make && \
 make install && \
 make distclean
-RUN git clone https://github.com/livepeer/TranscodingVerification.git && \
-cd TranscodingVerification && \
-meson .build && \
-ninja -C .build install
+# RUN git clone https://github.com/livepeer/TranscodingVerification.git && \
+# cd TranscodingVerification && \
+# meson .build && \
+# ninja -C .build install
 RUN git clone https://github.com/lu-zero/libav.git && \
 cd libav && \
 git checkout mea && \
