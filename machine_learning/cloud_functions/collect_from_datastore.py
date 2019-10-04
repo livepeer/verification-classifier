@@ -1,3 +1,15 @@
+"""
+Module for collecting metrics values from GCE datastore
+generated with the cloud functions located in feature_engineering
+USAGE:
+
+$python3 collect_from_datastore.py
+
+This will create a .csv file in the current folder containing
+the values of all the metrics available in the database for later
+use in the jupyter notebooks of this section
+"""
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
