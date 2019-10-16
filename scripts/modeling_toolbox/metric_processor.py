@@ -43,7 +43,7 @@ class MetricProcessor:
         except:
             return ''
         
-    def read_and_process_data(self):
+    def read_and_process_data(self, unique_ID=False):
 
         data = pd.read_csv(self.path)
         if self.reduced:
@@ -57,6 +57,9 @@ class MetricProcessor:
         display(df.head())
 
         # Fix attack column to contain only its name
+        if unique_ID:
+            df['unique_ID'] = df['attack']
+            self.info_columns.append('unique_ID')
         df['attack'] = df['attack'].apply(lambda x: self.set_attack_name(x))
         df['attack_ID'] = df['attack'].apply(lambda x: self.set_attack_id(x))
 
