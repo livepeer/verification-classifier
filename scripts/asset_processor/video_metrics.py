@@ -304,7 +304,7 @@ class VideoMetrics:
         return chi_dist
 
     @staticmethod
-    def gaussian(gauss_reference_frame, gauss_rendition_frame):
+    def gaussian_mse(gauss_reference_frame, gauss_rendition_frame):
         """
         Function that evaluates the mse between a reference
         frame and its rendition.
@@ -430,7 +430,7 @@ class VideoMetrics:
             self.difference_canny = self.cpu_profiler(self.difference_canny)
             self.difference = self.cpu_profiler(self.difference)
             self.spatial_complexity = self.cpu_profiler(self.spatial_complexity)
-            self.gaussian = self.cpu_profiler(self.gaussian)
+            self.gaussian_mse = self.cpu_profiler(self.gaussian_mse)
             self.gaussian_difference = self.cpu_profiler(self.gaussian_difference)
             self.gaussian_difference_threshold = self.cpu_profiler(self.gaussian_difference_threshold)
             self.mse = self.cpu_profiler(self.mse)
@@ -489,15 +489,15 @@ class VideoMetrics:
                 rendition_metrics[metric] = self.dct(reference_frame_gray,
                                                      rendition_frame_gray)
 
-            if metric == 'temporal_gaussian':
-                rendition_metrics[metric] = self.gaussian(gauss_reference_frame,
+            if metric == 'temporal_gaussian_mse':
+                rendition_metrics[metric] = self.gaussian_mse(gauss_reference_frame,
                                                           gauss_rendition_frame)
 
             if metric == 'temporal_gaussian_difference':
                 rendition_metrics[metric] = self.gaussian_difference(gauss_reference_frame,
                                                                      gauss_rendition_frame)
 
-            if metric == 'temporal_gaussian_difference_threshold':
+            if metric == 'temporal_threshold_gaussian_difference':
                 rendition_metrics[metric] = self.gaussian_difference_threshold(gauss_reference_frame,
                                                                                gauss_rendition_frame,
                                                                                rendition_frame_gray,

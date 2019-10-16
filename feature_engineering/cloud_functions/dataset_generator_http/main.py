@@ -60,13 +60,8 @@ def compute_metrics(asset, renditions):
 
     max_samples = 60
     renditions_list = renditions
-    metrics_list = ['temporal_difference',
-                    'temporal_gaussian',
-                    'temporal_gaussian_difference',
-                    'temporal_gaussian_difference_threshold',
-                    'temporal_dct',
-                    # 'temporal_texture',
-                    # 'temporal_match'
+    metrics_list = ['temporal_ssim',
+                    'temporal_psnr'
                     ]
 
     asset_processor = VideoAssetProcessor(source_asset,
@@ -94,7 +89,7 @@ def add_asset_input(client, title, input_data):
     Function to add the asset's computed data to the database
     """
 
-    key = client.key(ENTITY_NAME, title, namespace='livepeer-verifier-training')
+    key = client.key(ENTITY_NAME, title, namespace='livepeer-verifier-QoE')
     video = datastore.Entity(key)
 
     video.update(input_data)

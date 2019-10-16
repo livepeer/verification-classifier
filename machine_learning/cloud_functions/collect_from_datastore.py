@@ -1,3 +1,15 @@
+"""
+Module for collecting metrics values from GCE datastore
+generated with the cloud functions located in feature_engineering
+USAGE:
+
+$python3 collect_from_datastore.py
+
+This will create a .csv file in the current folder containing
+the values of all the metrics available in the database for later
+use in the jupyter notebooks of this section
+"""
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -34,7 +46,7 @@ def initialize():
     print('Initializing...')
     pd.set_option('display.max_colwidth', -1)
 
-    namespace = 'livepeer-verifier-training'
+    namespace = 'livepeer-verifier-QoE'
     client = create_client('epiclabs')
     query = client.query(kind='__kind__',namespace=namespace)
     query.keys_only()
@@ -42,7 +54,7 @@ def initialize():
     inputs_df = pd.DataFrame()
 
     print('Getting inputs...')
-    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input_540' in entity.key.name]
+    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input_60_540' in entity.key.name]
     
     print('Retrieving data from Datastore...')
     for kind in input_kinds:
@@ -52,5 +64,5 @@ def initialize():
         inputs_df = pd.concat([inputs_df, kind_df],axis=0,sort=True, ignore_index=True)
 
         jobs_dict[kind] = inputs_df['title'][inputs_df['kind']==kind]
-    inputs_df.to_csv('data-large.csv')
+    inputs_df.to_csv('data-qoe-large.csv')
 initialize()
