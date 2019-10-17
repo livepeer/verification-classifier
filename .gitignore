@@ -21,3 +21,4 @@ out.log
 *.log
 *settings.json
 *secrets
+*.csv
