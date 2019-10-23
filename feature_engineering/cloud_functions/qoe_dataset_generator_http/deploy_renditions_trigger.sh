@@ -1,0 +1,1 @@
+gcloud functions deploy trigger_renditions_bucket_event --runtime python37 --trigger-resource livepeer-qoe-sources --trigger-event google.storage.object.finalize

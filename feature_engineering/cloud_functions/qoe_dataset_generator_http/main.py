@@ -9,8 +9,9 @@ import subprocess
 from os import makedirs, path, remove
 from os.path import exists
 
+import requests
+
 from google.cloud import storage
-from google.cloud import datastore
 from google.api_core import retry
 
 from urllib3.exceptions import ProtocolError
@@ -63,7 +64,7 @@ def download_to_local(bucket_name, local_folder, local_file, origin_blob_name):
     reset_retry = retry.Retry(predicate)
 
     bucket = STORAGE_CLIENT.get_bucket(bucket_name)
-    blob = bucket.blob('HD/{}'.format(origin_blob_name))
+    blob = bucket.blob(origin_blob_name)
     print(origin_blob_name)
     print('File download Started…. Wait for the job to complete.')
     # Create this folder locally if not exists
@@ -76,13 +77,43 @@ def download_to_local(bucket_name, local_folder, local_file, origin_blob_name):
     reset_retry(blob.download_to_filename(local_path))
     print('Downloaded {} to {}'.format(origin_blob_name, local_path))
 
-def qoe_dataset_generator_http(request):
+def trigger_renditions_bucket_event(data, context):
+    """Background Cloud Function to be triggered by Cloud Storage.
+       This generic function logs relevant data when a file is changed.
+
+    Args:
+        data (dict): The Cloud Functions event payload.
+        context (google.cloud.functions.Context): Metadata of triggering event.
+    Returns:
+        None; the output is written to Stackdriver Logging
+    """
+
+    name = data['name']
+
+    # Cloud function api-endpoint
+    url = "https://us-central1-epiclabs.cloudfunctions.net/create_renditions_http"
+
+    resolutions = [1080, 720, 480, 384, 288, 144]
+
+    for resolution in resolutions:
+        # defining a params dict for the parameters to be sent to the API
+        params = {'name': name,
+                  'resolution': resolution
+                 }
+
+        # sending get request and saving the response as response object
+        response = requests.get(url=url, params=params)
+        print(response)
+
+    return 'Renditions triggered for {}'.format(name)
+
+def create_renditions_http(request):
     """
     HTTP Cloud Function to generate video assets.
     Args:
         request: The request object, containing name and resolution
     Returns:
-        The response text
+        The status message if successful
     """
     request_json = request.get_json(silent=True)
     request_args = request.args
@@ -176,3 +207,47 @@ def worker(full_input_file, codec, bitrates, output_folder):
                               shell=True)
     out, err = ffmpeg.communicate()
     print(' '.join(ffmpeg_command), out, err)
+
+def download_video(video_url, local_file, extension):
+    """
+    Downloads a video from a given url to an HLS manifest
+    """
+    print('Downloading {} to {}'.format(video_url, local_file))
+    bash_command = 'ffmpeg -i {} -vcodec copy -acodec copy -f {} {}'.format(video_url, extension, local_file)
+    process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    print(output, error)
+
+    return True
+
+def create_source_http(request):
+    """HTTP Cloud Function.
+    Args:
+        request (flask.Request): The request object.
+        <http://flask.pocoo.org/docs/1.0/api/#flask.Request>
+    Returns:
+        The status message if successful
+    """
+    request_json = request.get_json(silent=True)
+    request_args = request.args
+
+    if request_json:
+        playlist_url = request_json['playlist_url']
+        video_id = request_json['video_id']
+        extension = request_json['extension']
+
+    elif request_args:
+        playlist_url = request_args['playlist_url']
+        video_id = request_args['video_id']
+        extension = request_args['extension']
+    else:
+        return 'Unable to read request'
+    print(playlist_url, video_id, extension)
+    ffmpeg_installer.install()
+
+    local_file = '/tmp/{}.{}'.format(video_id, extension)
+    if download_video(playlist_url, local_file, extension):
+        destination_blob_name = video_id
+        upload_blob(SOURCES_BUCKET, local_file, destination_blob_name)
+
+    return 'FINISHED Processing source: {}'.format(video_id)

@@ -8,6 +8,7 @@ for research purposes.
 import json
 import vimeo
 import youtube_dl
+import requests
 
 def get_video_data(page, per_page):
     """
@@ -31,7 +32,7 @@ def get_video_data(page, per_page):
     file_output.write(json.dumps(vimeo_data))
     file_output.close()
 
-def get_video_ids(data_file):
+def get_video_sources(data_file):
     """
     Function to collect IDs of videos that both have
     Creative Commons and a resolution of 1080p from a
@@ -40,7 +41,7 @@ def get_video_ids(data_file):
     with open(data_file) as data:
         data = json.load(data)
 
-    video_ids = []
+    video_sources = []
     for video in data:
         if (int(video['height']) == 1080 and
                 'nudity' not in video['content_rating']):
@@ -49,13 +50,13 @@ def get_video_ids(data_file):
             duration = video['duration']
             bitrate, extension, playlist_url = get_metadata(video_link)
             if bitrate:
-                video_ids.append({'link' : video_link,
-                                  'bitrate': bitrate,
-                                  'video_id' : video_id,
-                                  'playlist_url' : playlist_url,
-                                  'duration': duration,
-                                  'extension': extension})
-    return video_ids
+                video_sources.append({'link' : video_link,
+                                      'bitrate': bitrate,
+                                      'video_id' : video_id,
+                                      'playlist_url' : playlist_url,
+                                      'duration': duration,
+                                      'extension': extension})
+    return video_sources
 
 def get_metadata(video_url):
     """
@@ -63,9 +64,8 @@ def get_metadata(video_url):
     a video asset from a given url
     """
 
-    options = {'format': 'bestvideo/best', # choice of quality
-               'extractaudio' : False,      # only keep the audio
-               'outtmpl': '%(id)s',        # name the file the ID of the video
+    options = {'format': 'bestvideo/best' # choice of quality
+
                }
 
     ydl = youtube_dl.YoutubeDL(options)
@@ -91,13 +91,27 @@ def main():
     """
     Main function
     """
-    video_ids = []
-    for i in range(1, 3):
-        print('Page:', i)
-        get_video_data(page=i, per_page=100)
-        video_ids.extend(get_video_ids('resp_text.txt'))
+    video_sources = []
+    # for i in range(1, 2):
+    #     print('Page:', i)
+    #     #get_video_data(page=i, per_page=100)
+    #     video_sources.extend(get_video_sources('resp_text.txt'))
 
-    file_output = open("video_ids.txt", "w")
-    file_output.write(json.dumps(video_ids))
-    file_output.close()
+    #     file_output = open("video_ids.txt", "w")
+    #     file_output.write(json.dumps(video_sources))
+    #     file_output.close()
+
+    with open("video_ids.txt") as video_sources:
+        video_sources = json.load(video_sources)
+
+    for video_source in video_sources:
+        # Cloud function api-endpoint
+        url = "https://us-central1-epiclabs.cloudfunctions.net/create_source_http"
+
+        # defining a params dict for the parameters to be sent to the API
+        params = video_source
+
+        # sending get request and saving the response as response object
+        response = requests.get(url=url, params=params)
+        print(response)
 main()
