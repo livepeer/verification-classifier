@@ -55,7 +55,7 @@ def upload_blob(bucket_name, local_file, destination_blob_name):
         local_file,
         destination_blob_name))
 
-def download_to_local(bucket_name, local_folder, local_file, origin_blob_name):
+def download_to_local(bucket_name, local_file, origin_blob_name):
     """
     Downloads a file from the bucket.
     """
@@ -68,14 +68,13 @@ def download_to_local(bucket_name, local_folder, local_file, origin_blob_name):
     print(origin_blob_name)
     print('File download Started…. Wait for the job to complete.')
     # Create this folder locally if not exists
-
+    local_folder = dirname(local_file)
     if not exists(local_folder):
         makedirs(local_folder)
 
-    local_path = '{}/{}'.format(local_folder, local_file)
-    print('Downloading {} to {}'.format(origin_blob_name, local_path))
-    reset_retry(blob.download_to_filename(local_path))
-    print('Downloaded {} to {}'.format(origin_blob_name, local_path))
+    print('Downloading {} to {}'.format(origin_blob_name, local_file))
+    reset_retry(blob.download_to_filename(local_file))
+    print('Downloaded {} to {}'.format(origin_blob_name, local_file))
 
 def trigger_renditions_bucket_event(data, context):
     """Background Cloud Function to be triggered by Cloud Storage.
