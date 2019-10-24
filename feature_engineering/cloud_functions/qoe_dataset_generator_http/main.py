@@ -79,31 +79,30 @@ def download_to_local(bucket_name, local_folder, local_file, origin_blob_name):
 
 def trigger_renditions_bucket_event(data, context):
     """Background Cloud Function to be triggered by Cloud Storage.
-       This generic function logs relevant data when a file is changed.
+       This function retrieves a source video and triggers
+       the generation of renditions by means of an http asynchronous
+       call to the create_renditions_http function
 
     Args:
         data (dict): The Cloud Functions event payload.
         context (google.cloud.functions.Context): Metadata of triggering event.
     Returns:
-        None; the output is written to Stackdriver Logging
+        None, the renditions cloud function are triggered asynchronously
     """
 
     name = data['name']
 
-    # Cloud function api-endpoint
-    url = "https://us-central1-epiclabs.cloudfunctions.net/create_renditions_http"
-
     resolutions = [1080, 720, 480, 384, 288, 144]
+    qps = [45, 40, 32, 25, 21, 18, 14]
 
     for resolution in resolutions:
-        # defining a params dict for the parameters to be sent to the API
-        params = {'name': name,
-                  'resolution': resolution
-                 }
-
-        # sending get request and saving the response as response object
-        response = requests.get(url=url, params=params)
-        print(response)
+        for quantization_parameter in qps:
+            local_file = '/tmp/{}-{}-{}.json'.format(name, resolution, quantization_parameter)
+            remote_file = '{}/{}-{}.json'.format(name, resolution, quantization_parameter)
+            file_output = open(local_file, "w")
+            #file_output.write(json_file)
+            file_output.close()
+            upload_blob(PARAMETERS_BUCKET, local_file, remote_file)
 
     return 'Renditions triggered for {}'.format(name)
 
