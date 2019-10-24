@@ -21,7 +21,7 @@ from imports import ffmpeg_installer
 CODEC_TO_USE = 'libx264'
 
 STORAGE_CLIENT = storage.Client()
-
+PARAMETERS_BUCKET = 'livepeer-qoe-renditions-params'
 SOURCES_BUCKET = 'livepeer-qoe-sources'
 RENDITIONS_BUCKET = 'livepeer-qoe-renditions'
 
@@ -107,30 +107,26 @@ def trigger_renditions_bucket_event(data, context):
 
     return 'Renditions triggered for {}'.format(name)
 
-def create_renditions_http(request):
+def create_renditions_bucket_event(data, context):
     """
-    HTTP Cloud Function to generate video assets.
+    HTTP Cloud Function to generate video assets. Triggered by files
+    deposited in PARAMETERS_BUCKET
     Args:
-        request: The request object, containing name and resolution
+        data: The triggering object, containing name, resolution and quantization parameter
     Returns:
         The status message if successful
     """
-    request_json = request.get_json(silent=True)
-    request_args = request.args
 
-    if request_json and 'name' in request_json:
-        source_name = request_json['name']
-    elif request_args and 'name' in request_args:
-        source_name = request_args['name']
-
-    if request_json and 'resolution' in request_json:
-        resolution = request_json['resolution']
-    elif request_args and 'resolution' in request_args:
-        resolution = request_args['resolution']
-
-    ffmpeg_installer.install()
+    file_name = data['name']
+    source_name = file_name.split('/')[0]
+    resolution = file_name.split('/')[1].split('-')[0]
+    qp_value = file_name.split('/')[1].split('-')[1].replace('.json', '')
 
     print('Processing source: {} at resolution {}'.format(source_name, resolution))
+
+    # Locate the ffmpeg binary
+    ffmpeg_installer.install()
+
     # Create the folder for the source asset
     source_folder = '/tmp/source'
 
@@ -144,28 +140,29 @@ def create_renditions_http(request):
 
     # Check if the source is not already in the path
     if not path.exists(asset_path['path']):
-        download_to_local(SOURCES_BUCKET, source_folder, source_name, source_name)
-
-    qps = [45, 40, 32, 25, 21, 18, 14]
+        download_to_local(SOURCES_BUCKET, asset_path['path'], source_name)
 
     print('Processing resolution', resolution)
     # Create folder for each rendition
-    for qp_value in qps:
 
         bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
-        check_blob(RENDITIONS_BUCKET, bucket_path)
-
+    if not check_blob(RENDITIONS_BUCKET, bucket_path):
         qp_path = '{}/{}_{}'.format(renditions_folder, resolution, qp_value)
         if not path.exists(qp_path):
             makedirs(qp_path)
 
     # Generate renditions with ffmpeg
-    worker(asset_path['path'], CODEC_TO_USE, resolution, renditions_folder)
+    renditions_worker(asset_path['path'],
+                      source_folder,
+                      CODEC_TO_USE,
+                      resolution,
+                      qp_value,
+                      renditions_folder)
 
     #compute_metrics(asset_path, renditions_paths)
 
     # Upload renditions to GCE storage bucket
-    for qp_value in qps:
+
         local_path = '{}/{}_{}/{}'.format(renditions_folder, resolution, qp_value, source_name)
         bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
         upload_blob(RENDITIONS_BUCKET, local_path, bucket_path)
@@ -173,34 +170,24 @@ def create_renditions_http(request):
 
     return 'FINISHED Processing source: {} at resolution {}'.format(source_name, resolution)
 
-def format_command(full_input_file, codec, resolution, output_folder):
-    """
-    Formats ffmpeg command to be executed in parallel for each Quantization parameter value
-    """
-
-    print('processing {}'.format(full_input_file))
-    source_name = full_input_file.split('/')[-1]
-
-    command = ['ffmpeg', '-y', '-i', '"{}"'.format(full_input_file),
-               '-c:v', codec, '-vf', 'scale=-2:{}'.format(resolution), '-qp 14', '"{}/{}_{}/{}"'.format(output_folder, resolution, '14', source_name),
-               '-c:v', codec, '-vf', 'scale=-2:{}'.format(resolution), '-qp 18', '"{}/{}_{}/{}"'.format(output_folder, resolution, '18', source_name),
-               '-c:v', codec, '-vf', 'scale=-2:{}'.format(resolution), '-qp 21', '"{}/{}_{}/{}"'.format(output_folder, resolution, '21', source_name),
-               '-c:v', codec, '-vf', 'scale=-2:{}'.format(resolution), '-qp 25', '"{}/{}_{}/{}"'.format(output_folder, resolution, '25', source_name),
-               '-c:v', codec, '-vf', 'scale=-2:{}'.format(resolution), '-qp 32', '"{}/{}_{}/{}"'.format(output_folder, resolution, '32', source_name),
-               '-c:v', codec, '-vf', 'scale=-2:{}'.format(resolution), '-qp 40', '"{}/{}_{}/{}"'.format(output_folder, resolution, '40', source_name),
-               '-c:v', codec, '-vf', 'scale=-2:{}'.format(resolution), '-qp 45', '"{}/{}_{}/{}"'.format(output_folder, resolution, '45', source_name)
-               ]
-    return command
-
-
-def worker(full_input_file, codec, bitrates, output_folder):
+def renditions_worker(full_input_file, source_folder, codec, resolution, qp_value, output_folder):
     """
     Executes ffmepg command via PIPE
     """
 
-    ffmpeg_command = ''
+    #Formats ffmpeg command to be executed in parallel for each Quantization parameter value
+    print('processing {}'.format(full_input_file))
+    source_name = full_input_file.replace('{}/'.format(source_folder), '')
 
-    ffmpeg_command = format_command(full_input_file, codec, bitrates, output_folder)
+    ffmpeg_command = ['ffmpeg', '-y', '-i', '"{}"'.format(full_input_file),
+                      '-c:v', codec,
+                      '-vf',
+                      'scale=-2:{}'.format(resolution),
+                      '-qp {}'.format(qp_value),
+                      '"{}/{}_{}/{}"'.format(output_folder, resolution, qp_value, source_name),
+                      '-acodec copy'
+               ]
+
     ffmpeg = subprocess.Popen(' '.join(ffmpeg_command),
                               stderr=subprocess.PIPE,
                               stdout=subprocess.PIPE,
