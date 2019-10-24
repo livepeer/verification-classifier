@@ -233,8 +233,11 @@ def create_source_http(request):
     ffmpeg_installer.install()
 
     local_file = '/tmp/{}.{}'.format(video_id, extension)
-    if download_video(playlist_url, local_file, extension):
-        destination_blob_name = video_id
-        upload_blob(SOURCES_BUCKET, local_file, destination_blob_name)
+    destination_blob_name = '{}.{}'.format(video_id, extension)
 
+    if not check_blob(SOURCES_BUCKET, destination_blob_name):
+        if download_video_from_url(playlist_url, local_file, extension):
+        upload_blob(SOURCES_BUCKET, local_file, destination_blob_name)
+    else:
+        print('Video already uploaded, skipping')
     return 'FINISHED Processing source: {}'.format(video_id)
