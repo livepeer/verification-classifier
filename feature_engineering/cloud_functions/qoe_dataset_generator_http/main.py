@@ -193,15 +193,25 @@ def renditions_worker(full_input_file, source_folder, codec, resolution, qp_valu
     out, err = ffmpeg.communicate()
     print(' '.join(ffmpeg_command), out, err)
 
-def download_video(video_url, local_file, extension):
+def download_video_from_url(video_url, local_file, extension):
     """
     Downloads a video from a given url to an HLS manifest
     """
+    local_folder = dirname(local_file)
+    if not exists(local_folder):
+        makedirs(local_folder)
+
     print('Downloading {} to {}'.format(video_url, local_file))
-    bash_command = 'ffmpeg -i {} -vcodec copy -acodec copy -f {} {}'.format(video_url, extension, local_file)
-    process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
+    ffmpeg_command = 'ffmpeg -y -i {} -vcodec copy -acodec copy -f {} {}'.format(video_url,
+                                                                                 extension,
+                                                                                 local_file)
+    process = subprocess.Popen(ffmpeg_command.split(), stdout=subprocess.PIPE)
     output, error = process.communicate()
-    print(output, error)
+
+    print(ffmpeg_command, output, error)
+    if not exists(local_file):
+        print('Unable to download {}'.format(local_file))
+        return False
 
     return True
 
