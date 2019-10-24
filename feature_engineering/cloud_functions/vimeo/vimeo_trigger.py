@@ -45,7 +45,7 @@ def get_video_sources(data_file):
     for video in data:
         if (int(video['height']) == 1080 and
                 'nudity' not in video['content_rating']):
-            video_id = video['uri'].split('/')[-1]
+            video_id = 'vimeo/{}'.format(video['uri'].split('/')[-1])
             video_link = video['link']
             duration = video['duration']
             bitrate, extension, playlist_url = get_metadata(video_link)
@@ -92,14 +92,14 @@ def main():
     Main function
     """
     video_sources = []
-    # for i in range(1, 2):
-    #     print('Page:', i)
-    #     #get_video_data(page=i, per_page=100)
-    #     video_sources.extend(get_video_sources('resp_text.txt'))
+    for i in range(1, 2):
+        print('Page:', i)
+        #get_video_data(page=i, per_page=100)
+        video_sources.extend(get_video_sources('resp_text.txt'))
 
-    #     file_output = open("video_ids.txt", "w")
-    #     file_output.write(json.dumps(video_sources))
-    #     file_output.close()
+        file_output = open("video_ids.txt", "w")
+        file_output.write(json.dumps(video_sources))
+        file_output.close()
 
     with open("video_ids.txt") as video_sources:
         video_sources = json.load(video_sources)
