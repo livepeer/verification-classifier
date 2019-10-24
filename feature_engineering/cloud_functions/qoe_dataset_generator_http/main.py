@@ -7,9 +7,7 @@ triggers an http call for each video entry located in the designated bucket
 import subprocess
 
 from os import makedirs, path, remove
-from os.path import exists
-
-import requests
+from os.path import exists, dirname
 
 from google.cloud import storage
 from google.api_core import retry
@@ -143,7 +141,7 @@ def create_renditions_bucket_event(data, context):
     print('Processing resolution', resolution)
     # Create folder for each rendition
 
-        bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
+    bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
     if not check_blob(RENDITIONS_BUCKET, bucket_path):
         qp_path = '{}/{}_{}'.format(renditions_folder, resolution, qp_value)
         if not path.exists(qp_path):
@@ -161,10 +159,10 @@ def create_renditions_bucket_event(data, context):
 
     # Upload renditions to GCE storage bucket
 
-        local_path = '{}/{}_{}/{}'.format(renditions_folder, resolution, qp_value, source_name)
-        bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
-        upload_blob(RENDITIONS_BUCKET, local_path, bucket_path)
-        remove(local_path)
+    local_path = '{}/{}_{}/{}'.format(renditions_folder, resolution, qp_value, source_name)
+    bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
+    upload_blob(RENDITIONS_BUCKET, local_path, bucket_path)
+    remove(local_path)
 
     return 'FINISHED Processing source: {} at resolution {}'.format(source_name, resolution)
 
@@ -184,7 +182,7 @@ def renditions_worker(full_input_file, source_folder, codec, resolution, qp_valu
                       '-qp {}'.format(qp_value),
                       '"{}/{}_{}/{}"'.format(output_folder, resolution, qp_value, source_name),
                       '-acodec copy'
-               ]
+                      ]
 
     ffmpeg = subprocess.Popen(' '.join(ffmpeg_command),
                               stderr=subprocess.PIPE,
@@ -245,7 +243,7 @@ def create_source_http(request):
 
     if not check_blob(SOURCES_BUCKET, destination_blob_name):
         if download_video_from_url(playlist_url, local_file, extension):
-        upload_blob(SOURCES_BUCKET, local_file, destination_blob_name)
+            upload_blob(SOURCES_BUCKET, local_file, destination_blob_name)
     else:
         print('Video already uploaded, skipping')
     return 'FINISHED Processing source: {}'.format(video_id)
