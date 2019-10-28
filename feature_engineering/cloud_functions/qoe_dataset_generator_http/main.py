@@ -156,7 +156,7 @@ def create_renditions_bucket_event(data, context):
     bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
     print('Bucket path:', bucket_path)
     if not check_blob(RENDITIONS_BUCKET, bucket_path):
-        qp_path = '{}/{}_{}/{}'.format(renditions_folder, resolution, qp_value, dirname(source_name))
+                                       qp_value,
         if not path.exists(qp_path):
             print('Creating rendition folder:', qp_path)
             makedirs(qp_path)
