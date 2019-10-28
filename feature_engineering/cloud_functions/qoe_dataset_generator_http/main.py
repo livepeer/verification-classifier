@@ -9,6 +9,8 @@ import subprocess
 from os import makedirs, path, remove
 from os.path import exists, dirname
 
+import datetime
+
 from google.cloud import storage
 from google.api_core import retry
 
@@ -191,7 +193,7 @@ def renditions_worker(full_input_file, source_folder, codec, resolution, qp_valu
     out, err = ffmpeg.communicate()
     print(' '.join(ffmpeg_command), out, err)
 
-def download_video_from_url(video_url, local_file, extension):
+def download_video_from_url(video_url, duration, local_file, extension):
     """
     Downloads a video from a given url to an HLS manifest
     """
@@ -200,13 +202,20 @@ def download_video_from_url(video_url, local_file, extension):
         makedirs(local_folder)
 
     print('Downloading {} to {}'.format(video_url, local_file))
-    ffmpeg_command = 'ffmpeg -y -i {} -vcodec copy -acodec copy -f {} {}'.format(video_url,
-                                                                                 extension,
-                                                                                 local_file)
-    process = subprocess.Popen(ffmpeg_command.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
+    seek_time = str(datetime.timedelta(seconds=int(duration)/2))
+    end_time = str(datetime.timedelta(seconds=(int(duration)/2)+10))
+    print(seek_time)
+    ffmpeg_command = ['ffmpeg -y -i {} -ss {} -to {}'.format(video_url, seek_time, end_time),
+                        '-vcodec copy',
+                        '-acodec copy',
+                        '-f {} {}'.format(extension, local_file)]
 
-    print(ffmpeg_command, output, error)
+    ffmpeg = subprocess.Popen(' '.join(ffmpeg_command),
+                              stderr=subprocess.PIPE,
+                              stdout=subprocess.PIPE,
+                              shell=True)
+    out, err = ffmpeg.communicate()
+    print(' '.join(ffmpeg_command), out, err)
     if not exists(local_file):
         print('Unable to download {}'.format(local_file))
         return False
@@ -228,11 +237,13 @@ def create_source_http(request):
         playlist_url = request_json['playlist_url']
         video_id = request_json['video_id']
         extension = request_json['extension']
+        duration = request_json['duration']
 
     elif request_args:
         playlist_url = request_args['playlist_url']
         video_id = request_args['video_id']
         extension = request_args['extension']
+        duration = request_args['duration']
     else:
         return 'Unable to read request'
     print(playlist_url, video_id, extension)
@@ -242,7 +253,7 @@ def create_source_http(request):
     destination_blob_name = '{}.{}'.format(video_id, extension)
 
     if not check_blob(SOURCES_BUCKET, destination_blob_name):
-        if download_video_from_url(playlist_url, local_file, extension):
+        if download_video_from_url(playlist_url, duration, local_file, extension):
             upload_blob(SOURCES_BUCKET, local_file, destination_blob_name)
     else:
         print('Video already uploaded, skipping')
