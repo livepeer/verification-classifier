@@ -46,17 +46,20 @@ def get_video_sources(data_file):
     for video in data:
         if (int(video['height']) == 1080 and
                 'nudity' not in video['content_rating']):
-            video_id = 'vimeo/{}'.format(video['uri'].split('/')[-1])
-            video_link = video['link']
-            duration = video['duration']
-            bitrate, extension, playlist_url = get_metadata(video_link)
-            if bitrate:
-                video_sources.append({'link' : video_link,
-                                      'bitrate': bitrate,
-                                      'video_id' : video_id,
-                                      'playlist_url' : playlist_url,
-                                      'duration': duration,
-                                      'extension': extension})
+            try:    
+                video_id = 'vimeo/{}'.format(video['uri'].split('/')[-1])
+                video_link = video['link']
+                duration = video['duration']
+                bitrate, extension, playlist_url = get_metadata(video_link)
+                if bitrate:
+                    video_sources.append({'link' : video_link,
+                                        'bitrate': bitrate,
+                                        'video_id' : video_id,
+                                        'playlist_url' : playlist_url,
+                                        'duration': duration,
+                                        'extension': extension})
+            except:
+                print('Failed at video:', video)
     return video_sources
 
 def get_metadata(video_url):
@@ -93,7 +96,7 @@ def main():
     Main function
     """
     video_sources = []
-    for i in range(4, 100):
+    for i in range(12, 100):
         print('Page:', i)
         get_video_data(page=i, per_page=100)
         video_sources.extend(get_video_sources('resp_text.txt'))
