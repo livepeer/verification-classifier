@@ -22,3 +22,4 @@ out.log
 *settings.json
 *secrets
 *.csv
+*/vimeo/*.txt
