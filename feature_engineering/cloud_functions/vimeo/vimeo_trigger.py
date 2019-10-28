@@ -5,6 +5,7 @@ It makes an API call to collect a list of videos
 with Creative Commons license that can be used
 for research purposes.
 """
+import os
 import json
 import vimeo
 import youtube_dl
@@ -92,26 +93,27 @@ def main():
     Main function
     """
     video_sources = []
-    for i in range(1, 2):
+    for i in range(4, 100):
         print('Page:', i)
-        #get_video_data(page=i, per_page=100)
+        get_video_data(page=i, per_page=100)
         video_sources.extend(get_video_sources('resp_text.txt'))
 
         file_output = open("video_ids.txt", "w")
         file_output.write(json.dumps(video_sources))
         file_output.close()
 
-    with open("video_ids.txt") as video_sources:
-        video_sources = json.load(video_sources)
+        with open("video_ids.txt") as video_sources:
+            video_sources = json.load(video_sources)
 
-    for video_source in video_sources:
-        # Cloud function api-endpoint
-        url = "https://us-central1-epiclabs.cloudfunctions.net/create_source_http"
+        for video_source in video_sources:
+            # Cloud function api-endpoint
+            url = "https://us-central1-epiclabs.cloudfunctions.net/create_source_http"
 
-        # defining a params dict for the parameters to be sent to the API
-        params = video_source
+            # defining a params dict for the parameters to be sent to the API
+            params = video_source
 
-        # sending get request and saving the response as response object
-        response = requests.get(url=url, params=params)
-        print(response)
+            # sending get request and saving the response as response object
+            response = requests.get(url=url, params=params)
+            print(response)
+        os.remove("video_ids.txt")
 main()
