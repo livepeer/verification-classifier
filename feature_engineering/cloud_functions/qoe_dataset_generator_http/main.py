@@ -91,15 +91,24 @@ def trigger_renditions_bucket_event(data, context):
 
     name = data['name']
 
+    # Create the folder for the renditions
+    params_folder = '/tmp/{}'.format(dirname(name))
+    if not path.exists(params_folder):
+        makedirs(params_folder)
+
     resolutions = [1080, 720, 480, 384, 288, 144]
     qps = [45, 40, 32, 25, 21, 18, 14]
 
     for resolution in resolutions:
         for quantization_parameter in qps:
-            local_file = '/tmp/{}-{}-{}.json'.format(name, resolution, quantization_parameter)
-            remote_file = '{}/{}-{}.json'.format(name, resolution, quantization_parameter)
+            local_file = '{}/{}-{}-{}.json'.format(params_folder.replace(dirname(name), ''),
+                                                   name,
+                                                   resolution,
+                                                   quantization_parameter)
+            remote_file = '{}/{}-{}.json'.format(name,
+                                                 resolution,
+                                                 quantization_parameter)
             file_output = open(local_file, "w")
-            #file_output.write(json_file)
             file_output.close()
             upload_blob(PARAMETERS_BUCKET, local_file, remote_file)
 
@@ -115,10 +124,10 @@ def create_renditions_bucket_event(data, context):
         The status message if successful
     """
 
-    file_name = data['name']
-    source_name = file_name.split('/')[0]
-    resolution = file_name.split('/')[1].split('-')[0]
-    qp_value = file_name.split('/')[1].split('-')[1].replace('.json', '')
+    source_name = dirname(data['name'])
+    params_name = data['name'].replace(source_name, '')
+    resolution = params_name.split('-')[0][1:]
+    qp_value = params_name.split('-')[1].replace('.json', '')
 
     print('Processing source: {} at resolution {}'.format(source_name, resolution))
 
@@ -138,15 +147,18 @@ def create_renditions_bucket_event(data, context):
 
     # Check if the source is not already in the path
     if not path.exists(asset_path['path']):
+        print('Retrieving video from {}'.format(asset_path['path']))
         download_to_local(SOURCES_BUCKET, asset_path['path'], source_name)
 
     print('Processing resolution', resolution)
     # Create folder for each rendition
 
     bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
+    print('Bucket path:', bucket_path)
     if not check_blob(RENDITIONS_BUCKET, bucket_path):
-        qp_path = '{}/{}_{}'.format(renditions_folder, resolution, qp_value)
+        qp_path = '{}/{}_{}/{}'.format(renditions_folder, resolution, qp_value, dirname(source_name))
         if not path.exists(qp_path):
+            print('Creating rendition folder:', qp_path)
             makedirs(qp_path)
 
     # Generate renditions with ffmpeg
@@ -176,13 +188,14 @@ def renditions_worker(full_input_file, source_folder, codec, resolution, qp_valu
     #Formats ffmpeg command to be executed in parallel for each Quantization parameter value
     print('processing {}'.format(full_input_file))
     source_name = full_input_file.replace('{}/'.format(source_folder), '')
-
+    output_name = '"{}/{}_{}/{}"'.format(output_folder, resolution, qp_value, source_name)
     ffmpeg_command = ['ffmpeg', '-y', '-i', '"{}"'.format(full_input_file),
                       '-c:v', codec,
                       '-vf',
                       'scale=-2:{}'.format(resolution),
                       '-qp {}'.format(qp_value),
-                      '"{}/{}_{}/{}"'.format(output_folder, resolution, qp_value, source_name),
+                      output_name,
+                      '-max_muxing_queue_size 9999',
                       '-acodec copy'
                       ]
 
