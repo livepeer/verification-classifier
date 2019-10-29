@@ -305,7 +305,7 @@ class VideoAssetProcessor:
         metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
 
         pixels_df = metrics_df['pixels']
-
+        
         metrics_df = self.cleanup_dataframe(metrics_df, self.features_list)
 
         # Compute a size/dimension ratio column for better accuracy
@@ -328,9 +328,6 @@ class VideoAssetProcessor:
             # Filter out features from metrics dataframe
 
             metrics_df = metrics_df[features]
-            # Cleanup unneeded features from metrics dataframe
-            metrics_df = metrics_df.drop('title', axis=1)
-            metrics_df = metrics_df.drop('attack', axis=1)
 
             # Scale measured metrics according to their resolution for better accuracy
             metrics_df = self.rescale_to_resolution(metrics_df, features)
