@@ -161,8 +161,9 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         x_renditions = loaded_scaler.transform(x_renditions)
 
         # Remove further features that model may not need
-        matrix = pickle.load(open('{}/reduction_{}.pickle.dat'.format(model_dir, model_name), 'rb'))
-        x_renditions = matrix.transform(x_renditions)
+        if os.path.exists('{}/reduction_{}.pickle.dat'.format(model_dir, model_name)):
+            matrix = pickle.load(open('{}/reduction_{}.pickle.dat'.format(model_dir, model_name), 'rb'))
+            x_renditions = matrix.transform(x_renditions)
 
         # Make predictions for given data
         start = time.clock()
