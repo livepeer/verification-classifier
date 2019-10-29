@@ -104,7 +104,8 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
                 pre_verified_renditions.append(pre_verification)
 
         # Cleanup the audio file generated to avoid cluttering
-        os.remove(source['audio_path'])
+        if os.path.exists(source['audio_path']):
+            os.remove(source['audio_path'])
 
         # Configure model for inference
         model_name = 'OCSVM'
