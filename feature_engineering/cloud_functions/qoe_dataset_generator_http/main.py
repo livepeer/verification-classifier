@@ -4,27 +4,38 @@ video sources.
 It is invoked from the bash script "call_cloud_function.sh" that iteratively
 triggers an http call for each video entry located in the designated bucket
 """
+import sys
 import subprocess
 
 from os import makedirs, path, remove
 from os.path import exists, dirname
 
+import time
 import datetime
 
+import numpy as np
+
+from google.cloud import datastore
 from google.cloud import storage
 from google.api_core import retry
 
 from urllib3.exceptions import ProtocolError
 
+
+sys.path.insert(0, 'imports')
+
 from imports import ffmpeg_installer
+from imports.video_asset_processor import VideoAssetProcessor
 
 CODEC_TO_USE = 'libx264'
 
+DATASTORE_CLIENT = datastore.Client()
 STORAGE_CLIENT = storage.Client()
+
 PARAMETERS_BUCKET = 'livepeer-qoe-renditions-params'
 SOURCES_BUCKET = 'livepeer-qoe-sources'
 RENDITIONS_BUCKET = 'livepeer-qoe-renditions'
-
+ENTITY_NAME = 'features_input_QoE'
 
 def check_blob(bucket_name, blob_name):
     """
@@ -75,6 +86,121 @@ def download_to_local(bucket_name, local_file, origin_blob_name):
     print('Downloading {} to {}'.format(origin_blob_name, local_file))
     reset_retry(blob.download_to_filename(local_file))
     print('Downloaded {} to {}'.format(origin_blob_name, local_file))
+
+def compute_metrics(asset, renditions):
+    '''
+    Function that instantiates the VideoAssetProcessor class with a list
+    of metrics to be computed.
+    The feature_list argument is left void as every descriptor of each
+    temporal metric is potentially used for model training
+    '''
+    start_time = time.time()
+
+    source_asset = asset
+
+    max_samples = 60
+    renditions_list = renditions
+    metrics_list = ['temporal_ssim',
+                    'temporal_psnr'
+                    ]
+                    
+    print('Computing asset:', asset)
+    asset_processor = VideoAssetProcessor(source_asset,
+                                          renditions_list,
+                                          metrics_list,
+                                          False,
+                                          max_samples,
+                                          features_list=None)
+
+    metrics_df, _, _ = asset_processor.process()
+
+    for _, row in metrics_df.iterrows():
+        line = row.to_dict()
+        for column in metrics_df.columns:
+            if 'series' in column:
+                line[column] = np.array2string(np.around(line[column], decimals=5))
+        add_asset_input(DATASTORE_CLIENT, '{}/{}'.format(row['title'], row['attack']), line)
+
+    elapsed_time = time.time() - start_time
+    print('Computation time:', elapsed_time)
+
+def add_asset_input(client, title, input_data):
+    """
+    Function to add the asset's computed data to the database
+    """
+
+    key = client.key(ENTITY_NAME, title, namespace='livepeer-verifier-QoE')
+    video = datastore.Entity(key)
+
+    video.update(input_data)
+
+    client.put(video)
+
+
+def dataset_generator_qoe_http(request):
+    """HTTP Cloud Function.
+    Args:
+        request (flask.Request): The request object, containing the name
+        of the source asset
+    Returns:
+        The response text, or any set of values that can be turned into a
+        Response object using `make_response`
+    """
+    request_json = request.get_json(silent=True)
+    request_args = request.args
+
+    if request_json and 'name' in request_json:
+        source_name = request_json['name']
+    elif request_args and 'name' in request_args:
+        source_name = request_args['name']
+
+    # Create the folder for the source asset
+    source_folder = '/tmp/{}'.format(dirname(source_name))
+    if not path.exists(source_folder):
+        makedirs(source_folder)
+
+    # Get the file that has been uploaded to GCS
+    asset_path = {'path': '{}{}'.format(source_folder, source_name.replace(dirname(source_name), ''))}
+
+    renditions_paths = []
+
+    # Check if the source is not already in the path
+    if not path.exists(asset_path['path']):
+        download_to_local(SOURCES_BUCKET, asset_path['path'], source_name)
+
+    #Bring the attacks to be processed locally
+    resolutions = [1080, 720, 480, 384, 288, 144]
+    qps = [45, 40, 32, 25, 21, 18, 14]
+
+    # Create a comprehension list with all the possible attacks
+    rendition_list = ['{}_{}'.format(resolution, qp)
+                      for resolution in resolutions
+                      for qp in qps
+                      ]
+
+    for rendition in rendition_list:
+        remote_file = '{}/{}'.format(rendition, source_name)
+
+        rendition_folder = '/tmp/{}'.format(rendition)
+        local_path = '{}/{}'.format(rendition_folder, source_name)
+        try:
+            download_to_local(RENDITIONS_BUCKET,
+                              local_path,
+                              remote_file)
+
+            renditions_paths.append({'path': local_path})
+
+        except Exception as err:
+            print('Unable to download {}/{}: {}'.format(rendition, source_name, err))
+
+    if len(renditions_paths) > 0:
+        print('Processing the following renditions: {}'.format(renditions_paths))
+        compute_metrics(asset_path, renditions_paths)
+    else:
+        print('Empty renditions list. No renditions to process')
+
+    return 'Process completed: {}'.format(asset_path['path'])
+
 
 def trigger_renditions_bucket_event(data, context):
     """Background Cloud Function to be triggered by Cloud Storage.
@@ -156,7 +282,10 @@ def create_renditions_bucket_event(data, context):
     bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
     print('Bucket path:', bucket_path)
     if not check_blob(RENDITIONS_BUCKET, bucket_path):
+        qp_path = '{}/{}_{}/{}'.format(renditions_folder,
+                                       resolution,
                                        qp_value,
+                                       dirname(source_name))
         if not path.exists(qp_path):
             print('Creating rendition folder:', qp_path)
             makedirs(qp_path)
@@ -219,9 +348,9 @@ def download_video_from_url(video_url, duration, local_file, extension):
     end_time = str(datetime.timedelta(seconds=(int(duration)/2)+10))
     print(seek_time)
     ffmpeg_command = ['ffmpeg -y -i {} -ss {} -to {}'.format(video_url, seek_time, end_time),
-                        '-vcodec copy',
-                        '-acodec copy',
-                        '-f {} {}'.format(extension, local_file)]
+                      '-vcodec copy',
+                      '-acodec copy',
+                      '-f {} {}'.format(extension, local_file)]
 
     ffmpeg = subprocess.Popen(' '.join(ffmpeg_command),
                               stderr=subprocess.PIPE,
