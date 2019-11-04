@@ -26,58 +26,63 @@ class VideoAssetProcessor:
         # ************************************************************************
 
         # Stores system path to original asset
-        self.original_path = original['path']
-        # Initializes original asset to OpenCV VideoCapture class
-        self.original_capture = cv2.VideoCapture(self.original_path)
-        # Frames Per Second of the original asset
-        self.fps = int(self.original_capture.get(cv2.CAP_PROP_FPS))
-        # Obtains number of frames of the original
-        self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        # Maximum number of frames to random sample
-        if max_samples == -1:
-            self.max_samples = self.max_frames
+        if os.path.exists(original['path']):
+            self.do_process = True
+            self.original_path = original['path']
+            # Initializes original asset to OpenCV VideoCapture class
+            self.original_capture = cv2.VideoCapture(self.original_path)
+            # Frames Per Second of the original asset
+            self.fps = int(self.original_capture.get(cv2.CAP_PROP_FPS))
+            # Obtains number of frames of the original
+            self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT))-1
+            # Maximum number of frames to random sample
+            if max_samples == -1:
+                self.max_samples = self.max_frames
+            else:
+                self.max_samples = max_samples
+
+            # Size of the hash for frame hash analysis in video_metrics
+            self.hash_size = 16
+            # Dictionary containing dict of metrics
+            self.metrics = {}
+            # List of metrics to be extracted from the asset and its renditions
+            self.metrics_list = metrics_list
+            # List of features to be extracted from the metrics list
+            self.features_list = features_list
+            # List of preverified renditions
+            self.renditions_list = renditions
+
+            if do_profiling:
+                import line_profiler
+                self.cpu_profiler = line_profiler.LineProfiler()
+            else:
+                self.cpu_profiler = None
+            self.do_profiling = do_profiling
+
+            # Convert OpenCV video captures of original to list
+            # of numpy arrays for better performance of numerical computations
+            self.random_sampler = list(np.random.choice(self.max_frames,
+                                                        self.max_samples,
+                                                        replace=False))
+
+            self.original_capture, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
+
+            # Instance of the video_metrics class
+            self.video_metrics = VideoMetrics(self.metrics_list,
+                                              self.hash_size,
+                                              int(self.height),
+                                              self.cpu_profiler,
+                                              self.do_profiling)
+            # Collects both dimensional values in a string
+            self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
+            # Compute its features
+            self.metrics[self.original_path] = self.compute(self.original_capture,
+                                                            self.original_path,
+                                                            self.dimensions,
+                                                            self.original_pixels)
         else:
-            self.max_samples = max_samples
-
-        # Size of the hash for frame hash analysis in video_metrics
-        self.hash_size = 16
-        # Dictionary containing dict of metrics
-        self.metrics = {}
-        # List of metrics to be extracted from the asset and its renditions
-        self.metrics_list = metrics_list
-        # List of features to be extracted from the metrics list
-        self.features_list = features_list
-        # List of preverified renditions
-        self.renditions_list = renditions
-
-        if do_profiling:
-            import line_profiler
-            self.cpu_profiler = line_profiler.LineProfiler()
-        else:
-            self.cpu_profiler = None
-        self.do_profiling = do_profiling
-
-        # Convert OpenCV video captures of original to list
-        # of numpy arrays for better performance of numerical computations
-        self.random_sampler = list(np.random.choice(self.max_frames,
-                                                    self.max_samples,
-                                                    replace=False))
-
-        self.original_capture, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
-
-        # Instance of the video_metrics class
-        self.video_metrics = VideoMetrics(self.metrics_list,
-                                          self.hash_size,
-                                          int(self.height),
-                                          self.cpu_profiler,
-                                          self.do_profiling)
-        # Collects both dimensional values in a string
-        self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
-        # Compute its features
-        self.metrics[self.original_path] = self.compute(self.original_capture,
-                                                        self.original_path,
-                                                        self.dimensions,
-                                                        self.original_pixels)
+            print('Aborting, original source not found in path provided')
+            self.do_process = False
 
     def capture_to_array(self, capture):
         """
@@ -305,12 +310,11 @@ class VideoAssetProcessor:
         metrics_df = pd.concat(dict_of_df, axis=1).transpose().reset_index(inplace=False)
 
         pixels_df = metrics_df['pixels']
-        
+
         metrics_df = self.cleanup_dataframe(metrics_df, self.features_list)
 
         # Compute a size/dimension ratio column for better accuracy
         metrics_df['size_dimension_ratio'] = metrics_df['size'] / metrics_df['dimension']
-        metrics_df = metrics_df.drop(['dimension', 'size'], axis=1)
 
         return metrics_df, pixels_df, dimensions_df
 
@@ -409,9 +413,7 @@ class VideoAssetProcessor:
                        'temporal_orb-std',
                        ]
         df_features = pd.DataFrame(data)
-        downscale_features = ['temporal_psnr',
-                              'temporal_ssim',
-                              'temporal_cross_correlation'
+        downscale_features = ['temporal_cross_correlation'
                              ]
 
         upscale_features = ['temporal_difference',
@@ -440,28 +442,33 @@ class VideoAssetProcessor:
         Function to aggregate computed values of metrics
         of iterated renditions into a pandas DataFrame.
         """
-        if self.do_profiling:
+        if self.do_process:
+            if self.do_profiling:
 
-            self.capture_to_array = self.cpu_profiler(self.capture_to_array)
-            self.compare_renditions_instant = self.cpu_profiler(self.compare_renditions_instant)
+                self.capture_to_array = self.cpu_profiler(self.capture_to_array)
+                self.compare_renditions_instant = self.cpu_profiler(self.compare_renditions_instant)
 
-        # Iterate through renditions
-        for rendition in self.renditions_list:
-            path = rendition['path']
-            try:
-                capture = cv2.VideoCapture(path)
+            # Iterate through renditions
+            for rendition in self.renditions_list:
+                path = rendition['path']
+                try:
+                    if os.path.exists(path):
+                        capture = cv2.VideoCapture(path)
 
-                # Turn openCV capture to a list of numpy arrays
-                frame_list, pixels, height, width = self.capture_to_array(capture)
-                dimensions = '{}:{}'.format(int(width), int(height))
-                # Compute the metrics for the rendition
-                self.metrics[path] = self.compute(frame_list, path, dimensions, pixels)
+                        # Turn openCV capture to a list of numpy arrays
+                        frame_list, pixels, height, width = self.capture_to_array(capture)
+                        dimensions = '{}:{}'.format(int(width), int(height))
+                        # Compute the metrics for the rendition
+                        self.metrics[path] = self.compute(frame_list, path, dimensions, pixels)
+                    else:
+                        print('Unable to find path')
+                except Exception as err:
+                    print('Unable to compute metrics for {}'.format(path))
+                    print(err)
 
-            except Exception as err:
-                print('Unable to compute metrics for {}'.format(path))
-                print(err)
+            if self.do_profiling:
+                self.cpu_profiler.print_stats()
 
-        if self.do_profiling:
-            self.cpu_profiler.print_stats()
-
-        return self.aggregate(self.metrics)
+            return self.aggregate(self.metrics)
+        else:
+            print('Unable to process. Original source path does not exist')
