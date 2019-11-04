@@ -98,13 +98,17 @@ def compute_metrics(asset, renditions):
 
     source_asset = asset
 
-    max_samples = 60
+    max_samples = 30
     renditions_list = renditions
     metrics_list = ['temporal_ssim',
-                    'temporal_psnr'
+                    'temporal_psnr',
+                    'temporal_dct',
+                    'temporal_gaussian_mse',
+                    'temporal_gaussian_difference',
+                    'temporal_threshold_gaussian_difference',
                     ]
-                    
-    print('Computing asset:', asset)
+    
+    print('Computing asset: {}, max samples used: {}'.format(asset, max_samples))
     asset_processor = VideoAssetProcessor(source_asset,
                                           renditions_list,
                                           metrics_list,

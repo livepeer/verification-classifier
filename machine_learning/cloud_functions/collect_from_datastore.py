@@ -35,7 +35,7 @@ def get_jobs_df(kind, namespace):
         tasks = list(page)
         page_df = pd.DataFrame(data=tasks)
         print(i * number_of_pages, ' videos retrieved so far')
-        jobs_df = pd.concat([jobs_df, page_df], axis=0,sort=True)
+        jobs_df = pd.concat([jobs_df, page_df], axis=0, sort=True)
     print('Data retrieval completed {} videos retrieved, {} features extracted'.format(jobs_df.shape[0],jobs_df.shape[1]))
     return jobs_df
 
@@ -54,7 +54,7 @@ def initialize():
     inputs_df = pd.DataFrame()
 
     print('Getting inputs...')
-    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input_60_540' in entity.key.name]
+    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input_QoE' in entity.key.name]
     
     print('Retrieving data from Datastore...')
     for kind in input_kinds:
@@ -64,5 +64,5 @@ def initialize():
         inputs_df = pd.concat([inputs_df, kind_df],axis=0,sort=True, ignore_index=True)
 
         jobs_dict[kind] = inputs_df['title'][inputs_df['kind']==kind]
-    inputs_df.to_csv('data-qoe-large.csv')
+    inputs_df.to_csv('data-qoe-metrics-large.csv')
 initialize()
