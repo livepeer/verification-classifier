@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 from scipy.spatial import distance
 from sklearn.metrics import mean_squared_error
-from skimage.measure import compare_ssim as ssim
+from skimage.metrics import structural_similarity
 from skimage.measure import shannon_entropy
 from skimage.feature import local_binary_pattern as LBP
 from skimage.feature import greycomatrix
@@ -273,8 +273,8 @@ class VideoMetrics:
         and its correspondent in the rendition
         """
 
-        return ssim(reference_frame, rendition_frame,
-                    data_range=rendition_frame.max() - rendition_frame.min())
+        return structural_similarity(reference_frame,
+                    rendition_frame)
 
     @staticmethod
     def histogram_distance(reference_frame, rendition_frame, bins=None, eps=1e-10):
