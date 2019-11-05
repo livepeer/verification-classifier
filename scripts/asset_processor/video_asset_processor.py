@@ -61,7 +61,7 @@ class VideoAssetProcessor:
 
             # Convert OpenCV video captures of original to list
             # of numpy arrays for better performance of numerical computations
-            self.random_sampler = list(np.random.choice(self.max_frames,
+            self.random_sampler = sorted(list(np.random.choice(self.max_frames,
                                                         self.max_samples,
                                                         replace=False))
 
