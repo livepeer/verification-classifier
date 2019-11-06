@@ -34,7 +34,7 @@ STORAGE_CLIENT = storage.Client()
 
 PARAMETERS_BUCKET = 'livepeer-qoe-renditions-params'
 SOURCES_BUCKET = 'livepeer-qoe-sources'
-RENDITIONS_BUCKET = 'livepeer-qoe-renditions'
+RENDITIONS_BUCKET = 'livepeer-crf-renditions'
 ENTITY_NAME = 'features_input_QoE'
 
 def check_blob(bucket_name, blob_name):
@@ -174,12 +174,12 @@ def dataset_generator_qoe_http(request):
 
     #Bring the attacks to be processed locally
     resolutions = [1080, 720, 480, 384, 288, 144]
-    qps = [45, 40, 32, 25, 21, 18, 14]
+    crfs = [45, 40, 32, 25, 21, 18, 14]
 
     # Create a comprehension list with all the possible attacks
-    rendition_list = ['{}_{}'.format(resolution, qp)
+    rendition_list = ['{}_{}'.format(resolution, crf)
                       for resolution in resolutions
-                      for qp in qps
+                      for crf in crf
                       ]
 
     for rendition in rendition_list:
@@ -227,17 +227,17 @@ def trigger_renditions_bucket_event(data, context):
         makedirs(params_folder)
 
     resolutions = [1080, 720, 480, 384, 288, 144]
-    qps = [45, 40, 32, 25, 21, 18, 14]
+    crfs = [45, 40, 32, 25, 21, 18, 14]
 
     for resolution in resolutions:
-        for quantization_parameter in qps:
+        for crf in crfs:
             local_file = '{}/{}-{}-{}.json'.format(params_folder.replace(dirname(name), ''),
                                                    name,
                                                    resolution,
-                                                   quantization_parameter)
+                                                   crf)
             remote_file = '{}/{}-{}.json'.format(name,
                                                  resolution,
-                                                 quantization_parameter)
+                                                 crf)
             file_output = open(local_file, "w")
             file_output.close()
             upload_blob(PARAMETERS_BUCKET, local_file, remote_file)
@@ -257,7 +257,7 @@ def create_renditions_bucket_event(data, context):
     source_name = dirname(data['name'])
     params_name = data['name'].replace(source_name, '')
     resolution = params_name.split('-')[0][1:]
-    qp_value = params_name.split('-')[1].replace('.json', '')
+    crf_value = params_name.split('-')[1].replace('.json', '')
 
     print('Processing source: {} at resolution {}'.format(source_name, resolution))
 
@@ -283,37 +283,37 @@ def create_renditions_bucket_event(data, context):
     print('Processing resolution', resolution)
     # Create folder for each rendition
 
-    bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
+    bucket_path = '{}_{}/{}'.format(resolution, crf_value, source_name)
     print('Bucket path:', bucket_path)
     if not check_blob(RENDITIONS_BUCKET, bucket_path):
-        qp_path = '{}/{}_{}/{}'.format(renditions_folder,
+        crf_path = '{}/{}_{}/{}'.format(renditions_folder,
                                        resolution,
-                                       qp_value,
+                                       crf_value,
                                        dirname(source_name))
-        if not path.exists(qp_path):
-            print('Creating rendition folder:', qp_path)
-            makedirs(qp_path)
+        if not path.exists(crf_path):
+            print('Creating rendition folder:', crf_path)
+            makedirs(crf_path)
 
     # Generate renditions with ffmpeg
     renditions_worker(asset_path['path'],
                       source_folder,
                       CODEC_TO_USE,
                       resolution,
-                      qp_value,
+                      crf_value,
                       renditions_folder)
 
     #compute_metrics(asset_path, renditions_paths)
 
     # Upload renditions to GCE storage bucket
 
-    local_path = '{}/{}_{}/{}'.format(renditions_folder, resolution, qp_value, source_name)
-    bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
+    local_path = '{}/{}_{}/{}'.format(renditions_folder, resolution, crf_value, source_name)
+    bucket_path = '{}_{}/{}'.format(resolution, crf_value, source_name)
     upload_blob(RENDITIONS_BUCKET, local_path, bucket_path)
     remove(local_path)
 
     return 'FINISHED Processing source: {} at resolution {}'.format(source_name, resolution)
 
-def renditions_worker(full_input_file, source_folder, codec, resolution, qp_value, output_folder):
+def renditions_worker(full_input_file, source_folder, codec, resolution, crf_value, output_folder):
     """
     Executes ffmepg command via PIPE
     """
@@ -321,15 +321,18 @@ def renditions_worker(full_input_file, source_folder, codec, resolution, qp_valu
     #Formats ffmpeg command to be executed in parallel for each Quantization parameter value
     print('processing {}'.format(full_input_file))
     source_name = full_input_file.replace('{}/'.format(source_folder), '')
-    output_name = '"{}/{}_{}/{}"'.format(output_folder, resolution, qp_value, source_name)
+    output_name = '"{}/{}_{}/{}"'.format(output_folder, resolution, crf_value, source_name)
+    # ffmpeg -y -i 102501156.mp4 -an -c:v libx264 -copyts -vsync 0 -copytb 1 -enc_time_base -1 -crf 23 -psnr -vf scale=-2:1080 102501156-crf-23.mp4
     ffmpeg_command = ['ffmpeg', '-y', '-i', '"{}"'.format(full_input_file),
+                      '-an',
                       '-c:v', codec,
-                      '-vf',
-                      'scale=-2:{}'.format(resolution),
-                      '-qp {}'.format(qp_value),
-                      output_name,
-                      '-max_muxing_queue_size 9999',
-                      '-acodec copy'
+                      '-copyts',
+                      '-vsync 0',
+                      '-copytp 1',
+                      '-enc_time_base -1',
+                      '-crf {}'.format(crf_value),
+                      '-vf scale=-2:{}'.format(resolution),
+                      output_name
                       ]
 
     ffmpeg = subprocess.Popen(' '.join(ffmpeg_command),
