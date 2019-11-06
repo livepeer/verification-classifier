@@ -63,7 +63,7 @@ class VideoAssetProcessor:
             # of numpy arrays for better performance of numerical computations
             self.random_sampler = sorted(list(np.random.choice(self.max_frames,
                                                         self.max_samples,
-                                                        replace=False))
+                                                        replace=False)))
 
             self.original_capture, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
 
