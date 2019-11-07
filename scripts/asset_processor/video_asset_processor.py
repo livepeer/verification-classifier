@@ -65,7 +65,7 @@ class VideoAssetProcessor:
                                                         self.max_samples,
                                                         replace=False)))
 
-            self.original_capture, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
+            self.original_capture, self.original_capture_HD, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
 
             # Instance of the video_metrics class
             self.video_metrics = VideoMetrics(self.metrics_list,
@@ -77,6 +77,7 @@ class VideoAssetProcessor:
             self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
             # Compute its features
             self.metrics[self.original_path] = self.compute(self.original_capture,
+                                                            self.original_capture_HD,
                                                             self.original_path,
                                                             self.dimensions,
                                                             self.original_pixels)
@@ -92,7 +93,7 @@ class VideoAssetProcessor:
 
         # List of numpy arrays
         frame_list = []
-
+        frame_list_HD = []
         i = 0
         pixels = 0
         # Iterate through each frame in the video
@@ -111,8 +112,17 @@ class VideoAssetProcessor:
 
                 # Add the frame to the list if it belong to the random sampling list
                 if i in self.random_sampler:
-                    frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
+                    # Change color space to have only luminance
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
+                    # Resize the frame 
+                    if frame.shape[0] != 1920:
+                        frame_HD = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_LINEAR)
+                    else:
+                        frame_HD = frame
+
+                    frame_list_HD.append(frame_HD)
+
+                    frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
                     frame_list.append(frame)
 
             # Break the loop when frames cannot be taken from original
@@ -121,9 +131,9 @@ class VideoAssetProcessor:
         # Clean up memory
         capture.release()
 
-        return np.array(frame_list), pixels, height, width
+        return np.array(frame_list), np.array(frame_list_HD), pixels, height, width
 
-    def compare_renditions_instant(self, frame_pos, frame_list, dimensions, pixels, path):
+    def compare_renditions_instant(self, frame_pos, frame_list, frame_list_HD, dimensions, pixels, path):
         """
         Function to compare pairs of numpy arrays extracting their corresponding metrics.
         It basically takes the global original frame at frame_pos and its subsequent to
@@ -134,14 +144,19 @@ class VideoAssetProcessor:
 
         # Dictionary of metrics
         frame_metrics = {}
-        # Original frame to compare against
+        # Original frame to compare against (downscaled for performance)
         reference_frame = self.original_capture[frame_pos]
-        # Original's subsequent frame
+        # Original's subsequent frame (downscaled for performance)
         next_reference_frame = self.original_capture[frame_pos+1]
-        # Rendition frame
+        # Rendition frame (downscaled for performance)
         rendition_frame = frame_list[frame_pos]
-        # Rendition's subsequent frame
+        # Rendition's subsequent frame (downscaled for performance)
         next_rendition_frame = frame_list[frame_pos+1]
+
+        # Original frame to compare against (HD for QoE metrics)
+        reference_frame_HD = self.original_capture_HD[frame_pos]
+        # Rendition frame (HD for QoE metrics)
+        rendition_frame_HD = frame_list_HD[frame_pos]
 
         # Compute the metrics defined in the global metrics_list.
         # Uses the global instance of video_metrics
@@ -151,7 +166,9 @@ class VideoAssetProcessor:
         rendition_metrics = self.video_metrics.compute_metrics(rendition_frame,
                                                                next_rendition_frame,
                                                                reference_frame,
-                                                               next_reference_frame)
+                                                               next_reference_frame,
+                                                               rendition_frame_HD,
+                                                               reference_frame_HD)
 
         # Retrieve rendition dimensions for further evaluation
         rendition_metrics['dimensions'] = dimensions
@@ -169,7 +186,7 @@ class VideoAssetProcessor:
         # frame_pos is needed for the ThreadPoolExecutor optimizations
         return rendition_metrics, frame_pos
 
-    def compute(self, frame_list, path, dimensions, pixels):
+    def compute(self, frame_list, frame_list_HD, path, dimensions, pixels):
         """
         Function to compare lists of numpy arrays extracting their corresponding metrics.
         It basically takes the global original list of frames and the input frame_list
@@ -199,6 +216,7 @@ class VideoAssetProcessor:
             future_list = {executor.submit(self.compare_renditions_instant,
                                            i,
                                            frame_list,
+                                           frame_list_HD,
                                            dimensions,
                                            pixels,
                                            path): i for i in frames_to_process}
@@ -456,10 +474,10 @@ class VideoAssetProcessor:
                         capture = cv2.VideoCapture(path)
 
                         # Turn openCV capture to a list of numpy arrays
-                        frame_list, pixels, height, width = self.capture_to_array(capture)
+                        frame_list, frame_list_HD, pixels, height, width = self.capture_to_array(capture)
                         dimensions = '{}:{}'.format(int(width), int(height))
                         # Compute the metrics for the rendition
-                        self.metrics[path] = self.compute(frame_list, path, dimensions, pixels)
+                        self.metrics[path] = self.compute(frame_list, frame_list_HD, path, dimensions, pixels)
                     else:
                         print('Unable to find path')
                 except Exception as err:

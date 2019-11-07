@@ -419,7 +419,13 @@ class VideoMetrics:
         
         return pass_count / np.size(pixelsA)
 
-    def compute_metrics(self, rendition_frame, next_rendition_frame, reference_frame, next_reference_frame):
+    def compute_metrics(self,
+                        rendition_frame,
+                        next_rendition_frame,
+                        reference_frame,
+                        next_reference_frame,
+                        rendition_frame_HD,
+                        reference_frame_HD):
         rendition_metrics = {}
 
         if self.profiling:
@@ -466,12 +472,12 @@ class VideoMetrics:
                                                      rendition_frame_gray)
 
             if metric == 'temporal_psnr':
-                rendition_metrics[metric] = self.psnr(reference_frame_gray,
-                                                      rendition_frame_gray)
+                rendition_metrics[metric] = self.psnr(reference_frame_HD,
+                                                      rendition_frame_HD)
 
             if metric == 'temporal_ssim':
-                rendition_metrics[metric] = self.ssim(reference_frame_gray,
-                                                      rendition_frame_gray)
+                rendition_metrics[metric] = self.ssim(reference_frame_HD,
+                                                      rendition_frame_HD)
 
             if metric == 'temporal_mse':
                 rendition_metrics[metric] = self.mse(reference_frame_gray,
@@ -491,7 +497,7 @@ class VideoMetrics:
 
             if metric == 'temporal_gaussian_mse':
                 rendition_metrics[metric] = self.gaussian_mse(gauss_reference_frame,
-                                                          gauss_rendition_frame)
+                                                              gauss_rendition_frame)
 
             if metric == 'temporal_gaussian_difference':
                 rendition_metrics[metric] = self.gaussian_difference(gauss_reference_frame,
