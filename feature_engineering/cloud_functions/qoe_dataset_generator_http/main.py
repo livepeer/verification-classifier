@@ -161,6 +161,14 @@ def dataset_generator_qoe_http(request):
     else:
         print('Empty renditions list. No renditions to process')
 
+    # Cleanup 
+    if os.path.exists(asset_path['path']):
+        os.remove(asset_path['path'])
+    for rendition in rendition_list:
+        rendition_folder = '/tmp/{}'.format(rendition)
+        local_path = '{}/{}'.format(rendition_folder, source_name)
+        if os.path.exists(local_path):
+            os.remove(local_path)
     return 'Process completed: {}'.format(asset_path['path'])
 
 
