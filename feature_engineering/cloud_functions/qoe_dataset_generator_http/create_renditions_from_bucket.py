@@ -13,8 +13,9 @@ def upload_renditions_params():
     context = ''
 
     for blob in blob_list:
-
-        source = {'name': blob.name}
-        main.trigger_renditions_bucket_event(source, context)
-
+        try:
+            source = {'name': blob.name}
+            main.trigger_renditions_bucket_event(source, context)
+        except Exception as err:
+            print('Error {} happened in {}'.format(str(err), blob.name))
 upload_renditions_params()
