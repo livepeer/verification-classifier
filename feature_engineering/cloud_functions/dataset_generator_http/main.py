@@ -58,7 +58,7 @@ def compute_metrics(asset, renditions):
 
     source_asset = asset
 
-    max_samples = 60
+    max_samples = 30
     renditions_list = renditions
     metrics_list = ['temporal_ssim',
                     'temporal_psnr',
@@ -135,7 +135,6 @@ def dataset_generator_http(request):
                     'watermark-345x114',
                     'watermark-856x856',
                     'vignette',
-                    'flip_vertical',
                     'rotate_90_clockwise',
                     'black_and_white',
                     'low_bitrate_4',
@@ -147,9 +146,9 @@ def dataset_generator_http(request):
                     for attack in attack_names
                     ]
 
-    # resolution_list.remove('1080p')
+    resolution_list.remove('1080p')
     attacks_list += resolution_list
-
+    
     for attack in attacks_list:
         remote_file = '{}/{}'.format(attack, source_name)
 
@@ -172,5 +171,14 @@ def dataset_generator_http(request):
         compute_metrics(asset_path, renditions_paths)
     else:
         print('Empty renditions list. No renditions to process')
+
+    # Cleanup
+    if os.path.exists(asset_path['path']):
+        os.remove(asset_path['path'])
+    for rendition in attacks_list:
+        rendition_folder = '/tmp/{}'.format(rendition)
+        local_path = '{}/{}'.format(rendition_folder, source_name)
+        if os.path.exists(local_path):
+            os.remove(local_path)
 
     return 'Process completed: {}'.format(asset_path['path'])
