@@ -1,22 +1,37 @@
+"""
+Module for containment of testing procedures
+Please try here features and other experiments
+that involve video parsing prior to adding them
+to the main code body scripts.
+"""
+
 import cv2
+import numpy as np
+import pandas as pd
+import math as m
+import time
+import streamlit as st
+from scipy.special import gamma as tgamma
 
-cap=cv2.VideoCapture('../stream/sources/vimeo/104681073-no-audio.mp4', cv2.CAP_FFMPEG)
 
-# cap=cv2.VideoCapture('../stream/1080_14/104681073-no-audio.mp4', cv2.CAP_FFMPEG)
-# cap.get(cv2.CAP_PROP_FRAME_COUNT)
-print(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-print(cap.get(cv2.CAP_PROP_FPS))
-print(cap.get(cv2.CAP_PROP_BACKEND))
+cap = cv2.VideoCapture('../stream/sources/vimeo/104681073-no-audio.mp4')
+cap2 = cv2.VideoCapture('../stream/sources/vimeo/104681073.mp4')
 
-i=0
+start_time = time.time()
+i = 0
 while cap.isOpened():
-    ret, frame = cap.read()
-    # cv2.imwrite('{}.jpeg'.format(i),frame)
-    i+=1
-    if not ret:
+    ret1, frame1 = cap.read()
+    # ret2, frame2 = cap2.read()
+    if ret1:# and ret2:
+        i += 1
+        # res = cv2.quality.QualityMSE_compute(frame1, frame2)
+        features = np.empty([36,])
+        # cv2.imshow('Frame', frame1)
+        # cv2.waitKey(0)
+        features = cv2.quality.QualityBRISQUE_computeFeatures(frame1, features) # specify model_path and range_path
+        
+        # print(i, score)
+    else:
         break
-
-print(i)
-print(cap.get(cv2.CAP_PROP_POS_MSEC))
-print(cap.set(cv2.CAP_PROP_POS_AVI_RATIO, 1))
-print(cap.get(cv2.CAP_PROP_POS_MSEC))
+print(features)
+print('Elapsed time:', time.time() - start_time)
