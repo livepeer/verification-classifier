@@ -9,6 +9,7 @@ from catboost import Pool, CatBoostRegressor
 import xgboost as xgb
 
 import pandas as pd
+import pandas_profiling
 import streamlit as st
 import numpy as np
 import plotly.express as px
@@ -20,6 +21,11 @@ from sklearn.metrics import mean_squared_error
 st.title('QoE model predictor')
 
 DATA_URI = '../../cloud_functions/data-qoe-metrics-large.csv'
+
+def create_report():
+    data_df = pd.read_csv(DATA_URI)
+    profile = data_df.profile_report(title='Pandas Profiling Report')
+    profile.to_file(output_file="output.html")
 
 @st.cache
 def load_data(nrows):
@@ -206,4 +212,7 @@ def train_models():
 if __name__ == '__main__':
     # show_data()
     # prepare_data()
-    train_models()
+    if st.button('Report'):
+        create_report()
+    else:
+        train_models()
