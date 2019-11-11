@@ -61,7 +61,8 @@ def compute_metrics(asset, renditions):
     max_samples = 60
     renditions_list = renditions
     metrics_list = ['temporal_ssim',
-                    'temporal_psnr'
+                    'temporal_psnr',
+                    'temporal_brisque'
                     ]
 
     asset_processor = VideoAssetProcessor(source_asset,
@@ -146,7 +147,7 @@ def dataset_generator_http(request):
                     for attack in attack_names
                     ]
 
-    resolution_list.remove('1080p')
+    # resolution_list.remove('1080p')
     attacks_list += resolution_list
 
     for attack in attacks_list:

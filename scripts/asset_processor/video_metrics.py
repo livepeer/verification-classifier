@@ -419,6 +419,25 @@ class VideoMetrics:
         
         return pass_count / np.size(pixelsA)
 
+    @staticmethod
+    def brisque_features(reference_frame):
+        """
+        Blind/Referenceless Image Spatial QUality Evaluator (BRISQUE)
+        is a natural scene statistic (NSS)-based distortion-generic
+        blind/no-reference (NR) image quality assessment (IQA) model
+        which operates in the spatial domain.
+        It does not compute distortion specific features such as ringing,
+        blur or blocking, but instead uses scene statistics of locally
+        normalized luminance coefficients to quantify possible losses
+        of ‘naturalness’ in the image due to the presence of distortions,
+        thereby leading to a holistic measure of quality.
+        """
+        features = np.empty([36,])
+        
+        features = cv2.quality.QualityBRISQUE_computeFeatures(reference_frame, features)
+
+        return features
+
     def compute_metrics(self,
                         rendition_frame,
                         next_rendition_frame,
@@ -446,6 +465,7 @@ class VideoMetrics:
             self.rescale_pair = self.cpu_profiler(self.rescale_pair)
             self.texture_instant = self.cpu_profiler(self.texture_instant)
             self.image_match_instant = self.cpu_profiler(self.image_match_instant)
+            self.brisque_features = self.cpu_profiler(self.brisque_features)
 
     # Some metrics only need the luminance channel
         reference_frame_gray = reference_frame
@@ -458,6 +478,8 @@ class VideoMetrics:
         gauss_rendition_frame = gaussian(rendition_frame_gray, sigma=sigma)
 
         for metric in self.metrics_list:
+            if metric == 'temporal_brisque':
+                rendition_metrics[metric] = self.brisque_features(rendition_frame)
 
             if metric == 'temporal_histogram_distance':
                 rendition_metrics[metric] = self.histogram_distance(reference_frame,
