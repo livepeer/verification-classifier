@@ -4,6 +4,7 @@ Module for management and parallelization of verification jobs.
 
 import os
 from concurrent.futures.thread import ThreadPoolExecutor
+import multiprocessing
 
 import cv2
 import numpy as np
@@ -211,7 +212,7 @@ class VideoAssetProcessor:
 
         # Execute computations in parallel using as many processors as possible
         # future_list is a dictionary storing all computed values from each thread
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
             # Compare the original asset against its renditions
             future_list = {executor.submit(self.compare_renditions_instant,
                                            i,
