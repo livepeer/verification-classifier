@@ -54,7 +54,7 @@ def initialize():
     inputs_df = pd.DataFrame()
 
     print('Getting inputs...')
-    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input_QoE' in entity.key.name]
+    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input_60_540' in entity.key.name]
     
     print('Retrieving data from Datastore...')
     for kind in input_kinds:
@@ -64,5 +64,5 @@ def initialize():
         inputs_df = pd.concat([inputs_df, kind_df],axis=0,sort=True, ignore_index=True)
 
         jobs_dict[kind] = inputs_df['title'][inputs_df['kind']==kind]
-    inputs_df.to_csv('data-qoe-metrics-large.csv')
+    inputs_df.to_csv('data-train-metrics-large.csv')
 initialize()
