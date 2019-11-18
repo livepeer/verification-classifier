@@ -6,6 +6,7 @@ It relies of Streamlite library for the visualization and display of widgets
 import os.path
 
 from catboost import Pool, CatBoostRegressor
+import catboost as cgb
 import xgboost as xgb
 
 import pandas as pd
@@ -17,6 +18,7 @@ import plotly.graph_objects as go
 from scipy.interpolate import CubicSpline
 from scipy.spatial import ConvexHull
 from sklearn.metrics import mean_squared_error
+from bayes_opt import BayesianOptimization
 
 st.title('QoE model predictor')
 
@@ -34,7 +36,7 @@ def load_data(nrows):
     in a Pandas DataFrame.
     nrows limits the amount of data displayed for optimization
     """
-    data_df = pd.read_csv(DATA_URI)
+    data_df = pd.read_csv(DATA_URI, nrows=nrows)
     print(data_df.shape)
     lowercase = lambda x: str(x).lower()
     data_df.rename(lowercase, axis='columns', inplace=True)
@@ -70,7 +72,7 @@ def show_data():
     # Create a text element and let the reader know the data is loading.
     data_load_state = st.text('Loading data...')
     # Load 10,000 rows of data into the dataframe.
-    data_df = load_data(1000)
+    data_df = load_data(100)
     # Notify the reader that the data was successfully loaded.
     data_load_state.text('Loading data...done!')
     st.subheader('Raw data')
@@ -124,10 +126,29 @@ def get_convex_hull(row, metric):
     points_df = points_df.sort_values(by='size')
     return points_df
 
-def prepare_data():
+def cat_hyp(depth, bagging_temperature):
+    """
+    Function to optimize depth and bagging temperature of a catboost regressor
+    """
+
+    params = {"iterations": 100,
+             "learning_rate": 0.025,
+             "eval_metric": "R2",
+             "verbose": False} # Default Parameters
+    params["depth"] = int(round(depth))
+    params["bagging_temperature"] = bagging_temperature
+
+    # specify the training parameters 
+
+    scores = cgb.cv(train_pool,
+                    params,
+                    fold_count=3)
+    return np.max(scores['test-R2-mean'])  # Return maximum R-Squared value     
+  
+def prepare_data(n_rows):
     # Create a text element and let the reader know the data is loading.
     data_load_state = st.text('Loading data...')
-    data_df = load_data(50000)
+    data_df = load_data(n_rows)
     # Notify the reader that the data was successfully loaded.
     data_load_state.text('Loading data...done!')
     st.subheader('Raw data')
@@ -146,73 +167,67 @@ def train_models():
 
     # Create a text element and let the reader know the data is loading.
     data_load_state = st.text('Loading data...')
-    data_df = load_data(50000)
     # Notify the reader that the data was successfully loaded.
     data_load_state.text('Loading data...done!')
     st.subheader('Raw data')
     st.write(data_df.head())
 
-    metric = 'temporal_ssim-mean'
-    features = ["dimension_y",
-                "size",
-                "temporal_dct-mean",
-                "temporal_gaussian_mse-mean",
-                "temporal_gaussian_difference-mean",
-                "temporal_threshold_gaussian_difference-mean",
-                "rendition_ID"
-                ]
-
-    num_train = int(data_df.shape[0]*0.8)
-
-    train_data = data_df[0:num_train]
-    train_label = data_df[0:num_train]
-    test_data = data_df[num_train:]
-    # initialize Pool
-    categorical_features_indices = [0, 6]
-    train_pool = Pool(train_data[features],
-                      train_label[metric],
-                      cat_features=categorical_features_indices)
-    test_pool = Pool(test_data[features],
-                     cat_features=categorical_features_indices)
-
-    # specify the training parameters 
-
-    model_catbootregressor = CatBoostRegressor(iterations=100,
-                                               depth=2,
-                                               learning_rate=1,
+    # Search space
+    pds = {'depth': (5,8),
+           'bagging_temperature': (3, 10)
+           }
+    # Surrogate model
+    optimizer = BayesianOptimization(cat_hyp, pds, random_state=2100)
+                                    
+    # Optimize
+    optimizer.maximize(init_points=3, n_iter=7)
+    print(optimizer.max['params']['depth'])
+    model_catbootregressor = CatBoostRegressor(iterations=1000,
+                                               depth=int(optimizer.max['params']['depth']),
+                                               bagging_temperature=float(optimizer.max['params']['bagging_temperature']),
+                                               learning_rate=0.005,
                                                loss_function='RMSE')
-
     #train the model
     model_catbootregressor.fit(train_pool)
     # make the prediction using the resulting model
     test_data['preds_CBR'] = model_catbootregressor.predict(test_pool)
 
-    model_xgbregressor = xgb.XGBRegressor(objective='reg:squarederror',
-                                          n_estimators=500,
-                                          learning_rate=0.08,
-                                          gamma=0,
-                                          alpha=1,
-                                          subsample=0.75,
-                                          colsample_bytree=1,
-                                          max_depth=7,
-                                          seed=42,
-                                          verbosity=2) 
-
-    model_xgbregressor.fit(train_data[features], train_label[metric])
-    test_data['preds_XGBR'] = model_xgbregressor.predict(test_data[features])
-
-    st.write(test_data[['preds_XGBR', 'preds_CBR', metric]])
+    st.write(test_data[['preds_CBR', metric]].describe())
 
     rmse_catbootregressor = np.sqrt(mean_squared_error(test_data[metric], test_data['preds_CBR']))
-    rmse_xgbregressor = np.sqrt(mean_squared_error(test_data[metric], test_data['preds_XGBR']))
 
     print("RMSE CatBoost: %f" % (rmse_catbootregressor))
-    print("RMSE XGB: %f" % (rmse_xgbregressor))
 
 if __name__ == '__main__':
-    # show_data()
+    show_data()
     # prepare_data()
-    if st.button('Report'):
-        create_report()
-    else:
-        train_models()
+    # if st.button('Report'):
+    #     create_report()
+    # else:
+
+    metric = 'temporal_ssim-mean'
+    features = [#"dimension_y",
+                "size",
+                "temporal_dct-mean",
+                "temporal_gaussian_mse-mean",
+                "temporal_gaussian_difference-mean",
+                "temporal_threshold_gaussian_difference-mean",
+                # "rendition_ID"
+                ]
+    
+
+    data_df = load_data(50000)
+    num_train = int(data_df.shape[0]*0.8)
+
+    train_data = data_df[0:num_train]
+    train_label = data_df[0:num_train]
+    test_data = data_df[num_train:]
+
+    categorical_features_indices = []#[0, 6]
+
+    train_pool = Pool(data=train_data[features],
+                      label=train_label[metric],
+                      cat_features=categorical_features_indices)
+    test_pool = Pool(test_data[features],
+                     cat_features=categorical_features_indices)
+    train_models()
