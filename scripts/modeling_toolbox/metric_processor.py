@@ -53,9 +53,6 @@ class MetricProcessor:
         
         del data
 
-        print('ORIGINAL DATASET:')
-        display(df.head())
-
         # Fix attack column to contain only its name
         if unique_ID:
             df['unique_ID'] = df['attack']
