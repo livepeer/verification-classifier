@@ -25,11 +25,12 @@ while cap.isOpened():
     if ret1:# and ret2:
         i += 1
         # res = cv2.quality.QualityMSE_compute(frame1, frame2)
-        features = np.empty([36,])
-        # cv2.imshow('Frame', frame1)
-        # cv2.waitKey(0)
-        features = cv2.quality.QualityBRISQUE_computeFeatures(frame1, features) # specify model_path and range_path
-        
+        if i == 5:
+            features = np.empty([36,])
+            # cv2.imshow('Frame', frame1)
+            # cv2.waitKey(0)
+            features = cv2.quality.QualityBRISQUE_computeFeatures(frame1, features) # specify model_path and range_path
+            i = 0        
         # print(i, score)
     else:
         break
