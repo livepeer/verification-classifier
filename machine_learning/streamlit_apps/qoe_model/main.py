@@ -6,228 +6,221 @@ It relies of Streamlite library for the visualization and display of widgets
 import os.path
 
 from catboost import Pool, CatBoostRegressor
-import catboost as cgb
-import xgboost as xgb
 
 import pandas as pd
-import pandas_profiling
 import streamlit as st
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
-from scipy.interpolate import CubicSpline
-from scipy.spatial import ConvexHull
-from sklearn.metrics import mean_squared_error
-from bayes_opt import BayesianOptimization
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.preprocessing import StandardScaler
+from sklearn import svm
+from sklearn.metrics import fbeta_score, roc_curve, auc
 
 st.title('QoE model predictor')
 
-DATA_URI = '../../cloud_functions/data-qoe-metrics-large.csv'
-
-def create_report():
-    data_df = pd.read_csv(DATA_URI)
-    profile = data_df.profile_report(title='Pandas Profiling Report')
-    profile.to_file(output_file="output.html")
+DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
+DATA_URI_TAMPER = '../../cloud_functions/data-large.csv'
+FEATURES = ["temporal_dct-max",
+            "temporal_dct-euclidean",
+            "temporal_dct-manhattan",
+            "temporal_gaussian_mse-max",
+            "temporal_gaussian_mse-manhattan",
+            "temporal_gaussian_difference-mean",
+            "temporal_gaussian_difference-max",
+            "temporal_threshold_gaussian_difference-euclidean",
+            "temporal_threshold_gaussian_difference-manhattan"
+            ]
+METRICS_QOE = 'temporal_ssim-mean'
 
 @st.cache
-def load_data(nrows):
+def load_data(data_uri, nrows):
     """
     Function to retrieve data from a given file or URL
-    in a Pandas DataFrame.
+    in a Pandas DataFrame suitable for model training.
     nrows limits the amount of data displayed for optimization
     """
-    data_df = pd.read_csv(DATA_URI, nrows=nrows)
-    print(data_df.shape)
+    data_df = pd.read_csv(data_uri, nrows=nrows)
     lowercase = lambda x: str(x).lower()
     data_df.rename(lowercase, axis='columns', inplace=True)
-    data_df.rename(columns={'attack':'rendition'}, inplace=True)
+    data_df.rename(columns={'attack':'rendition', 'title':'source'}, inplace=True)
     data_df['rendition'] = data_df['rendition'].apply(lambda x: set_rendition_name(x))
-    data_df['crf'] = data_df['rendition'].apply(lambda x: x.split('_')[-1])
     data_df['dimension_y'] = data_df['rendition'].apply(lambda x: int(x.split('_')[0]))
-    data_df['size'] = data_df['size_dimension_ratio'] * data_df['dimension_y']
+    if 'qoe' in data_uri:
+        data_df['crf'] = data_df['rendition'].apply(lambda x: x.split('_')[-1])
+        data_df['tamper'] = 1
+    else:
+        data_df['size_dimension_ratio'] = data_df['size'] / data_df['dimension_y']
+        resolutions = ['1080', '720', '480', '360', '240', '144']
+        data_df['tamper'] = data_df['rendition'].apply(lambda x: 1 if x in resolutions else -1)
+
     rendition_ids = list(data_df['rendition'].unique())
-    print(rendition_ids)
     data_df['rendition_ID'] = data_df['rendition'].apply(lambda x: set_rendition_id(x, rendition_ids))
     return data_df
 
-def set_rendition_id(x, rendition_ids):
+def set_rendition_id(row, rendition_ids):
     """
     Function to assign ID numbers to renditions
     """
-    return rendition_ids.index(x)
+    return rendition_ids.index(row)
 
 def set_rendition_name(rendition_name):
     """
     Function to extract source name from rendition path
     """
     try:
+        if 'p' in rendition_name:
+            rendition_name = rendition_name.replace('p', '')
         return os.path.dirname(rendition_name).replace('/vimeo', '').split('/')[-1]
     except:
         return ''
 
-def show_data():
+
+def unsupervised_evaluation(classifier, train_set, test_set, attack_set, beta=20):
     """
-    Function to display the data in a text box in the app
+    Evaluates performance of unsupervised learning algorithms
     """
-    # Create a text element and let the reader know the data is loading.
-    data_load_state = st.text('Loading data...')
-    # Load 10,000 rows of data into the dataframe.
-    data_df = load_data(100)
-    # Notify the reader that the data was successfully loaded.
-    data_load_state.text('Loading data...done!')
-    st.subheader('Raw data')
-    st.write(data_df)
+    y_pred_train = classifier.predict(train_set)
+    y_pred_test = classifier.predict(test_set)
+    y_pred_outliers = classifier.predict(attack_set)
+    n_accurate_train = y_pred_train[y_pred_train == 1].size
+    n_accurate_test = y_pred_test[y_pred_test == 1].size
+    n_accurate_outliers = y_pred_outliers[y_pred_outliers == -1].size
 
-    asset = st.selectbox('Which asset to represent?', list(data_df['title'].unique()))
-    metric = st.selectbox('Which metric to display?', list(data_df.columns))
-    rate_distortion_features = [metric, 'size', 'crf', 'rendition_ID', 'rendition']
-    rate_distortion_df = data_df[rate_distortion_features][data_df['title'] == asset]
-    st.write(rate_distortion_df[['size', metric]])
-    points_2d = rate_distortion_df[['size', metric]].values
-    points_df = rate_distortion_df[['size', metric]].iloc[ConvexHull(points_2d).vertices]
-    points_df = points_df.sort_values(by='size')
-    x_values = points_df['size'].values
-    y_values = points_df[metric].values
+    fpr, tpr, _ = roc_curve(np.concatenate([np.ones(y_pred_test.shape[0]),
+                                            -1 * np.ones(y_pred_outliers.shape[0])]),
+                            np.concatenate([y_pred_test, y_pred_outliers]),
+                            pos_label=1)
 
-    cubic_spline = CubicSpline(x_values, y_values)
-    x_interpolation = np.arange(0, max(points_df['size']), 100)
+    f_beta = fbeta_score(np.concatenate([np.ones(y_pred_test.shape[0]),
+                                         -1*np.ones(y_pred_outliers.shape[0])]),
+                         np.concatenate([y_pred_test, y_pred_outliers]),
+                         beta=beta,
+                         pos_label=1)
 
-    interpolation_df = pd.DataFrame()
-    interpolation_df['x'] = x_interpolation
-    interpolation_df['y'] = cubic_spline(x_interpolation)
-    print(cubic_spline.c.shape)
-    fig = go.Figure(go.Scatter(x=interpolation_df['x'],
-                               y=interpolation_df['y'],
-                               name='Interpolation',
-                               showlegend=True))
+    tnr = n_accurate_outliers / attack_set.shape[0]
+    tpr_test = n_accurate_test / test_set.shape[0]
+    tpr_train = n_accurate_train / train_set.shape[0]
 
-    fig.add_trace(go.Scatter(x=points_df['size'],
-                             y=points_df[metric],
-                             name='Original',
-                             showlegend=True))
+    area = auc(fpr, tpr)
+    return f_beta, area, tnr, tpr_train, tpr_test
 
-    fig.update_layout(title="Convex hull with Cubic Spline interpolation")
-    st.plotly_chart(fig)
-    fig = px.scatter(rate_distortion_df,
-                     x='size',
-                     y=metric,
-                     color='rendition_ID',
-                     hover_data=['rendition'])
-    st.plotly_chart(fig)
-
-def get_convex_hull(row, metric):
-    """
-    Retrieves a list of point coordinates representing the 
-    convex hull of a set of points from a pd.DataFrame row
-    """
-    points_2d = row[['size', metric]].values
-    print(points_2d)
-    points_df = row[['size', metric]].iloc[ConvexHull(points_2d).vertices]
-    points_df = points_df.sort_values(by='size')
-    return points_df
-
-def cat_hyp(depth, bagging_temperature):
-    """
-    Function to optimize depth and bagging temperature of a catboost regressor
-    """
-
-    params = {"iterations": 100,
-             "learning_rate": 0.025,
-             "eval_metric": "R2",
-             "verbose": False} # Default Parameters
-    params["depth"] = int(round(depth))
-    params["bagging_temperature"] = bagging_temperature
-
-    # specify the training parameters 
-
-    scores = cgb.cv(train_pool,
-                    params,
-                    fold_count=3)
-    return np.max(scores['test-R2-mean'])  # Return maximum R-Squared value     
-  
-def prepare_data(n_rows):
-    # Create a text element and let the reader know the data is loading.
-    data_load_state = st.text('Loading data...')
-    data_df = load_data(n_rows)
-    # Notify the reader that the data was successfully loaded.
-    data_load_state.text('Loading data...done!')
-    st.subheader('Raw data')
-    st.write(data_df.head())
-
-    metric = 'temporal_ssim-mean'
-    data_df['convex_hull'] = data_df.apply(lambda row: get_convex_hull(row, metric), axis=1)
-    st.write(data_df.head())
-    # return data_df
-
-def train_models():
+def train_qoe_model(data_df):
     """
     Function to train model from given dataset
     """
-    # initialize data
-
-    # Create a text element and let the reader know the data is loading.
-    data_load_state = st.text('Loading data...')
-    # Notify the reader that the data was successfully loaded.
-    data_load_state.text('Loading data...done!')
-    st.subheader('Raw data')
-    st.write(data_df.head())
-
-    # Search space
-    pds = {'depth': (5,8),
-           'bagging_temperature': (3, 10)
-           }
-    # Surrogate model
-    optimizer = BayesianOptimization(cat_hyp, pds, random_state=2100)
-                                    
-    # Optimize
-    optimizer.maximize(init_points=3, n_iter=7)
-    print(optimizer.max['params']['depth'])
-    model_catbootregressor = CatBoostRegressor(iterations=1000,
-                                               depth=int(optimizer.max['params']['depth']),
-                                               bagging_temperature=float(optimizer.max['params']['bagging_temperature']),
-                                               learning_rate=0.005,
-                                               loss_function='RMSE')
-    #train the model
-    model_catbootregressor.fit(train_pool)
-    # make the prediction using the resulting model
-    test_data['preds_CBR'] = model_catbootregressor.predict(test_pool)
-
-    st.write(test_data[['preds_CBR', metric]].describe())
-
-    rmse_catbootregressor = np.sqrt(mean_squared_error(test_data[metric], test_data['preds_CBR']))
-
-    print("RMSE CatBoost: %f" % (rmse_catbootregressor))
-
-if __name__ == '__main__':
-    show_data()
-    # prepare_data()
-    # if st.button('Report'):
-    #     create_report()
-    # else:
-
-    metric = 'temporal_ssim-mean'
-    features = [#"dimension_y",
-                "size",
-                "temporal_dct-mean",
-                "temporal_gaussian_mse-mean",
-                "temporal_gaussian_difference-mean",
-                "temporal_threshold_gaussian_difference-mean",
-                # "rendition_ID"
-                ]
-    
-
-    data_df = load_data(50000)
     num_train = int(data_df.shape[0]*0.8)
 
-    train_data = data_df[0:num_train]
-    train_label = data_df[0:num_train]
-    test_data = data_df[num_train:]
+    train_data = data_df.sample(num_train)
+    test_data = data_df[~data_df.index.isin(train_data.index)]
 
-    categorical_features_indices = []#[0, 6]
+    categorical_features_indices = []
 
-    train_pool = Pool(data=train_data[features],
-                      label=train_label[metric],
+    train_pool = Pool(data=train_data[FEATURES],
+                      label=train_data[METRICS_QOE],
                       cat_features=categorical_features_indices)
-    test_pool = Pool(test_data[features],
-                     cat_features=categorical_features_indices)
-    train_models()
+
+    loss_funct = 'MAE'
+    model_catbootregressor = CatBoostRegressor(depth=6,
+                                               num_trees=150,
+                                               l2_leaf_reg=5,
+                                               learning_rate=0.05,
+                                               loss_function=loss_funct
+                                               )
+    #train the model
+    model_catbootregressor.fit(train_pool)
+
+    return model_catbootregressor, test_data
+
+def train_tamper_model(data_df):
+    """
+    Trains an unsupervised learning model for tamper verification
+    """
+    df_1 = data_df[data_df['tamper'] == 1]
+    df_0 = data_df[~data_df.index.isin(df_1.index)]
+
+    num_train = int(df_1.shape[0] * 0.8)
+    df_train = df_1.sample(num_train)
+    df_test = df_1[~df_1.index.isin(df_train.index)]
+
+    df_train = df_1[0:num_train]
+    df_test = df_1[num_train:]
+    df_attacks = df_0.sample(frac=1)
+
+    x_train = np.asarray(df_train[FEATURES])
+    x_test = np.asarray(df_test[FEATURES])
+    x_attacks = np.asarray(df_attacks[FEATURES])
+
+
+    # Scaling the data
+    scaler = StandardScaler()
+    x_train = scaler.fit_transform(x_train)
+    x_test = scaler.transform(x_test)
+    x_attacks = scaler.transform(x_attacks)
+
+    oc_svm = svm.OneClassSVM(kernel='rbf', gamma=0.6, nu=0.002, cache_size=5000)
+
+    oc_svm.fit(x_train)
+
+    f_beta, area, tnr, tpr_train, tpr_test = unsupervised_evaluation(oc_svm,
+                                                                     x_train,
+                                                                     x_test,
+                                                                     x_attacks
+                                                                     )
+    st.write('F20:{} / Area:{} / TNR:{} / TPR:{}'.format(f_beta, area, tnr, tpr_test))
+
+    return oc_svm, scaler, df_attacks
+
+def main():
+    """
+    Main function to train and evaluate tamper and QoE models
+    """
+        # Get QoE pristine dataset (no attacks)
+    df_qoe = load_data(DATA_URI_QOE, 50000)
+    # Get tamper verification dataset (contains attacks)
+    df_tamper = load_data(DATA_URI_TAMPER, 150000)
+    # Remove low_bitrate kind of attacks
+    df_tamper = df_tamper.loc[~df_tamper['rendition'].str.contains('low_bitrate')]
+
+    # Merge datasets to train verification with more well encoded renditions
+    frames = [df_qoe, df_tamper]
+    df_aggregated = pd.concat(frames)
+
+    # Display datasets
+    st.subheader('Raw QoE data')
+    st.write(df_qoe.head(100), df_qoe.shape)
+    st.subheader('Raw tamper verification data')
+    st.write(df_tamper.head(100), df_tamper.shape)
+    st.subheader('Aggregated')
+    st.write(df_aggregated.head(100), df_aggregated.shape)
+
+    # Train SSIM predictor and retrieve a test set
+    qoe_model, test_data_qoe = train_qoe_model(df_qoe)
+    # Train tamper verification and extract
+    tamper_model, scaler, df_attacks = train_tamper_model(df_aggregated)
+
+    # Evaluate incidence of false positives from attack dataset
+    x_attacks = np.asarray(df_attacks[FEATURES])
+    x_attacks = scaler.transform(x_attacks)
+    df_attacks['pred_tamper'] = tamper_model.predict(x_attacks)
+    false_positives_df = df_attacks[df_attacks['tamper'] != df_attacks['pred_tamper']]
+    st.write(false_positives_df.groupby('rendition').count())
+
+    # Add predictions to test data set
+    test_data_qoe['pred_ssim'] = qoe_model.predict(test_data_qoe[FEATURES])
+    test_data_qoe['pred_tamper'] = tamper_model.predict(scaler.transform(test_data_qoe[FEATURES]))
+
+    # Display correlation between predicted and measured metric and color them
+    # according to their tamper classification
+    fig = px.scatter(test_data_qoe,
+                     x='pred_ssim',
+                     y=METRICS_QOE,
+                     color='pred_tamper',
+                     hover_data=['rendition'])
+    st.plotly_chart(fig)
+
+    # Display True Positive Rate for the test dataset
+    st.write(test_data_qoe[test_data_qoe['pred_tamper'] > 0].shape[0] / test_data_qoe.shape[0])
+
+if __name__ == '__main__':
+
+    main()
