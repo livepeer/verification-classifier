@@ -20,16 +20,41 @@ st.title('QoE model predictor')
 
 DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
 DATA_URI_TAMPER = '../../cloud_functions/data-large.csv'
-FEATURES = ["temporal_dct-max",
-            "temporal_dct-euclidean",
-            "temporal_dct-manhattan",
-            "temporal_gaussian_mse-max",
-            "temporal_gaussian_mse-manhattan",
-            "temporal_gaussian_difference-mean",
-            "temporal_gaussian_difference-max",
-            "temporal_threshold_gaussian_difference-euclidean",
-            "temporal_threshold_gaussian_difference-manhattan"
+FEATURES = ['temporal_dct-max',
+            'temporal_dct-euclidean',
+            'temporal_dct-manhattan',
+            'temporal_gaussian_mse-max',
+            'temporal_gaussian_mse-manhattan',
+            'temporal_gaussian_difference-mean',
+            'temporal_gaussian_difference-max',
+            'temporal_threshold_gaussian_difference-euclidean',
+            'temporal_threshold_gaussian_difference-manhattan',
+            # 'pred_ssim',
+            'size_dimension_ratio'
             ]
+FEATURES_SL = ['temporal_dct-max',
+               'temporal_dct-euclidean',
+               'temporal_dct-manhattan',
+               'temporal_gaussian_mse-max',
+               'temporal_gaussian_mse-manhattan',
+               'temporal_gaussian_difference-mean',
+               'temporal_gaussian_difference-max',
+               'temporal_threshold_gaussian_difference-euclidean',
+               'temporal_threshold_gaussian_difference-manhattan',
+               'size_dimension_ratio',
+            #    'pred_ssim'
+               ]
+FEATURES_QOE = ['temporal_dct-max',
+               'temporal_dct-euclidean',
+               'temporal_dct-manhattan',
+               'temporal_gaussian_mse-max',
+               'temporal_gaussian_mse-manhattan',
+               'temporal_gaussian_difference-mean',
+               'temporal_gaussian_difference-max',
+               'temporal_threshold_gaussian_difference-euclidean',
+               'temporal_threshold_gaussian_difference-manhattan',
+               'size_dimension_ratio'
+               ]
 METRICS_QOE = 'temporal_ssim-mean'
 
 @st.cache
@@ -53,16 +78,7 @@ def load_data(data_uri, nrows):
         resolutions = ['1080', '720', '480', '360', '240', '144']
         data_df['tamper'] = data_df['rendition'].apply(lambda x: 1 if x in resolutions else -1)
 
-    rendition_ids = list(data_df['rendition'].unique())
-    data_df['rendition_ID'] = data_df['rendition'].apply(lambda x: set_rendition_id(x,
-                                                                                    rendition_ids))
     return data_df
-
-def set_rendition_id(row, rendition_ids):
-    """
-    Function to assign ID numbers to renditions
-    """
-    return rendition_ids.index(row)
 
 def set_rendition_name(rendition_name):
     """
@@ -91,7 +107,7 @@ def model_evaluation(classifier, train_set, test_set, attack_set, beta=20):
     n_accurate_train = y_pred_train[y_pred_train == 1].size
     n_accurate_test = y_pred_test[y_pred_test == 1].size
     n_accurate_outliers = y_pred_outliers[y_pred_outliers != 1].size
-    st.write(n_accurate_outliers, attack_set.shape)
+
     fpr, tpr, _ = roc_curve(np.concatenate([np.ones(y_pred_test.shape[0]),
                                             -1 * np.ones(y_pred_outliers.shape[0])]),
                             np.concatenate([y_pred_test, y_pred_outliers]),
@@ -128,10 +144,20 @@ def meta_model_evaluation(data_df, sl_classifier, ul_classifier, scaler):
     attacks_df = eval_df[eval_df['tamper'] == -1]
     untampered_df = eval_df[eval_df['tamper'] == 1]
 
+    y_pred_test = untampered_df['meta_pred_tamper']
+    y_pred_outliers = attacks_df['meta_pred_tamper']
+
+    f_beta = fbeta_score(np.concatenate([np.ones(y_pred_test.shape[0]),
+                                         -1*np.ones(y_pred_outliers.shape[0])]),
+                         np.concatenate([y_pred_test, y_pred_outliers]),
+                         beta=20,
+                         pos_label=1)
+
     tnr = attacks_df[attacks_df['meta_pred_tamper'] == -1].shape[0] / attacks_df.shape[0]
     tpr = untampered_df[untampered_df['meta_pred_tamper'] == 1].shape[0] / untampered_df.shape[0]
 
-    st.write('TNR: {} / TPR: {}'.format(tnr, tpr))
+
+    st.write('TNR: {} / TPR: {} / F20: {}'.format(tnr, tpr, f_beta))
 
 def train_qoe_model(data_df):
     """
@@ -144,19 +170,29 @@ def train_qoe_model(data_df):
 
     categorical_features_indices = []
 
-    train_pool = Pool(data=train_data[FEATURES],
+    train_pool = Pool(data=train_data[FEATURES_QOE],
                       label=train_data[METRICS_QOE],
                       cat_features=categorical_features_indices)
 
     loss_funct = 'MAE'
     model_catbootregressor = CatBoostRegressor(depth=6,
-                                               num_trees=150,
+                                               num_trees=1000,
                                                l2_leaf_reg=5,
                                                learning_rate=0.05,
                                                loss_function=loss_funct
                                                )
     #train the model
+    print('Training QoE model:')
     model_catbootregressor.fit(train_pool)
+
+    test_pool = Pool(data=test_data[FEATURES_QOE],
+                      label=test_data[METRICS_QOE],
+                      cat_features=categorical_features_indices)
+    learn_train_df = pd.DataFrame(model_catbootregressor.eval_metrics(train_pool, ['MAE', 'MAPE', 'RMSE']))
+    learn_test_df = pd.DataFrame(model_catbootregressor.eval_metrics(test_pool, ['MAE', 'MAPE', 'RMSE']))
+
+    st.write('QoE model test set accuracy:')
+    st.write(learn_test_df.min())
 
     return model_catbootregressor, test_data
 
@@ -187,7 +223,7 @@ def train_tamper_model(data_df):
     x_attacks = scaler.transform(x_attacks)
 
     # Define One Class Support Vector Machine model and train it
-    oc_svm = svm.OneClassSVM(kernel='rbf', gamma=0.6, nu=0.002, cache_size=5000)
+    oc_svm = svm.OneClassSVM(kernel='rbf', gamma=0.05, nu=0.001, cache_size=5000)
     oc_svm.fit(x_train)
 
     # Evaluate its accuracy
@@ -205,11 +241,11 @@ def train_tamper_model(data_df):
     df_train = data_df.sample(num_train)
     df_test = data_df[~data_df.index.isin(df_train.index)]
 
-    # df_train = df_train.loc[~df_train['rendition'].str.contains('black_and_white')]
+    df_train = df_train.loc[~df_train['rendition'].str.contains('black_and_white')]
     df_train = df_train.loc[~df_train['rendition'].str.contains('rotate')]
-    # df_train = df_train.loc[~df_train['rendition'].str.contains('vignette')]
-    # df_train = df_train.loc[~df_train['rendition'].str.contains('vertical')]
-    st.write(df_train.shape)
+    df_train = df_train.loc[~df_train['rendition'].str.contains('vignette')]
+    df_train = df_train.loc[~df_train['rendition'].str.contains('vertical')]
+    st.write(df_train['rendition'].unique())
     x_train = scaler.transform(np.asarray(df_train[FEATURES]))
     y_train = df_train['tamper']#oc_svm.predict(x_train)
 
@@ -219,13 +255,13 @@ def train_tamper_model(data_df):
                                          learning_rate=0.01,
                                          depth=6)
     # Fit model
-    catboost_binary.fit(np.asarray(df_train[FEATURES]), y_train, cat_features)
+    catboost_binary.fit(np.asarray(df_train[FEATURES_SL]), y_train, cat_features)
 
     # Evaluate its accuracy
     f_beta, area, tnr, tpr_train, tpr_test = model_evaluation(catboost_binary,
-                                                              df_train[FEATURES],
-                                                              df_test[FEATURES],
-                                                              df_attacks[FEATURES]
+                                                              df_train[FEATURES_SL],
+                                                              df_test[FEATURES_SL],
+                                                              df_attacks[FEATURES_SL]
                                                               )
     st.write('SUPERVISED TAMPER MODEL ACCURACY')
     st.write('F20:{} / Area:{} / TNR:{} / TPR_train:{} / TPR_test:{}'.format(f_beta, area, tnr, tpr_train, tpr_test))
@@ -257,6 +293,8 @@ def main():
 
     # Train SSIM predictor and retrieve a test set
     qoe_model, test_data_qoe = train_qoe_model(df_qoe)
+
+    df_aggregated['pred_ssim'] = qoe_model.predict(df_aggregated[FEATURES_QOE])
     # Train unsupervised tamper verification and extract attacks dataset
     catboost_binary, oc_svm, scaler, df_attacks = train_tamper_model(df_aggregated)
 
@@ -274,10 +312,12 @@ def main():
     st.write(false_positives_df.groupby('rendition').count())
 
     # Add predictions to test data set
+    test_data_qoe['pred_ssim'] = qoe_model.predict(test_data_qoe[FEATURES_QOE])
+
     x_test = scaler.transform(test_data_qoe[FEATURES])
-    test_data_qoe['pred_ssim'] = qoe_model.predict(test_data_qoe[FEATURES])
     test_data_qoe['ul_pred_tamper'] = oc_svm.predict(x_test)
-    test_data_qoe['sl_pred_tamper'] = catboost_binary.predict(test_data_qoe[FEATURES])
+    
+    test_data_qoe['sl_pred_tamper'] = catboost_binary.predict(test_data_qoe[FEATURES_SL])
     test_data_qoe['sl_pred_tamper'] = test_data_qoe['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
 
     test_data_qoe['meta_pred_tamper'] = test_data_qoe.apply(meta_model, axis=1)
