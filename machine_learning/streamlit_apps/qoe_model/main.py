@@ -5,7 +5,7 @@ It relies of Streamlite library for the visualization and display of widgets
 
 import os.path
 
-from catboost import Pool, CatBoostRegressor
+from catboost import Pool, CatBoostRegressor, CatBoostClassifier
 
 import pandas as pd
 import streamlit as st
@@ -49,12 +49,13 @@ def load_data(data_uri, nrows):
         data_df['crf'] = data_df['rendition'].apply(lambda x: x.split('_')[-1])
         data_df['tamper'] = 1
     else:
-        data_df['size_dimension_ratio'] = data_df['size'] / data_df['dimension_y']
+        data_df['size_dimension_ratio'] = data_df['size'] / data_df['dimension_y'] * data_df['dimension'] * data_df['fps']
         resolutions = ['1080', '720', '480', '360', '240', '144']
         data_df['tamper'] = data_df['rendition'].apply(lambda x: 1 if x in resolutions else -1)
 
     rendition_ids = list(data_df['rendition'].unique())
-    data_df['rendition_ID'] = data_df['rendition'].apply(lambda x: set_rendition_id(x, rendition_ids))
+    data_df['rendition_ID'] = data_df['rendition'].apply(lambda x: set_rendition_id(x,
+                                                                                    rendition_ids))
     return data_df
 
 def set_rendition_id(row, rendition_ids):
@@ -75,17 +76,22 @@ def set_rendition_name(rendition_name):
         return ''
 
 
-def unsupervised_evaluation(classifier, train_set, test_set, attack_set, beta=20):
+def model_evaluation(classifier, train_set, test_set, attack_set, beta=20):
     """
-    Evaluates performance of unsupervised learning algorithms
+    Evaluates performance of supervised and unsupervised learning algorithms
     """
-    y_pred_train = classifier.predict(train_set)
-    y_pred_test = classifier.predict(test_set)
-    y_pred_outliers = classifier.predict(attack_set)
+    y_pred_train = classifier.predict(train_set).astype(float)
+    y_pred_test = classifier.predict(test_set).astype(float)
+    y_pred_outliers = classifier.predict(attack_set).astype(float)
+
+    y_pred_train[y_pred_train == 0] = -1
+    y_pred_test[y_pred_test == 0] = -1
+    y_pred_outliers[y_pred_outliers == 0] = -1
+
     n_accurate_train = y_pred_train[y_pred_train == 1].size
     n_accurate_test = y_pred_test[y_pred_test == 1].size
-    n_accurate_outliers = y_pred_outliers[y_pred_outliers == -1].size
-
+    n_accurate_outliers = y_pred_outliers[y_pred_outliers != 1].size
+    st.write(n_accurate_outliers, attack_set.shape)
     fpr, tpr, _ = roc_curve(np.concatenate([np.ones(y_pred_test.shape[0]),
                                             -1 * np.ones(y_pred_outliers.shape[0])]),
                             np.concatenate([y_pred_test, y_pred_outliers]),
@@ -103,6 +109,29 @@ def unsupervised_evaluation(classifier, train_set, test_set, attack_set, beta=20
 
     area = auc(fpr, tpr)
     return f_beta, area, tnr, tpr_train, tpr_test
+
+def meta_model(row):
+    return row['sl_pred_tamper'] if row['sl_pred_tamper'] == -1 else row['ul_pred_tamper']
+
+def meta_model_evaluation(data_df, sl_classifier, ul_classifier, scaler):
+    """
+    Evaluate performance of combined meta-model
+    """
+    eval_df = data_df
+
+    scaled_input = scaler.transform(np.asarray(eval_df[FEATURES]))
+    eval_df['ul_pred_tamper'] = ul_classifier.predict(scaled_input)
+    eval_df['sl_pred_tamper'] = sl_classifier.predict(eval_df[FEATURES])
+    eval_df['sl_pred_tamper'] = eval_df['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
+
+    eval_df['meta_pred_tamper'] = eval_df.apply(meta_model, axis=1)
+    attacks_df = eval_df[eval_df['tamper'] == -1]
+    untampered_df = eval_df[eval_df['tamper'] == 1]
+
+    tnr = attacks_df[attacks_df['meta_pred_tamper'] == -1].shape[0] / attacks_df.shape[0]
+    tpr = untampered_df[untampered_df['meta_pred_tamper'] == 1].shape[0] / untampered_df.shape[0]
+
+    st.write('TNR: {} / TPR: {}'.format(tnr, tpr))
 
 def train_qoe_model(data_df):
     """
@@ -135,40 +164,73 @@ def train_tamper_model(data_df):
     """
     Trains an unsupervised learning model for tamper verification
     """
+    # Get untampered assets dataset
     df_1 = data_df[data_df['tamper'] == 1]
+    # Get tampered (attacks) dataset
     df_0 = data_df[~data_df.index.isin(df_1.index)]
 
     num_train = int(df_1.shape[0] * 0.8)
+    # Split dataset into train, test and attacks and shuffle them
     df_train = df_1.sample(num_train)
     df_test = df_1[~df_1.index.isin(df_train.index)]
-
-    df_train = df_1[0:num_train]
-    df_test = df_1[num_train:]
     df_attacks = df_0.sample(frac=1)
 
+    # Convert datasets from dataframes to numpy arrays
     x_train = np.asarray(df_train[FEATURES])
     x_test = np.asarray(df_test[FEATURES])
     x_attacks = np.asarray(df_attacks[FEATURES])
 
-
-    # Scaling the data
+    # Scale the data
     scaler = StandardScaler()
     x_train = scaler.fit_transform(x_train)
     x_test = scaler.transform(x_test)
     x_attacks = scaler.transform(x_attacks)
 
+    # Define One Class Support Vector Machine model and train it
     oc_svm = svm.OneClassSVM(kernel='rbf', gamma=0.6, nu=0.002, cache_size=5000)
-
     oc_svm.fit(x_train)
 
-    f_beta, area, tnr, tpr_train, tpr_test = unsupervised_evaluation(oc_svm,
-                                                                     x_train,
-                                                                     x_test,
-                                                                     x_attacks
-                                                                     )
+    # Evaluate its accuracy
+    f_beta, area, tnr, tpr_train, tpr_test = model_evaluation(oc_svm,
+                                                              x_train,
+                                                              x_test,
+                                                              x_attacks
+                                                              )
+    st.write('UNSUPERVISED TAMPER MODEL ACCURACY')
     st.write('F20:{} / Area:{} / TNR:{} / TPR:{}'.format(f_beta, area, tnr, tpr_test))
 
-    return oc_svm, scaler, df_attacks
+    # Now use the unsupervised trained model to generate a supervised model
+    # using the predictions
+    num_train = int(data_df.shape[0] * 0.8)
+    df_train = data_df.sample(num_train)
+    df_test = data_df[~data_df.index.isin(df_train.index)]
+
+    # df_train = df_train.loc[~df_train['rendition'].str.contains('black_and_white')]
+    df_train = df_train.loc[~df_train['rendition'].str.contains('rotate')]
+    # df_train = df_train.loc[~df_train['rendition'].str.contains('vignette')]
+    # df_train = df_train.loc[~df_train['rendition'].str.contains('vertical')]
+    st.write(df_train.shape)
+    x_train = scaler.transform(np.asarray(df_train[FEATURES]))
+    y_train = df_train['tamper']#oc_svm.predict(x_train)
+
+    cat_features = []
+     # Initialize CatBoostClassifier
+    catboost_binary = CatBoostClassifier(iterations=500,
+                                         learning_rate=0.01,
+                                         depth=6)
+    # Fit model
+    catboost_binary.fit(np.asarray(df_train[FEATURES]), y_train, cat_features)
+
+    # Evaluate its accuracy
+    f_beta, area, tnr, tpr_train, tpr_test = model_evaluation(catboost_binary,
+                                                              df_train[FEATURES],
+                                                              df_test[FEATURES],
+                                                              df_attacks[FEATURES]
+                                                              )
+    st.write('SUPERVISED TAMPER MODEL ACCURACY')
+    st.write('F20:{} / Area:{} / TNR:{} / TPR_train:{} / TPR_test:{}'.format(f_beta, area, tnr, tpr_train, tpr_test))
+
+    return catboost_binary, oc_svm, scaler, df_attacks
 
 def main():
     """
@@ -195,32 +257,45 @@ def main():
 
     # Train SSIM predictor and retrieve a test set
     qoe_model, test_data_qoe = train_qoe_model(df_qoe)
-    # Train tamper verification and extract
-    tamper_model, scaler, df_attacks = train_tamper_model(df_aggregated)
+    # Train unsupervised tamper verification and extract attacks dataset
+    catboost_binary, oc_svm, scaler, df_attacks = train_tamper_model(df_aggregated)
 
     # Evaluate incidence of false positives from attack dataset
     x_attacks = np.asarray(df_attacks[FEATURES])
     x_attacks = scaler.transform(x_attacks)
-    df_attacks['pred_tamper'] = tamper_model.predict(x_attacks)
-    false_positives_df = df_attacks[df_attacks['tamper'] != df_attacks['pred_tamper']]
+    df_attacks['ul_pred_tamper'] = oc_svm.predict(x_attacks)
+    df_attacks['sl_pred_tamper'] = catboost_binary.predict(df_attacks[FEATURES])
+    df_attacks['sl_pred_tamper'] = df_attacks['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
+
+    df_attacks['meta_pred_tamper'] = df_attacks.apply(meta_model, axis=1)
+    st.write('ATTACKS')
+    st.write(df_attacks.head(100))
+    false_positives_df = df_attacks[df_attacks['tamper'] != df_attacks['meta_pred_tamper']]
     st.write(false_positives_df.groupby('rendition').count())
 
     # Add predictions to test data set
+    x_test = scaler.transform(test_data_qoe[FEATURES])
     test_data_qoe['pred_ssim'] = qoe_model.predict(test_data_qoe[FEATURES])
-    test_data_qoe['pred_tamper'] = tamper_model.predict(scaler.transform(test_data_qoe[FEATURES]))
+    test_data_qoe['ul_pred_tamper'] = oc_svm.predict(x_test)
+    test_data_qoe['sl_pred_tamper'] = catboost_binary.predict(test_data_qoe[FEATURES])
+    test_data_qoe['sl_pred_tamper'] = test_data_qoe['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
+
+    test_data_qoe['meta_pred_tamper'] = test_data_qoe.apply(meta_model, axis=1)
+    st.write('TEST')
+    st.write(test_data_qoe.head(100))
 
     # Display correlation between predicted and measured metric and color them
     # according to their tamper classification
     fig = px.scatter(test_data_qoe,
                      x='pred_ssim',
                      y=METRICS_QOE,
-                     color='pred_tamper',
+                     color='meta_pred_tamper',
                      hover_data=['rendition'])
     st.plotly_chart(fig)
 
     # Display True Positive Rate for the test dataset
-    st.write(test_data_qoe[test_data_qoe['pred_tamper'] > 0].shape[0] / test_data_qoe.shape[0])
-
+ 
+    meta_model_evaluation(df_aggregated, catboost_binary, oc_svm, scaler)
 if __name__ == '__main__':
 
     main()
