@@ -5,6 +5,8 @@ Module for management and parallelization of verification jobs.
 import os
 from concurrent.futures.thread import ThreadPoolExecutor
 import multiprocessing
+from random import seed
+from random import random
 
 import cv2
 import numpy as np
@@ -68,18 +70,16 @@ class VideoAssetProcessor:
 
             # Convert OpenCV video captures of original to list
             # of numpy arrays for better performance of numerical computations
-            self.random_sampler = sorted(list(np.random.choice(self.max_frames,
-                                                        self.max_samples,
-                                                        replace=False)))
+            self.random_sampler = []
 
             self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
 
             # Instance of the video_metrics class
             self.video_metrics = VideoMetrics(self.metrics_list,
-                                              self.hash_size,
-                                              int(self.height),
-                                              self.cpu_profiler,
-                                              self.do_profiling)
+                                            self.hash_size,
+                                            int(self.height),
+                                            self.cpu_profiler,
+                                            self.do_profiling)
             # Collects both dimensional values in a string
             self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
             # Compute its features
@@ -103,22 +103,25 @@ class VideoAssetProcessor:
         frame_list_hd = []
         i = 0
         pixels = 0
+        height = 0
+        width = 0
+        n_frame = 0
         # Iterate through each frame in the video
         while capture.isOpened():
 
             # Read the frame from the capture
             ret_frame, frame = capture.read()
-
             # If read successful, then append the retrieved numpy array to a python list
             if ret_frame:
-                i += 1
-                # Count the number of pixels
-                height = frame.shape[1]
-                width = frame.shape[0]
-                pixels += height * width
+                n_frame += 1
+                random_frame = random()
+                if random_frame > 0.5:
+                    i += 1
+                    # Count the number of pixels
+                    height = frame.shape[1]
+                    width = frame.shape[0]
+                    pixels += height * width
 
-                # Add the frame to the list if it belong to the random sampling list
-                if i in self.random_sampler:
                     # Change color space to have only luminance
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
                     frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
@@ -132,13 +135,18 @@ class VideoAssetProcessor:
                             frame_hd = frame
 
                         frame_list_hd.append(frame_hd)
+                    # Add the frame to the list if it belong to the random sampling list
+                    self.random_sampler.append(n_frame)
+
+                    if i > self.max_samples:
+                        break
 
             # Break the loop when frames cannot be taken from original
             else:
                 break
         # Clean up memory
         capture.release()
-
+        
         return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
     def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):
