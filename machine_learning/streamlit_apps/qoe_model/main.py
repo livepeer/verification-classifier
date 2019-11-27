@@ -80,6 +80,48 @@ def load_data(data_uri, nrows):
 
     return data_df
 
+def rescale_to_resolution(data):
+    """
+    Function to rescale features to improve accuracy
+    """
+    df = pd.DataFrame(data)
+    print(list(df.columns))
+    features = list(df.columns)
+    downscale_features = ['temporal_psnr',
+                         'temporal_ssim',
+                         'temporal_cross_correlation'
+                         ]
+
+    upscale_features = ['temporal_difference',
+                        'temporal_dct',
+                        'temporal_canny',
+                        'temporal_gaussian_mse',
+                        'temporal_gaussian_difference',
+                        'temporal_histogram_distance',
+                        'temporal_entropy',
+                        'temporal_lbp',
+                        'temporal_texture',
+                        'temporal_match',
+                        ]
+
+    for label in downscale_features:
+        downscale_feature = [feature for feature in features if label in feature]
+        if downscale_feature:
+            for feature in downscale_feature:
+                if df[feature].dtype == int or df[feature].dtype == float:
+                    print('Downscaling', label, feature)
+                    df[feature] = df[feature] / df['size_dimension_ratio']
+
+    for label in upscale_features:
+        upscale_feature = [feature for feature in features if label in feature]
+        if upscale_feature:
+            for feature in upscale_feature:
+                if df[feature].dtype == int or df[feature].dtype == float:
+                    print('Upscaling', label, feature)
+                    df[feature] = df[feature] * df['size_dimension_ratio']
+
+    return df
+
 def set_rendition_name(rendition_name):
     """
     Function to extract source name from rendition path
@@ -207,30 +249,33 @@ def train_tamper_model(data_df):
 
     num_train = int(df_1.shape[0] * 0.8)
     # Split dataset into train, test and attacks and shuffle them
-    df_train = df_1.sample(num_train)
-    df_test = df_1[~df_1.index.isin(df_train.index)]
-    df_attacks = df_0.sample(frac=1)
+    df_train_ul = df_1.sample(num_train)
+    df_test_ul = df_1[~df_1.index.isin(df_train_ul.index)]
+    df_attacks_ul = df_0.sample(frac=1)
 
+    df_train_ul = rescale_to_resolution(df_train_ul)
+    df_test_ul = rescale_to_resolution(df_test_ul)
+    df_attacks_ul = rescale_to_resolution(df_attacks_ul)
     # Convert datasets from dataframes to numpy arrays
-    x_train = np.asarray(df_train[FEATURES])
-    x_test = np.asarray(df_test[FEATURES])
-    x_attacks = np.asarray(df_attacks[FEATURES])
+    x_train_ul = np.asarray(df_train_ul[FEATURES])
+    x_test_ul = np.asarray(df_test_ul[FEATURES])
+    x_attacks_ul = np.asarray(df_attacks_ul[FEATURES])
 
     # Scale the data
     scaler = StandardScaler()
-    x_train = scaler.fit_transform(x_train)
-    x_test = scaler.transform(x_test)
-    x_attacks = scaler.transform(x_attacks)
+    x_train_ul = scaler.fit_transform(x_train_ul)
+    x_test_ul = scaler.transform(x_test_ul)
+    x_attacks_ul = scaler.transform(x_attacks_ul)
 
     # Define One Class Support Vector Machine model and train it
     oc_svm = svm.OneClassSVM(kernel='rbf', gamma=0.05, nu=0.001, cache_size=5000)
-    oc_svm.fit(x_train)
+    oc_svm.fit(x_train_ul)
 
     # Evaluate its accuracy
     f_beta, area, tnr, tpr_train, tpr_test = model_evaluation(oc_svm,
-                                                              x_train,
-                                                              x_test,
-                                                              x_attacks
+                                                              x_train_ul,
+                                                              x_test_ul,
+                                                              x_attacks_ul
                                                               )
     st.write('UNSUPERVISED TAMPER MODEL ACCURACY')
     st.write('F20:{} / Area:{} / TNR:{} / TPR:{}'.format(f_beta, area, tnr, tpr_test))
@@ -238,16 +283,20 @@ def train_tamper_model(data_df):
     # Now use the unsupervised trained model to generate a supervised model
     # using the predictions
     num_train = int(data_df.shape[0] * 0.8)
-    df_train = data_df.sample(num_train)
-    df_test = data_df[~data_df.index.isin(df_train.index)]
+    df_train_sl = data_df.sample(num_train)
+    df_test_sl = data_df[~data_df.index.isin(df_train_sl.index)]
+    df_attacks_sl = df_0.sample(frac=1)
+    st.write('Attacks size:', df_attacks_sl.shape)
+    df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('black_and_white')]
+    df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('rotate')]
+    df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('vignette')]
+    df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('vertical')]
+    df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('345x114')]
+    df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('856x856')]
 
-    df_train = df_train.loc[~df_train['rendition'].str.contains('black_and_white')]
-    df_train = df_train.loc[~df_train['rendition'].str.contains('rotate')]
-    df_train = df_train.loc[~df_train['rendition'].str.contains('vignette')]
-    df_train = df_train.loc[~df_train['rendition'].str.contains('vertical')]
-    st.write(df_train['rendition'].unique())
-    x_train = scaler.transform(np.asarray(df_train[FEATURES]))
-    y_train = df_train['tamper']#oc_svm.predict(x_train)
+    st.write(df_train_sl['rendition'].unique())
+    x_train_sl = scaler.transform(np.asarray(df_train_sl[FEATURES]))
+    y_train_sl = df_train_sl['tamper']
 
     cat_features = []
      # Initialize CatBoostClassifier
@@ -255,13 +304,13 @@ def train_tamper_model(data_df):
                                          learning_rate=0.01,
                                          depth=6)
     # Fit model
-    catboost_binary.fit(np.asarray(df_train[FEATURES_SL]), y_train, cat_features)
+    catboost_binary.fit(np.asarray(df_train_sl[FEATURES_SL]), y_train_sl, cat_features)
 
     # Evaluate its accuracy
     f_beta, area, tnr, tpr_train, tpr_test = model_evaluation(catboost_binary,
-                                                              df_train[FEATURES_SL],
-                                                              df_test[FEATURES_SL],
-                                                              df_attacks[FEATURES_SL]
+                                                              df_train_sl[FEATURES_SL],
+                                                              df_test_sl[FEATURES_SL],
+                                                              df_attacks_sl[FEATURES_SL]
                                                               )
     st.write('SUPERVISED TAMPER MODEL ACCURACY')
     st.write('F20:{} / Area:{} / TNR:{} / TPR_train:{} / TPR_test:{}'.format(f_beta, area, tnr, tpr_train, tpr_test))
