@@ -21,7 +21,7 @@ st.title('QoE model predictor')
 
 DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
 DATA_URI_TAMPER = '../../cloud_functions/data-large.csv'
-FEATURES = ['temporal_dct-max',
+FEATURES = ['temporal_dct-mean',
             'temporal_dct-euclidean',
             'temporal_dct-manhattan',
             'temporal_gaussian_mse-max',
@@ -30,10 +30,10 @@ FEATURES = ['temporal_dct-max',
             'temporal_gaussian_difference-max',
             'temporal_threshold_gaussian_difference-euclidean',
             'temporal_threshold_gaussian_difference-manhattan',
-            # 'pred_ssim',
+            'pred_ssim',
             'size_dimension_ratio'
             ]
-FEATURES_SL = ['temporal_dct-max',
+FEATURES_SL = ['temporal_dct-mean',
                'temporal_dct-euclidean',
                'temporal_dct-manhattan',
                'temporal_gaussian_mse-max',
@@ -43,7 +43,6 @@ FEATURES_SL = ['temporal_dct-max',
                'temporal_threshold_gaussian_difference-euclidean',
                'temporal_threshold_gaussian_difference-manhattan',
                'size_dimension_ratio',
-            #    'pred_ssim'
                ]
 FEATURES_QOE = ['temporal_dct-max',
                'temporal_dct-mean',
@@ -67,9 +66,8 @@ FEATURES_QOE = ['temporal_dct-max',
                'temporal_threshold_gaussian_difference-manhattan',
                'size_dimension_ratio'
                ]
-METRICS_QOE = 'temporal_ssim-mean'
+METRICS_QOE = ['temporal_ssim-mean']
 
-@st.cache
 def load_data(data_uri, nrows):
     """
     Function to retrieve data from a given file or URL
@@ -168,7 +166,7 @@ def model_evaluation(classifier, train_set, test_set, attack_set, beta=20):
                             pos_label=1)
 
     f_beta = fbeta_score(np.concatenate([np.ones(y_pred_test.shape[0]),
-                                         -1*np.ones(y_pred_outliers.shape[0])]),
+                                         -1 * np.ones(y_pred_outliers.shape[0])]),
                          np.concatenate([y_pred_test, y_pred_outliers]),
                          beta=beta,
                          pos_label=1)
@@ -191,16 +189,18 @@ def meta_model_evaluation(data_df, sl_classifier, ul_classifier, scaler):
 
     scaled_input = scaler.transform(np.asarray(eval_df[FEATURES]))
     eval_df['ul_pred_tamper'] = ul_classifier.predict(scaled_input)
-    eval_df['sl_pred_tamper'] = sl_classifier.predict(eval_df[FEATURES])
+
+    eval_df['sl_pred_tamper'] = sl_classifier.predict(eval_df[FEATURES_SL])
     eval_df['sl_pred_tamper'] = eval_df['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
 
     eval_df['meta_pred_tamper'] = eval_df.apply(meta_model, axis=1)
+
     attacks_df = eval_df[eval_df['tamper'] == -1]
     untampered_df = eval_df[eval_df['tamper'] == 1]
 
     y_pred_test = untampered_df['meta_pred_tamper']
     y_pred_outliers = attacks_df['meta_pred_tamper']
-
+    
     f_beta = fbeta_score(np.concatenate([np.ones(y_pred_test.shape[0]),
                                          -1*np.ones(y_pred_outliers.shape[0])]),
                          np.concatenate([y_pred_test, y_pred_outliers]),
@@ -210,14 +210,28 @@ def meta_model_evaluation(data_df, sl_classifier, ul_classifier, scaler):
     tnr = attacks_df[attacks_df['meta_pred_tamper'] == -1].shape[0] / attacks_df.shape[0]
     tpr = untampered_df[untampered_df['meta_pred_tamper'] == 1].shape[0] / untampered_df.shape[0]
 
+    st.write('F20: {} / TNR: {} / TPR: {}'.format(f_beta, tnr, tpr))
 
-    st.write('TNR: {} / TPR: {} / F20: {}'.format(tnr, tpr, f_beta))
+    st.write('MODEL ANALYSIS')
+    st.subheader('Unsupervised model false positives')
+    st.write(attacks_df[attacks_df['ul_pred_tamper'] == 1].groupby('rendition').count())
+    st.subheader('Supervised model false positives')
+    st.write(attacks_df[attacks_df['sl_pred_tamper'] == 1].groupby('rendition').count())
+    st.subheader('Meta model false positives')
+    st.write(attacks_df[attacks_df['meta_pred_tamper'] == 1].groupby('rendition').count())
+
+    st.subheader('Unsupervised model false negatives')
+    st.write(untampered_df[untampered_df['ul_pred_tamper'] == -1].groupby('rendition').count())
+    st.subheader('Supervised model false negatives')
+    st.write(untampered_df[untampered_df['sl_pred_tamper'] == -1].groupby('rendition').count())
+    st.subheader('Meta model false negatives')
+    st.write(untampered_df[untampered_df['meta_pred_tamper'] == -1].groupby('rendition').count())
 
 def train_qoe_model(data_df):
     """
     Function to train model from given dataset
     """
-    num_train = int(data_df.shape[0]*0.8)
+    num_train = int(data_df.shape[0] * 0.8)
 
     train_data = data_df.sample(num_train)
     test_data = data_df[~data_df.index.isin(train_data.index)]
@@ -248,11 +262,15 @@ def train_qoe_model(data_df):
     st.write('QoE model test set accuracy:')
     st.write(learn_test_df.min())
 
-    return model_catbootregressor, test_data
+    st.write('QoE model train set accuracy:')
+    st.write(learn_train_df.min())
+
+    return model_catbootregressor
 
 def train_tamper_model(data_df):
     """
-    Trains an unsupervised learning model for tamper verification
+    Trains an unsupervised learning and a supervised learning
+    models for tamper verification
     """
     # Get untampered assets dataset
     df_1 = data_df[data_df['tamper'] == 1]
@@ -264,7 +282,7 @@ def train_tamper_model(data_df):
     df_train_ul = df_1.sample(num_train)
     df_test_ul = df_1[~df_1.index.isin(df_train_ul.index)]
     df_attacks_ul = df_0.sample(frac=1)
-
+    
     df_train_ul = rescale_to_resolution(df_train_ul)
     df_test_ul = rescale_to_resolution(df_test_ul)
     df_attacks_ul = rescale_to_resolution(df_attacks_ul)
@@ -327,7 +345,7 @@ def train_tamper_model(data_df):
     st.write('SUPERVISED TAMPER MODEL ACCURACY')
     st.write('F20:{} / Area:{} / TNR:{} / TPR_train:{} / TPR_test:{}'.format(f_beta, area, tnr, tpr_train, tpr_test))
 
-    return catboost_binary, oc_svm, scaler, df_attacks
+    return catboost_binary, oc_svm, scaler
 
 def main():
     """
@@ -343,7 +361,7 @@ def main():
     # Merge datasets to train verification with more well encoded renditions
     frames = [df_qoe, df_tamper]
     df_aggregated = pd.concat(frames)
-
+ 
     # Display datasets
     st.subheader('Raw QoE data')
     st.write(df_qoe.head(100), df_qoe.shape)
@@ -353,44 +371,33 @@ def main():
     st.write(df_aggregated.head(100), df_aggregated.shape)
 
     # Train SSIM predictor and retrieve a test set
-    qoe_model, test_data_qoe = train_qoe_model(df_qoe)
+    qoe_model = train_qoe_model(df_qoe)
 
     df_aggregated['pred_ssim'] = qoe_model.predict(df_aggregated[FEATURES_QOE])
     # Train unsupervised tamper verification and extract attacks dataset
-    catboost_binary, oc_svm, scaler, df_attacks = train_tamper_model(df_aggregated)
-
-    # Evaluate incidence of false positives from attack dataset
-    x_attacks = np.asarray(df_attacks[FEATURES])
-    x_attacks = scaler.transform(x_attacks)
-    df_attacks['ul_pred_tamper'] = oc_svm.predict(x_attacks)
-    df_attacks['sl_pred_tamper'] = catboost_binary.predict(df_attacks[FEATURES])
-    df_attacks['sl_pred_tamper'] = df_attacks['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
-
-    df_attacks['meta_pred_tamper'] = df_attacks.apply(meta_model, axis=1)
-    st.write('ATTACKS')
-    st.write(df_attacks.head(100))
-    false_positives_df = df_attacks[df_attacks['tamper'] != df_attacks['meta_pred_tamper']]
-    st.write(false_positives_df.groupby('rendition').count())
+    catboost_binary, oc_svm, scaler = train_tamper_model(df_aggregated)
 
     # Add predictions to test data set
-    test_data_qoe['pred_ssim'] = qoe_model.predict(test_data_qoe[FEATURES_QOE])
+    df_qoe['pred_ssim'] = qoe_model.predict(df_qoe[FEATURES_QOE])
 
-    x_test = scaler.transform(test_data_qoe[FEATURES])
-    test_data_qoe['ul_pred_tamper'] = oc_svm.predict(x_test)
-    
-    test_data_qoe['sl_pred_tamper'] = catboost_binary.predict(test_data_qoe[FEATURES_SL])
-    test_data_qoe['sl_pred_tamper'] = test_data_qoe['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
+    x_test = scaler.transform(df_qoe[FEATURES])
+    df_qoe['ul_pred_tamper'] = oc_svm.predict(x_test)
+    df_qoe['ocsvm_dist'] = oc_svm.decision_function(x_test)
+    df_qoe['sl_pred_tamper'] = catboost_binary.predict(df_qoe[FEATURES_SL])
+    df_qoe['sl_pred_tamper'] = df_qoe['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
 
-    test_data_qoe['meta_pred_tamper'] = test_data_qoe.apply(meta_model, axis=1)
+    df_qoe['meta_pred_tamper'] = df_qoe.apply(meta_model, axis=1).astype(str)
     st.write('TEST')
-    st.write(test_data_qoe.head(100))
+    st.write(df_qoe.head(100))
+    # Display True Positive Rate for the test dataset
+    meta_model_evaluation(df_aggregated, catboost_binary, oc_svm, scaler)
 
     # Display correlation between predicted and measured metric and color them
     # according to their tamper classification
-    fig = px.scatter(test_data_qoe,
-                     x='pred_ssim',
-                     y=METRICS_QOE,
-                     color='meta_pred_tamper',
+    fig = px.scatter(df_qoe,
+                     x='ocsvm_dist',
+                     y='temporal_ssim-mean',
+                    #  color='meta_pred_tamper',
                      hover_data=['rendition'])
     st.plotly_chart(fig)
 
@@ -403,8 +410,7 @@ def main():
                                     ))
  
     st.plotly_chart(fig, width=1000, height=1000)
- 
-    meta_model_evaluation(df_aggregated, catboost_binary, oc_svm, scaler)
+
 if __name__ == '__main__':
 
     main()
