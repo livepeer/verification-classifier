@@ -6,86 +6,54 @@ triggers an http call for each video entry located in the designated bucket
 """
 import sys
 import subprocess
-
-from os import makedirs, path, remove
-from os.path import exists, dirname
-
-import time
 import datetime
 
+import os
+
+import time
+
 import numpy as np
-
-from google.cloud import datastore
-from google.cloud import storage
-from google.api_core import retry
-
-from urllib3.exceptions import ProtocolError
-
 
 sys.path.insert(0, 'imports')
 
 from imports import ffmpeg_installer
-from imports.video_asset_processor import VideoAssetProcessor
+from imports import gce_utils
 
 CODEC_TO_USE = 'libx264'
 
-DATASTORE_CLIENT = datastore.Client()
-STORAGE_CLIENT = storage.Client()
-
 PARAMETERS_BUCKET = 'livepeer-qoe-renditions-params'
 SOURCES_BUCKET = 'livepeer-qoe-sources'
-RENDITIONS_BUCKET = 'livepeer-qoe-renditions'
+RENDITIONS_BUCKET = 'livepeer-crf-renditions'
 ENTITY_NAME = 'features_input_QoE'
 
-def check_blob(bucket_name, blob_name):
+def download_video_from_url(video_url, duration, local_file, extension):
     """
-    Checks if a file exists in the bucket.
+    Downloads a video from a given url to an HLS manifest
     """
+    local_folder = os.path.dirname(local_file)
+    if not os.path.exists(local_folder):
+        os.makedirs(local_folder)
 
-    bucket = STORAGE_CLIENT.get_bucket(bucket_name)
-    stats = storage.Blob(bucket=bucket, name=blob_name).exists(STORAGE_CLIENT)
+    print('Downloading {} to {}'.format(video_url, local_file))
+    seek_time = str(datetime.timedelta(seconds=int(duration)/2))
+    end_time = str(datetime.timedelta(seconds=(int(duration)/2)+10))
+    print(seek_time)
+    ffmpeg_command = ['ffmpeg -y -i {} -ss {} -to {}'.format(video_url, seek_time, end_time),
+                      '-vcodec copy',
+                      '-acodec copy',
+                      '-f {} {}'.format(extension, local_file)]
 
-    print('File {} checked with status {}.'.format(blob_name, stats))
-    return stats
+    ffmpeg = subprocess.Popen(' '.join(ffmpeg_command),
+                              stderr=subprocess.PIPE,
+                              stdout=subprocess.PIPE,
+                              shell=True)
+    out, err = ffmpeg.communicate()
+    print(' '.join(ffmpeg_command), out, err)
+    if not os.path.exists(local_file):
+        print('Unable to download {}'.format(local_file))
+        return False
 
-def upload_blob(bucket_name, local_file, destination_blob_name):
-    """
-    Uploads a file to the bucket.
-    """
-
-    bucket = STORAGE_CLIENT.get_bucket(bucket_name)
-    blob = bucket.blob(destination_blob_name)
-
-    print('Uploading {} to {}.'.format(
-        local_file,
-        destination_blob_name))
-
-    blob.upload_from_filename(local_file)
-
-    print('File {} uploaded to {}.'.format(
-        local_file,
-        destination_blob_name))
-
-def download_to_local(bucket_name, local_file, origin_blob_name):
-    """
-    Downloads a file from the bucket.
-    """
-
-    predicate = retry.if_exception_type(ConnectionResetError, ProtocolError)
-    reset_retry = retry.Retry(predicate)
-
-    bucket = STORAGE_CLIENT.get_bucket(bucket_name)
-    blob = bucket.blob(origin_blob_name)
-    print(origin_blob_name)
-    print('File download Started…. Wait for the job to complete.')
-    # Create this folder locally if not exists
-    local_folder = dirname(local_file)
-    if not exists(local_folder):
-        makedirs(local_folder)
-
-    print('Downloading {} to {}'.format(origin_blob_name, local_file))
-    reset_retry(blob.download_to_filename(local_file))
-    print('Downloaded {} to {}'.format(origin_blob_name, local_file))
+    return True
 
 def compute_metrics(asset, renditions):
     '''
@@ -94,17 +62,23 @@ def compute_metrics(asset, renditions):
     The feature_list argument is left void as every descriptor of each
     temporal metric is potentially used for model training
     '''
+    from imports.video_asset_processor import VideoAssetProcessor
+
     start_time = time.time()
 
     source_asset = asset
 
-    max_samples = 60
+    max_samples = 30
     renditions_list = renditions
     metrics_list = ['temporal_ssim',
-                    'temporal_psnr'
+                    'temporal_psnr',
+                    'temporal_dct',
+                    'temporal_gaussian_mse',
+                    'temporal_gaussian_difference',
+                    'temporal_threshold_gaussian_difference',
                     ]
-                    
-    print('Computing asset:', asset)
+
+    print('Computing asset: {}, max samples used: {}'.format(asset, max_samples))
     asset_processor = VideoAssetProcessor(source_asset,
                                           renditions_list,
                                           metrics_list,
@@ -119,23 +93,10 @@ def compute_metrics(asset, renditions):
         for column in metrics_df.columns:
             if 'series' in column:
                 line[column] = np.array2string(np.around(line[column], decimals=5))
-        add_asset_input(DATASTORE_CLIENT, '{}/{}'.format(row['title'], row['attack']), line)
+        gce_utils.add_asset_input('{}/{}'.format(row['title'], row['attack']), line, ENTITY_NAME)
 
     elapsed_time = time.time() - start_time
     print('Computation time:', elapsed_time)
-
-def add_asset_input(client, title, input_data):
-    """
-    Function to add the asset's computed data to the database
-    """
-
-    key = client.key(ENTITY_NAME, title, namespace='livepeer-verifier-QoE')
-    video = datastore.Entity(key)
-
-    video.update(input_data)
-
-    client.put(video)
-
 
 def dataset_generator_qoe_http(request):
     """HTTP Cloud Function.
@@ -155,27 +116,28 @@ def dataset_generator_qoe_http(request):
         source_name = request_args['name']
 
     # Create the folder for the source asset
-    source_folder = '/tmp/{}'.format(dirname(source_name))
-    if not path.exists(source_folder):
-        makedirs(source_folder)
+    source_folder = '/tmp/{}'.format(os.path.dirname(source_name))
+    if not os.path.exists(source_folder):
+        os.makedirs(source_folder)
 
     # Get the file that has been uploaded to GCS
-    asset_path = {'path': '{}{}'.format(source_folder, source_name.replace(dirname(source_name), ''))}
+    asset_path = {'path': '{}{}'.format(source_folder,
+                                        source_name.replace(os.path.dirname(source_name), ''))}
 
     renditions_paths = []
 
     # Check if the source is not already in the path
-    if not path.exists(asset_path['path']):
-        download_to_local(SOURCES_BUCKET, asset_path['path'], source_name)
+    if not os.path.exists(asset_path['path']):
+        gce_utils.download_to_local(SOURCES_BUCKET, asset_path['path'], source_name)
 
     #Bring the attacks to be processed locally
     resolutions = [1080, 720, 480, 384, 288, 144]
-    qps = [45, 40, 32, 25, 21, 18, 14]
+    crfs = [45, 40, 32, 25, 21, 18, 14]
 
     # Create a comprehension list with all the possible attacks
-    rendition_list = ['{}_{}'.format(resolution, qp)
+    rendition_list = ['{}_{}'.format(resolution, crf)
                       for resolution in resolutions
-                      for qp in qps
+                      for crf in crfs
                       ]
 
     for rendition in rendition_list:
@@ -184,9 +146,9 @@ def dataset_generator_qoe_http(request):
         rendition_folder = '/tmp/{}'.format(rendition)
         local_path = '{}/{}'.format(rendition_folder, source_name)
         try:
-            download_to_local(RENDITIONS_BUCKET,
-                              local_path,
-                              remote_file)
+            gce_utils.download_to_local(RENDITIONS_BUCKET,
+                                        local_path,
+                                        remote_file)
 
             renditions_paths.append({'path': local_path})
 
@@ -199,6 +161,14 @@ def dataset_generator_qoe_http(request):
     else:
         print('Empty renditions list. No renditions to process')
 
+    # Cleanup 
+    if os.path.exists(asset_path['path']):
+        os.remove(asset_path['path'])
+    for rendition in rendition_list:
+        rendition_folder = '/tmp/{}'.format(rendition)
+        local_path = '{}/{}'.format(rendition_folder, source_name)
+        if os.path.exists(local_path):
+            os.remove(local_path)
     return 'Process completed: {}'.format(asset_path['path'])
 
 
@@ -218,25 +188,25 @@ def trigger_renditions_bucket_event(data, context):
     name = data['name']
 
     # Create the folder for the renditions
-    params_folder = '/tmp/{}'.format(dirname(name))
-    if not path.exists(params_folder):
-        makedirs(params_folder)
+    params_folder = '/tmp/{}'.format(os.path.dirname(name))
+    if not os.path.exists(params_folder):
+        os.makedirs(params_folder)
 
     resolutions = [1080, 720, 480, 384, 288, 144]
-    qps = [45, 40, 32, 25, 21, 18, 14]
+    crfs = [45, 40, 32, 25, 21, 18, 14]
 
     for resolution in resolutions:
-        for quantization_parameter in qps:
-            local_file = '{}/{}-{}-{}.json'.format(params_folder.replace(dirname(name), ''),
+        for crf in crfs:
+            local_file = '{}/{}-{}-{}.json'.format(params_folder.replace(os.path.dirname(name), ''),
                                                    name,
                                                    resolution,
-                                                   quantization_parameter)
+                                                   crf)
             remote_file = '{}/{}-{}.json'.format(name,
                                                  resolution,
-                                                 quantization_parameter)
+                                                 crf)
             file_output = open(local_file, "w")
             file_output.close()
-            upload_blob(PARAMETERS_BUCKET, local_file, remote_file)
+            gce_utils.upload_blob(PARAMETERS_BUCKET, local_file, remote_file)
 
     return 'Renditions triggered for {}'.format(name)
 
@@ -250,10 +220,10 @@ def create_renditions_bucket_event(data, context):
         The status message if successful
     """
 
-    source_name = dirname(data['name'])
+    source_name = os.path.dirname(data['name'])
     params_name = data['name'].replace(source_name, '')
     resolution = params_name.split('-')[0][1:]
-    qp_value = params_name.split('-')[1].replace('.json', '')
+    crf_value = params_name.split('-')[1].replace('.json', '')
 
     print('Processing source: {} at resolution {}'.format(source_name, resolution))
 
@@ -265,51 +235,51 @@ def create_renditions_bucket_event(data, context):
 
     # Create the folder for the renditions
     renditions_folder = '/tmp/renditions'
-    if not path.exists(renditions_folder):
-        makedirs(renditions_folder)
+    if not os.path.exists(renditions_folder):
+        os.makedirs(renditions_folder)
 
     # Get the file that has been uploaded to GCS
     asset_path = {'path': '{}/{}'.format(source_folder, source_name)}
 
     # Check if the source is not already in the path
-    if not path.exists(asset_path['path']):
+    if not os.path.exists(asset_path['path']):
         print('Retrieving video from {}'.format(asset_path['path']))
-        download_to_local(SOURCES_BUCKET, asset_path['path'], source_name)
+        gce_utils.download_to_local(SOURCES_BUCKET, asset_path['path'], source_name)
 
     print('Processing resolution', resolution)
     # Create folder for each rendition
 
-    bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
+    bucket_path = '{}_{}/{}'.format(resolution, crf_value, source_name)
     print('Bucket path:', bucket_path)
-    if not check_blob(RENDITIONS_BUCKET, bucket_path):
-        qp_path = '{}/{}_{}/{}'.format(renditions_folder,
-                                       resolution,
-                                       qp_value,
-                                       dirname(source_name))
-        if not path.exists(qp_path):
-            print('Creating rendition folder:', qp_path)
-            makedirs(qp_path)
+    if not gce_utils.check_blob(RENDITIONS_BUCKET, bucket_path):
+        crf_path = '{}/{}_{}/{}'.format(renditions_folder,
+                                        resolution,
+                                        crf_value,
+                                        os.path.dirname(source_name))
+        if not os.path.exists(crf_path):
+            print('Creating rendition folder:', crf_path)
+            os.makedirs(crf_path)
 
     # Generate renditions with ffmpeg
     renditions_worker(asset_path['path'],
                       source_folder,
                       CODEC_TO_USE,
                       resolution,
-                      qp_value,
+                      crf_value,
                       renditions_folder)
 
     #compute_metrics(asset_path, renditions_paths)
 
     # Upload renditions to GCE storage bucket
 
-    local_path = '{}/{}_{}/{}'.format(renditions_folder, resolution, qp_value, source_name)
-    bucket_path = '{}_{}/{}'.format(resolution, qp_value, source_name)
-    upload_blob(RENDITIONS_BUCKET, local_path, bucket_path)
-    remove(local_path)
+    local_path = '{}/{}_{}/{}'.format(renditions_folder, resolution, crf_value, source_name)
+    bucket_path = '{}_{}/{}'.format(resolution, crf_value, source_name)
+    gce_utils.upload_blob(RENDITIONS_BUCKET, local_path, bucket_path)
+    os.remove(local_path)
 
     return 'FINISHED Processing source: {} at resolution {}'.format(source_name, resolution)
 
-def renditions_worker(full_input_file, source_folder, codec, resolution, qp_value, output_folder):
+def renditions_worker(full_input_file, source_folder, codec, resolution, crf_value, output_folder):
     """
     Executes ffmepg command via PIPE
     """
@@ -317,15 +287,18 @@ def renditions_worker(full_input_file, source_folder, codec, resolution, qp_valu
     #Formats ffmpeg command to be executed in parallel for each Quantization parameter value
     print('processing {}'.format(full_input_file))
     source_name = full_input_file.replace('{}/'.format(source_folder), '')
-    output_name = '"{}/{}_{}/{}"'.format(output_folder, resolution, qp_value, source_name)
+    output_name = '"{}/{}_{}/{}"'.format(output_folder, resolution, crf_value, source_name)
+
     ffmpeg_command = ['ffmpeg', '-y', '-i', '"{}"'.format(full_input_file),
+                      '-an',
                       '-c:v', codec,
-                      '-vf',
-                      'scale=-2:{}'.format(resolution),
-                      '-qp {}'.format(qp_value),
-                      output_name,
-                      '-max_muxing_queue_size 9999',
-                      '-acodec copy'
+                      '-copyts',
+                      '-vsync 0',
+                      '-copytb 1',
+                      '-enc_time_base -1',
+                      '-crf {}'.format(crf_value),
+                      '-vf scale=-2:{}'.format(resolution),
+                      output_name
                       ]
 
     ffmpeg = subprocess.Popen(' '.join(ffmpeg_command),
@@ -334,35 +307,6 @@ def renditions_worker(full_input_file, source_folder, codec, resolution, qp_valu
                               shell=True)
     out, err = ffmpeg.communicate()
     print(' '.join(ffmpeg_command), out, err)
-
-def download_video_from_url(video_url, duration, local_file, extension):
-    """
-    Downloads a video from a given url to an HLS manifest
-    """
-    local_folder = dirname(local_file)
-    if not exists(local_folder):
-        makedirs(local_folder)
-
-    print('Downloading {} to {}'.format(video_url, local_file))
-    seek_time = str(datetime.timedelta(seconds=int(duration)/2))
-    end_time = str(datetime.timedelta(seconds=(int(duration)/2)+10))
-    print(seek_time)
-    ffmpeg_command = ['ffmpeg -y -i {} -ss {} -to {}'.format(video_url, seek_time, end_time),
-                      '-vcodec copy',
-                      '-acodec copy',
-                      '-f {} {}'.format(extension, local_file)]
-
-    ffmpeg = subprocess.Popen(' '.join(ffmpeg_command),
-                              stderr=subprocess.PIPE,
-                              stdout=subprocess.PIPE,
-                              shell=True)
-    out, err = ffmpeg.communicate()
-    print(' '.join(ffmpeg_command), out, err)
-    if not exists(local_file):
-        print('Unable to download {}'.format(local_file))
-        return False
-
-    return True
 
 def create_source_http(request):
     """HTTP Cloud Function.
@@ -394,9 +338,9 @@ def create_source_http(request):
     local_file = '/tmp/{}.{}'.format(video_id, extension)
     destination_blob_name = '{}.{}'.format(video_id, extension)
 
-    if not check_blob(SOURCES_BUCKET, destination_blob_name):
+    if not gce_utils.check_blob(SOURCES_BUCKET, destination_blob_name):
         if download_video_from_url(playlist_url, duration, local_file, extension):
-            upload_blob(SOURCES_BUCKET, local_file, destination_blob_name)
+            gce_utils.upload_blob(SOURCES_BUCKET, local_file, destination_blob_name)
     else:
         print('Video already uploaded, skipping')
     return 'FINISHED Processing source: {}'.format(video_id)

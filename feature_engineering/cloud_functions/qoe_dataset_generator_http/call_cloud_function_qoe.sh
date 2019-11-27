@@ -8,5 +8,5 @@ do
     gcloud functions call dataset_generator_qoe_http --data '{"name":"'"vimeo/$filename"'"}' &
 
     echo "$(date)" "$filename";
-    sleep 7
+    sleep 10
 done;

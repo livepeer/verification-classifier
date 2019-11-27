@@ -1,9 +1,9 @@
 google-cloud-storage
 google-cloud-datastore 
 scikit-learn==0.20.3
-opencv-python==4.0.0.21
+opencv-contrib-python==4.1.1.26
 click==7.0
-numpy==1.16.2
+numpy==1.17.3
 pandas==0.24.2
-scikit-image==0.15.0
+scikit-image==0.16.1
 memory-profiler==0.55.0

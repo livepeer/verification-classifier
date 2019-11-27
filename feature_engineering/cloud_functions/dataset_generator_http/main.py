@@ -58,10 +58,14 @@ def compute_metrics(asset, renditions):
 
     source_asset = asset
 
-    max_samples = 60
+    max_samples = 30
     renditions_list = renditions
     metrics_list = ['temporal_ssim',
-                    'temporal_psnr'
+                    'temporal_psnr',
+                    'temporal_dct',
+                    'temporal_gaussian_mse',
+                    'temporal_gaussian_difference',
+                    'temporal_threshold_gaussian_difference'
                     ]
 
     asset_processor = VideoAssetProcessor(source_asset,
@@ -111,9 +115,11 @@ def dataset_generator_http(request):
 
     if request_json and 'name' in request_json:
         source_name = request_json['name']
+        resolution_list = request_json['resolution_list'].split(',')
     elif request_args and 'name' in request_args:
         source_name = request_args['name']
-
+        resolution_list = request_args['resolution_list'].split(',')
+    print(resolution_list)
     # Create the folder for the source asset
     source_folder = '/tmp/1080p'
     # if not os.path.exists(source_folder):
@@ -129,13 +135,12 @@ def dataset_generator_http(request):
         download_to_local(SOURCES_BUCKET, source_folder, source_name, source_name)
 
     #Bring the attacks to be processed locally
-    resolution_list = ['1080p', '720p', '480p', '360p', '240p', '144p']
+    # resolution_list = ['1080p', '720p', '480p', '360p', '240p', '144p']
     attack_names = ['watermark',
                     'watermark-345x114',
                     'watermark-856x856',
                     'vignette',
-                    'flip_vertical',
-                    'rotate_90_clockwise',
+                    # 'rotate_90_clockwise',
                     'black_and_white',
                     'low_bitrate_4',
                     'low_bitrate_8']
@@ -145,10 +150,10 @@ def dataset_generator_http(request):
                     for resolution in resolution_list
                     for attack in attack_names
                     ]
-
-    resolution_list.remove('1080p')
+    if '1080p' in resolution_list:
+       resolution_list.remove('1080p')
     attacks_list += resolution_list
-
+    
     for attack in attacks_list:
         remote_file = '{}/{}'.format(attack, source_name)
 
@@ -171,5 +176,14 @@ def dataset_generator_http(request):
         compute_metrics(asset_path, renditions_paths)
     else:
         print('Empty renditions list. No renditions to process')
+
+    # Cleanup
+    if os.path.exists(asset_path['path']):
+        os.remove(asset_path['path'])
+    for rendition in attacks_list:
+        rendition_folder = '/tmp/{}'.format(rendition)
+        local_path = '{}/{}'.format(rendition_folder, source_name)
+        if os.path.exists(local_path):
+            os.remove(local_path)
 
     return 'Process completed: {}'.format(asset_path['path'])
