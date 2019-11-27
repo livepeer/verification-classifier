@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.preprocessing import StandardScaler
 from sklearn import svm
@@ -45,12 +46,23 @@ FEATURES_SL = ['temporal_dct-max',
             #    'pred_ssim'
                ]
 FEATURES_QOE = ['temporal_dct-max',
+               'temporal_dct-mean',
+               'temporal_dct-std',
                'temporal_dct-euclidean',
                'temporal_dct-manhattan',
                'temporal_gaussian_mse-max',
+               'temporal_gaussian_mse-mean',
+               'temporal_gaussian_mse-std',
+               'temporal_gaussian_mse-euclidean',
                'temporal_gaussian_mse-manhattan',
-               'temporal_gaussian_difference-mean',
                'temporal_gaussian_difference-max',
+               'temporal_gaussian_difference-mean',
+               'temporal_gaussian_difference-std',
+               'temporal_gaussian_difference-euclidean',
+               'temporal_gaussian_difference-manhattan',
+               'temporal_threshold_gaussian_difference-max',
+               'temporal_threshold_gaussian_difference-mean',
+               'temporal_threshold_gaussian_difference-std',
                'temporal_threshold_gaussian_difference-euclidean',
                'temporal_threshold_gaussian_difference-manhattan',
                'size_dimension_ratio'
@@ -382,7 +394,15 @@ def main():
                      hover_data=['rendition'])
     st.plotly_chart(fig)
 
-    # Display True Positive Rate for the test dataset
+    df_features = pd.DataFrame(df_qoe[FEATURES_QOE + METRICS_QOE])
+    corr = df_features.corr()
+    corr.style.background_gradient(cmap='coolwarm')
+    fig = go.Figure(data=go.Heatmap(x=FEATURES_QOE + METRICS_QOE,
+                                    y=FEATURES_QOE + METRICS_QOE,
+                                    z=corr
+                                    ))
+ 
+    st.plotly_chart(fig, width=1000, height=1000)
  
     meta_model_evaluation(df_aggregated, catboost_binary, oc_svm, scaler)
 if __name__ == '__main__':
