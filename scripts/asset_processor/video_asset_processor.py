@@ -348,6 +348,8 @@ class VideoAssetProcessor:
         # Compute a size/dimension ratio column for better accuracy
         metrics_df['size_dimension_ratio'] = metrics_df['size'] / metrics_df['dimension']
 
+        metrics_df = metrics_df.drop(['dimension', 'size'], axis=1)
+
         return metrics_df, pixels_df, dimensions_df
 
     def cleanup_dataframe(self, metrics_df, features):
