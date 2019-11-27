@@ -141,7 +141,7 @@ class VideoMetrics:
         -------
         DTW distance between A and B
         """
-        max_warping_window=10000
+        max_warping_window = 10000
         # Create cost matrix via broadcasting with large int
         ts_a, ts_b = np.array(ts_a), np.array(ts_b)
         M, N = len(ts_a), len(ts_b)
@@ -274,7 +274,7 @@ class VideoMetrics:
         """
 
         return structural_similarity(reference_frame,
-                    rendition_frame)
+                                     rendition_frame)
 
     @staticmethod
     def histogram_distance(reference_frame, rendition_frame, bins=None, eps=1e-10):
@@ -445,7 +445,6 @@ class VideoMetrics:
                         next_reference_frame,
                         rendition_frame_HD,
                         reference_frame_HD):
-        rendition_metrics = {}
 
         if self.profiling:
             self.cross_correlation = self.cpu_profiler(self.cross_correlation)
@@ -467,7 +466,8 @@ class VideoMetrics:
             self.image_match_instant = self.cpu_profiler(self.image_match_instant)
             self.brisque_features = self.cpu_profiler(self.brisque_features)
 
-    # Some metrics only need the luminance channel
+        rendition_metrics = {}
+        # Some metrics only need the luminance channel
         reference_frame_gray = reference_frame
         rendition_frame_gray = rendition_frame
         next_reference_frame_gray = next_reference_frame
