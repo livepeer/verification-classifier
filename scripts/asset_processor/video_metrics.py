@@ -443,8 +443,8 @@ class VideoMetrics:
                         next_rendition_frame,
                         reference_frame,
                         next_reference_frame,
-                        rendition_frame_HD,
-                        reference_frame_HD):
+                        rendition_frame_HD=None,
+                        reference_frame_HD=None):
 
         if self.profiling:
             self.cross_correlation = self.cpu_profiler(self.cross_correlation)

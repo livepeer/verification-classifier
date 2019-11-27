@@ -59,6 +59,12 @@ class VideoAssetProcessor:
             else:
                 self.cpu_profiler = None
             self.do_profiling = do_profiling
+            
+            # Check if HD list is necessary
+            if 'ssim' in self.metrics_list or 'psnr' in self.metrics_list:
+                self.make_hd_list = True
+            else:
+                self.make_hd_list = False
 
             # Convert OpenCV video captures of original to list
             # of numpy arrays for better performance of numerical computations
@@ -115,16 +121,17 @@ class VideoAssetProcessor:
                 if i in self.random_sampler:
                     # Change color space to have only luminance
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-                    # Resize the frame 
-                    if frame.shape[0] != 1920:
-                        frame_hd = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_LINEAR)
-                    else:
-                        frame_hd = frame
-
-                    frame_list_hd.append(frame_hd)
-
                     frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
                     frame_list.append(frame)
+
+                    if self.make_hd_list:
+                        # Resize the frame 
+                        if frame.shape[0] != 1920:
+                            frame_hd = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_LINEAR)
+                        else:
+                            frame_hd = frame
+
+                        frame_list_hd.append(frame_hd)
 
             # Break the loop when frames cannot be taken from original
             else:
@@ -154,22 +161,28 @@ class VideoAssetProcessor:
         # Rendition's subsequent frame (downscaled for performance)
         next_rendition_frame = frame_list[frame_pos+1]
 
-        # Original frame to compare against (HD for QoE metrics)
-        reference_frame_hd = self.original_capture_hd[frame_pos]
-        # Rendition frame (HD for QoE metrics)
-        rendition_frame_hd = frame_list_hd[frame_pos]
+        if self.make_hd_list:
+            # Original frame to compare against (HD for QoE metrics)
+            reference_frame_hd = self.original_capture_hd[frame_pos]
+            # Rendition frame (HD for QoE metrics)
+            rendition_frame_hd = frame_list_hd[frame_pos]
 
-        # Compute the metrics defined in the global metrics_list.
-        # Uses the global instance of video_metrics
-        # Some metrics use a frame-to-frame comparison,
-        # but other require current and forward frames to extract
-        # their comparative values.
-        rendition_metrics = self.video_metrics.compute_metrics(rendition_frame,
-                                                               next_rendition_frame,
-                                                               reference_frame,
-                                                               next_reference_frame,
-                                                               rendition_frame_hd,
-                                                               reference_frame_hd)
+            # Compute the metrics defined in the global metrics_list.
+            # Uses the global instance of video_metrics
+            # Some metrics use a frame-to-frame comparison,
+            # but other require current and forward frames to extract
+            # their comparative values.
+            rendition_metrics = self.video_metrics.compute_metrics(rendition_frame,
+                                                                next_rendition_frame,
+                                                                reference_frame,
+                                                                next_reference_frame,
+                                                                rendition_frame_hd,
+                                                                reference_frame_hd)
+        else:
+            rendition_metrics = self.video_metrics.compute_metrics(rendition_frame,
+                                                                next_rendition_frame,
+                                                                reference_frame,
+                                                                next_reference_frame)                                                            
 
         # Retrieve rendition dimensions for further evaluation
         rendition_metrics['dimensions'] = dimensions
