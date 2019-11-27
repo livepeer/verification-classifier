@@ -254,14 +254,18 @@ def retrieve_video_file(uri):
             print('File {} NOT available in file system'.format(uri), flush=True)
 
     if video_available:
-        audio_file = '{}_audio.wav'.format(uri)
-        subprocess.call(['ffmpeg',
+        try:
+            audio_file = '{}_audio.wav'.format(video_file)
+            subprocess.call(['ffmpeg',
                          '-i',
                          video_file,
                          '-vn',
                          '-acodec',
                          'pcm_s16le',
                          audio_file])
+        except:
+            print('Could not extract audio from video file {}'.format(video_file))
+            audio_available = False
         if os.path.isfile(audio_file):
             print('Audio file {} available in file system'.format(audio_file), flush=True)
         else:
