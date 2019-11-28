@@ -71,9 +71,9 @@ class VideoAssetProcessor:
             # Convert OpenCV video captures of original to list
             # of numpy arrays for better performance of numerical computations
             self.random_sampler = []
-
+            self.create_random_list = True
             self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
-
+            self.create_random_list = False
             # Instance of the video_metrics class
             self.video_metrics = VideoMetrics(self.metrics_list,
                                             self.hash_size,
@@ -91,7 +91,7 @@ class VideoAssetProcessor:
         else:
             print('Aborting, original source not found in path provided')
             self.do_process = False
-
+        
     def capture_to_array(self, capture):
         """
         Function to convert OpenCV video capture to a list of
@@ -114,8 +114,19 @@ class VideoAssetProcessor:
             # If read successful, then append the retrieved numpy array to a python list
             if ret_frame:
                 n_frame += 1
-                random_frame = random()
-                if random_frame > 0.5:
+                add_frame = False
+
+                if self.create_random_list:
+                    random_frame = random()
+                    if random_frame > 0.5:
+                        add_frame = True
+                        # Add the frame to the list if it belong to the random sampling list
+                        self.random_sampler.append(n_frame)
+                else:
+                    if n_frame in self.random_sampler:
+                        add_frame = True
+
+                if add_frame:
                     i += 1
                     # Count the number of pixels
                     height = frame.shape[1]
@@ -135,8 +146,7 @@ class VideoAssetProcessor:
                             frame_hd = frame
 
                         frame_list_hd.append(frame_hd)
-                    # Add the frame to the list if it belong to the random sampling list
-                    self.random_sampler.append(n_frame)
+                    
 
                     if i > self.max_samples:
                         break
@@ -145,8 +155,8 @@ class VideoAssetProcessor:
             else:
                 break
         # Clean up memory
-        capture.release()
-        
+        capture.release()            
+        print(self.random_sampler, flush=True)
         return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
     def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):
