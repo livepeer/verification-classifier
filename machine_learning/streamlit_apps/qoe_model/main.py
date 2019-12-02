@@ -22,7 +22,7 @@ st.title('QoE model predictor')
 DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
 DATA_URI_TAMPER = '../../cloud_functions/data-large.csv'
 
-FEATURES = ['temporal_dct-mean',
+FEATURES = ['temporal_dct-max',
             'temporal_dct-euclidean',
             'temporal_dct-manhattan',
             'temporal_gaussian_mse-max',
@@ -44,7 +44,8 @@ FEATURES_SL = ['temporal_dct-max',
                 'temporal_threshold_gaussian_difference-euclidean',
                 'temporal_threshold_gaussian_difference-manhattan',
                 'size_dimension_ratio',
-                'ocsvm_dist'
+                # 'ocsvm_dist',
+                # 'ul_pred_tamper'
                ]
 FEATURES_QOE = ['temporal_dct-max',
                'temporal_dct-mean',
@@ -190,10 +191,12 @@ def meta_model_evaluation(data_df):
 
     attacks_df = eval_df[eval_df['tamper'] == -1]
     untampered_df = eval_df[eval_df['tamper'] == 1]
+    st.write('EVALUATING ATTACKS:', attacks_df.shape)
+    st.write('EVALUATING UNTAMPERED:', untampered_df.shape)
 
     y_pred_test = untampered_df['meta_pred_tamper']
     y_pred_outliers = attacks_df['meta_pred_tamper']
-    
+
     f_beta = fbeta_score(np.concatenate([np.ones(y_pred_test.shape[0]),
                                          -1*np.ones(y_pred_outliers.shape[0])]),
                          np.concatenate([y_pred_test, y_pred_outliers]),
@@ -337,6 +340,7 @@ def train_sl_tamper_model(data_df):
     # df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('856x856')]
 
     st.write(df_train_sl['rendition'].unique())
+    st.write(df_train_sl.shape)
     y_train_sl = df_train_sl['tamper']
 
     cat_features = []
@@ -367,16 +371,16 @@ def main():
     Main function to train and evaluate tamper and QoE models
     """
         # Get QoE pristine dataset (no attacks)
-    df_qoe = load_data(DATA_URI_QOE, 50000)
+    df_qoe = load_data(DATA_URI_QOE, 5000)
     # Get tamper verification dataset (contains attacks)
-    df_tamper = load_data(DATA_URI_TAMPER, 150000)
+    df_tamper = load_data(DATA_URI_TAMPER, 15000)
     # Remove low_bitrate kind of attacks
     df_tamper = df_tamper.loc[~df_tamper['rendition'].str.contains('low_bitrate')]
 
     # Merge datasets to train verification with more well encoded renditions
     frames = [df_qoe, df_tamper]
     df_aggregated = pd.concat(frames)
-    st.write(df_aggregated['rendition'].unique())
+
     # Display datasets
     st.subheader('Raw QoE data')
     st.write(df_qoe.head(100), df_qoe.shape)
@@ -471,8 +475,20 @@ def main():
     fig.layout.update(barmode='overlay',
                       title='Histogram of legit assets',
                       xaxis_title_text='Distance to decision function',
-                      yaxis_title_text='Count',
-                      )
+                      yaxis_title_text='Count'
+                     )
+    fig.update_layout(legend=go.layout.Legend(x=0,
+                                              y=1,
+                                              traceorder="normal",
+                                              font=dict(family="sans-serif",
+                                                        size=12,
+                                                        color="black"
+                                                        ),
+                                              bgcolor="LightSteelBlue",
+                                              bordercolor="Black",
+                                              borderwidth=2
+                                            )
+                     )
     st.plotly_chart(fig)
 
     st.write('TEST')
@@ -480,17 +496,38 @@ def main():
 
     # Display correlation between predicted and measured metric and color them
     # according to their tamper classification
-    fig = go.Figure(data=go.Scatter(x=df_aggregated['ocsvm_dist'],
-                                    y=df_aggregated['temporal_ssim-mean'],
-                                    mode='markers',
-                                    marker=dict(size=4,
-                                                opacity=0.8
-                                               )
-                                    ))
+
+    data = []
+    for dimension in df_qoe['dimension_y'].unique():
+        trace = go.Scatter(x=df_qoe[df_qoe['dimension_y'] == dimension]['ocsvm_dist'],
+                           y=df_qoe[df_qoe['dimension_y'] == dimension]['temporal_ssim-mean'],
+                           mode='markers',
+                           marker=dict(
+                                       color=dimension,
+                                       opacity=0.8,
+                                       line=dict(width=0)
+                                       ),
+                           name=str(dimension)
+                           )
+
+        data.append(trace)
+    fig = go.Figure(data=data)
     fig.update_layout(title="SSIM vs Distance to Decision Function",
                       xaxis_title="Distance to Decision Function",
                       yaxis_title="SSIM",
                       font=dict(size=10)
+                     )
+    fig.update_layout(legend=go.layout.Legend(x=0,
+                                            y=0,
+                                            traceorder="normal",
+                                            font=dict(family="sans-serif",
+                                                    size=12,
+                                                    color="black"
+                                                    ),
+                                            bgcolor="LightSteelBlue",
+                                            bordercolor="Black",
+                                            borderwidth=2
+                                        )
                     )
     st.plotly_chart(fig, width=700, height=700)
 
@@ -501,20 +538,36 @@ def main():
         trace = go.Scatter(x=df_qoe[df_qoe['dimension_y'] == dimension]['pred_ssim'],
                            y=df_qoe[df_qoe['dimension_y'] == dimension]['temporal_ssim-mean'],
                            mode='markers',
-                           marker=dict(size=df_qoe[df_qoe['dimension_y'] == dimension]['size_dimension_ratio']/800,
-                                       color=dimension,
+                           marker=dict(color=dimension,
                                        opacity=0.8,
                                        line=dict(width=0)
-                                ),
-                            name=str(dimension)
-                            )
+                                       ),
+                           name=str(dimension)
+                           )
 
         data.append(trace)
+    trace_line = go.Scatter(x=np.arange(0, 1, 0.1),
+                            y=np.arange(0, 1, 0.1),
+                            mode='lines',
+                            name='y=x')
+    data.append(trace_line)
     fig = go.Figure(data=data)
     fig.update_layout(title="Measured SSIM vs Predicted SSIM",
                       yaxis_title="Predicted SSIM",
                       xaxis_title="Measured SSIM"
                     )
+    fig.update_layout(legend=go.layout.Legend(x=0,
+                            y=1,
+                            traceorder="normal",
+                            font=dict(family="sans-serif",
+                                    size=12,
+                                    color="black"
+                                    ),
+                            bgcolor="LightSteelBlue",
+                            bordercolor="Black",
+                            borderwidth=2
+                        )
+    )
     st.plotly_chart(fig)
 
     # Display correlation matrix for features
