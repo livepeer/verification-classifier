@@ -21,6 +21,7 @@ st.title('QoE model predictor')
 
 DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
 DATA_URI_TAMPER = '../../cloud_functions/data-large.csv'
+
 FEATURES = ['temporal_dct-mean',
             'temporal_dct-euclidean',
             'temporal_dct-manhattan',
@@ -33,16 +34,17 @@ FEATURES = ['temporal_dct-mean',
             'pred_ssim',
             'size_dimension_ratio'
             ]
-FEATURES_SL = ['temporal_dct-mean',
-               'temporal_dct-euclidean',
-               'temporal_dct-manhattan',
-               'temporal_gaussian_mse-max',
-               'temporal_gaussian_mse-manhattan',
-               'temporal_gaussian_difference-mean',
-               'temporal_gaussian_difference-max',
-               'temporal_threshold_gaussian_difference-euclidean',
-               'temporal_threshold_gaussian_difference-manhattan',
-               'size_dimension_ratio',
+FEATURES_SL = ['temporal_dct-max',
+                'temporal_dct-euclidean',
+                'temporal_dct-manhattan',
+                'temporal_gaussian_mse-max',
+                'temporal_gaussian_mse-manhattan',
+                'temporal_gaussian_difference-mean',
+                'temporal_gaussian_difference-max',
+                'temporal_threshold_gaussian_difference-euclidean',
+                'temporal_threshold_gaussian_difference-manhattan',
+                'size_dimension_ratio',
+                'ocsvm_dist'
                ]
 FEATURES_QOE = ['temporal_dct-max',
                'temporal_dct-mean',
@@ -143,7 +145,6 @@ def set_rendition_name(rendition_name):
     except:
         return ''
 
-
 def model_evaluation(classifier, train_set, test_set, attack_set, beta=20):
     """
     Evaluates performance of supervised and unsupervised learning algorithms
@@ -181,19 +182,11 @@ def model_evaluation(classifier, train_set, test_set, attack_set, beta=20):
 def meta_model(row):
     return row['sl_pred_tamper'] if row['sl_pred_tamper'] == -1 else row['ul_pred_tamper']
 
-def meta_model_evaluation(data_df, sl_classifier, ul_classifier, scaler):
+def meta_model_evaluation(data_df):
     """
     Evaluate performance of combined meta-model
     """
     eval_df = data_df
-
-    scaled_input = scaler.transform(np.asarray(eval_df[FEATURES]))
-    eval_df['ul_pred_tamper'] = ul_classifier.predict(scaled_input)
-
-    eval_df['sl_pred_tamper'] = sl_classifier.predict(eval_df[FEATURES_SL])
-    eval_df['sl_pred_tamper'] = eval_df['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
-
-    eval_df['meta_pred_tamper'] = eval_df.apply(meta_model, axis=1)
 
     attacks_df = eval_df[eval_df['tamper'] == -1]
     untampered_df = eval_df[eval_df['tamper'] == 1]
@@ -207,9 +200,15 @@ def meta_model_evaluation(data_df, sl_classifier, ul_classifier, scaler):
                          beta=20,
                          pos_label=1)
 
-    tnr = attacks_df[attacks_df['meta_pred_tamper'] == -1].shape[0] / attacks_df.shape[0]
+    try:
+        tnr = attacks_df[attacks_df['meta_pred_tamper'] == -1].shape[0] / attacks_df.shape[0]
+    except:
+        tnr = 0
+        print('No attacks')
+
     tpr = untampered_df[untampered_df['meta_pred_tamper'] == 1].shape[0] / untampered_df.shape[0]
 
+    st.write('TAMPER META-MODEL ACCURACY')
     st.write('F20: {} / TNR: {} / TPR: {}'.format(f_beta, tnr, tpr))
 
     st.write('MODEL ANALYSIS')
@@ -267,7 +266,7 @@ def train_qoe_model(data_df):
 
     return model_catbootregressor
 
-def train_tamper_model(data_df):
+def train_ul_tamper_model(data_df):
     """
     Trains an unsupervised learning and a supervised learning
     models for tamper verification
@@ -308,10 +307,23 @@ def train_tamper_model(data_df):
                                                               x_attacks_ul
                                                               )
     st.write('UNSUPERVISED TAMPER MODEL ACCURACY')
-    st.write('F20:{} / Area:{} / TNR:{} / TPR:{}'.format(f_beta, area, tnr, tpr_test))
+    st.write('F20:{} / Area:{} / TNR:{} / TPR_train:{} / TPR_test:{}'.format(f_beta,
+                                                                             area,
+                                                                             tnr,
+                                                                             tpr_train,
+                                                                             tpr_test))
 
+    return oc_svm, scaler
+
+def train_sl_tamper_model(data_df):
     # Now use the unsupervised trained model to generate a supervised model
     # using the predictions
+
+    # Get untampered assets dataset
+    df_1 = data_df[data_df['tamper'] == 1]
+    # Get tampered (attacks) dataset
+    df_0 = data_df[~data_df.index.isin(df_1.index)]
+
     num_train = int(data_df.shape[0] * 0.8)
     df_train_sl = data_df.sample(num_train)
     df_test_sl = data_df[~data_df.index.isin(df_train_sl.index)]
@@ -321,11 +333,10 @@ def train_tamper_model(data_df):
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('rotate')]
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('vignette')]
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('vertical')]
-    df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('345x114')]
-    df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('856x856')]
+    # df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('345x114')]
+    # df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('856x856')]
 
     st.write(df_train_sl['rendition'].unique())
-    x_train_sl = scaler.transform(np.asarray(df_train_sl[FEATURES]))
     y_train_sl = df_train_sl['tamper']
 
     cat_features = []
@@ -343,9 +354,13 @@ def train_tamper_model(data_df):
                                                               df_attacks_sl[FEATURES_SL]
                                                               )
     st.write('SUPERVISED TAMPER MODEL ACCURACY')
-    st.write('F20:{} / Area:{} / TNR:{} / TPR_train:{} / TPR_test:{}'.format(f_beta, area, tnr, tpr_train, tpr_test))
+    st.write('F20:{} / Area:{} / TNR:{} / TPR_train:{} / TPR_test:{}'.format(f_beta,
+                                                                             area,
+                                                                             tnr,
+                                                                             tpr_train,
+                                                                             tpr_test))
 
-    return catboost_binary, oc_svm, scaler
+    return catboost_binary
 
 def main():
     """
@@ -361,7 +376,7 @@ def main():
     # Merge datasets to train verification with more well encoded renditions
     frames = [df_qoe, df_tamper]
     df_aggregated = pd.concat(frames)
- 
+    st.write(df_aggregated['rendition'].unique())
     # Display datasets
     st.subheader('Raw QoE data')
     st.write(df_qoe.head(100), df_qoe.shape)
@@ -370,14 +385,69 @@ def main():
     st.subheader('Aggregated')
     st.write(df_aggregated.head(100), df_aggregated.shape)
 
-    # Train SSIM predictor and retrieve a test set
+    # Display correlation between measured QoE metric, resolution and size. 
+    # Color them according to their tamper classification
+    fig = go.Figure(data=go.Scatter3d(x=df_aggregated['dimension_y'],
+                                      y=df_aggregated['size'],
+                                      z=df_aggregated['temporal_ssim-mean'],
+                                      mode='markers',
+                                      marker=dict(size=1,
+                                                  color=df_aggregated['tamper'],
+                                                  opacity=0.8
+                                                 )
+                                      ))
+    fig.update_layout(title="SSIM Classifier",
+                      scene = dict(xaxis_title="Vertical Resolution",
+                                   yaxis_title="File Size",
+                                   zaxis_title="SSIM"),
+                      font=dict(size=15)
+                    )
+    st.plotly_chart(fig, width=1000, height=1000)
+
+    # Train SSIM predictor and add predictions to aggregated dataframe
     qoe_model = train_qoe_model(df_qoe)
-
     df_aggregated['pred_ssim'] = qoe_model.predict(df_aggregated[FEATURES_QOE])
-    # Train unsupervised tamper verification and extract attacks dataset
-    catboost_binary, oc_svm, scaler = train_tamper_model(df_aggregated)
 
-    # Add predictions to test data set
+    # Train unsupervised tamper verification and get its feature scaler
+    oc_svm, scaler = train_ul_tamper_model(df_aggregated)
+    # Add predictions to data set
+    x_test = scaler.transform(df_aggregated[FEATURES])
+    df_aggregated['ocsvm_dist'] = oc_svm.decision_function(x_test)
+    df_aggregated['ul_pred_tamper'] = oc_svm.predict(x_test)
+
+    # Train supervised tamper verification and adds its predictions
+    catboost_binary = train_sl_tamper_model(df_aggregated)
+    df_aggregated['sl_pred_tamper'] = catboost_binary.predict(df_aggregated[FEATURES_SL])
+    df_aggregated['sl_pred_tamper'] = df_aggregated['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
+
+    # Apply meta-model to aggregated dataset
+    df_aggregated['meta_pred_tamper'] = df_aggregated.apply(meta_model, axis=1)
+    # Display evaluation metrics for the test dataset
+    meta_model_evaluation(df_aggregated)
+
+    # Display correlation between measured distance to decision function, resolution and size. 
+    # Color them according to their tamper classification
+    fig = go.Figure(data=go.Scatter3d(x=df_aggregated['dimension_y'],
+                                      y=df_aggregated['size'],
+                                      z=df_aggregated['ocsvm_dist'],
+                                      mode='markers',
+                                      marker=dict(size=1,
+                                                  color=df_aggregated['tamper'],
+                                                  opacity=0.8
+                                            )
+                                      ))
+    fig.update_layout(title="OC-SVM Classifier",
+                      scene=dict(xaxis_title="Vertical Resolution",
+                                 yaxis_title="File Size",
+                                 zaxis=dict(nticks=10,
+                                            title="Distance to Decision Function")
+                                ),
+                      font=dict(size=15)
+                    )
+
+    st.plotly_chart(fig, width=1000, height=1000)
+
+    # Add predictions to qoe data set
     df_qoe['pred_ssim'] = qoe_model.predict(df_qoe[FEATURES_QOE])
 
     x_test = scaler.transform(df_qoe[FEATURES])
@@ -385,22 +455,69 @@ def main():
     df_qoe['ocsvm_dist'] = oc_svm.decision_function(x_test)
     df_qoe['sl_pred_tamper'] = catboost_binary.predict(df_qoe[FEATURES_SL])
     df_qoe['sl_pred_tamper'] = df_qoe['sl_pred_tamper'].apply(lambda x: 1 if  x == 1 else -1)
+    df_qoe['meta_pred_tamper'] = df_qoe.apply(meta_model, axis=1)
 
-    df_qoe['meta_pred_tamper'] = df_qoe.apply(meta_model, axis=1).astype(str)
+    meta_model_evaluation(df_qoe)
+    # Display histogram of non-tampered assets
+    resolutions = list(df_qoe['dimension_y'].unique())
+    data = []
+    for res in resolutions:
+        data.append(go.Histogram(x=df_qoe['ocsvm_dist'][df_qoe['dimension_y'] == res],
+                                name='{}p'.format(res),
+                                autobinx=False,
+                                nbinsx = 100,
+                                opacity=0.75))
+    fig = go.Figure(data=data)
+    fig.layout.update(barmode='overlay',
+                      title='Histogram of legit assets',
+                      xaxis_title_text='Distance to decision function',
+                      yaxis_title_text='Count',
+                      )
+    st.plotly_chart(fig)
+
     st.write('TEST')
     st.write(df_qoe.head(100))
-    # Display True Positive Rate for the test dataset
-    meta_model_evaluation(df_aggregated, catboost_binary, oc_svm, scaler)
 
     # Display correlation between predicted and measured metric and color them
     # according to their tamper classification
-    fig = px.scatter(df_qoe,
-                     x='ocsvm_dist',
-                     y='temporal_ssim-mean',
-                    #  color='meta_pred_tamper',
-                     hover_data=['rendition'])
+    fig = go.Figure(data=go.Scatter(x=df_aggregated['ocsvm_dist'],
+                                    y=df_aggregated['temporal_ssim-mean'],
+                                    mode='markers',
+                                    marker=dict(size=4,
+                                                opacity=0.8
+                                               )
+                                    ))
+    fig.update_layout(title="SSIM vs Distance to Decision Function",
+                      xaxis_title="Distance to Decision Function",
+                      yaxis_title="SSIM",
+                      font=dict(size=10)
+                    )
+    st.plotly_chart(fig, width=700, height=700)
+
+    # Display difference between predicted ssim and measured ssim
+    # according to their tamper classification
+    data = []
+    for dimension in df_qoe['dimension_y'].unique():
+        trace = go.Scatter(x=df_qoe[df_qoe['dimension_y'] == dimension]['pred_ssim'],
+                           y=df_qoe[df_qoe['dimension_y'] == dimension]['temporal_ssim-mean'],
+                           mode='markers',
+                           marker=dict(size=df_qoe[df_qoe['dimension_y'] == dimension]['size_dimension_ratio']/800,
+                                       color=dimension,
+                                       opacity=0.8,
+                                       line=dict(width=0)
+                                ),
+                            name=str(dimension)
+                            )
+
+        data.append(trace)
+    fig = go.Figure(data=data)
+    fig.update_layout(title="Measured SSIM vs Predicted SSIM",
+                      yaxis_title="Predicted SSIM",
+                      xaxis_title="Measured SSIM"
+                    )
     st.plotly_chart(fig)
 
+    # Display correlation matrix for features
     df_features = pd.DataFrame(df_qoe[FEATURES_QOE + METRICS_QOE])
     corr = df_features.corr()
     corr.style.background_gradient(cmap='coolwarm')
