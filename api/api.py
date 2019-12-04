@@ -68,8 +68,6 @@ def post_route():
      "source": The URI of the video source
      "results": A list with the verification results, with the following:
         {
-            "https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4":
-            {
                 "frame_rate": The ratio between the expected frame rate and the one extracted
                              with OpenCv's backend (GStreamer by default)
                 "pixels": The number of expected total pixels (height x width x number of frames)
@@ -96,7 +94,6 @@ def post_route():
                 "tamper": A float representing a distance to a decision function defined by the
                           pre-trained model fo verification
                 "uri": The URI of the rendition
-        }
      }
     """
     if request.method == 'POST':
@@ -132,7 +129,7 @@ def post_route():
         results = []
         i = 0
         for rendition in data['renditions']:
-            results.append({rendition['uri']: predictions[i]})
+            results.append(predictions[i])
             i += 1
 
         # Append the results to the verification object
