@@ -46,7 +46,7 @@ def initialize():
     print('Initializing...')
     pd.set_option('display.max_colwidth', -1)
 
-    namespace = 'livepeer-verifier-QoE'
+    namespace = 'livepeer-verifier-brisque'
     client = create_client('epiclabs')
     query = client.query(kind='__kind__',namespace=namespace)
     query.keys_only()
@@ -54,7 +54,7 @@ def initialize():
     inputs_df = pd.DataFrame()
 
     print('Getting inputs...')
-    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input_60_540' in entity.key.name]
+    input_kinds = [entity.key.name for entity in query.fetch() if 'features_input_brisque' in entity.key.name]
     
     print('Retrieving data from Datastore...')
     for kind in input_kinds:
@@ -63,6 +63,6 @@ def initialize():
         kind_df['kind'] = kind
         inputs_df = pd.concat([inputs_df, kind_df],axis=0,sort=True, ignore_index=True)
 
-        jobs_dict[kind] = inputs_df['title'][inputs_df['kind']==kind]
-    inputs_df.to_csv('data-train-metrics-large.csv')
+        # jobs_dict[kind] = inputs_df['title'][inputs_df['kind']==kind]
+    inputs_df.to_csv('data-brisque-large.csv')
 initialize()
