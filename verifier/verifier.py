@@ -43,9 +43,11 @@ def pre_verify(source, rendition):
             try:
                 # Compute the Euclidean distance between source's and rendition's signals
                 rendition['audio_dist'] = np.linalg.norm(source_file_series-rendition_file_series)
-                # Cleanup the audio file generated to avoid cluttering
             except:
-                rendition['audio_dist'] = 'dist_error'
+                # Set to negative to indicate an error during audio comparison
+                # (matching floating-point datatype of Euclidean distance)
+                rendition['audio_dist'] = -1.0
+            # Cleanup the audio file generated to avoid cluttering
             os.remove(audio_file)
 
         rendition_capture = cv2.VideoCapture(video_file)
