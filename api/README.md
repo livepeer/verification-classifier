@@ -80,17 +80,12 @@ A sample call to the API is provided below:
 {"orchestrator_id":"foo",
 "results":[
     {
-        "https://storage.googleapis.com/livepeer-verifier-renditions/144p_black_and_white/-3MYFnEaYu4.mp4":
-        {
-            "available":true,
+            "video_available":true,
             "tamper":-1.195989,
             "uri":"https://storage.googleapis.com/livepeer-verifier-renditions/144p_black_and_white/-3MYFnEaYu4.mp4"
-        }
     },
     {
-        "https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4":
-        {
-            "available":true,
+            "video_available":true,
             "frame_rate":false,
             "pixels":"1034500",
             "pixels_post_verification":0.09354202835648148,
@@ -106,7 +101,6 @@ A sample call to the API is provided below:
             },
             "tamper":1.219913,
             "uri":"https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4"
-        }
     }],
     "source":"https://storage.googleapis.com/livepeer-verifier-renditions/480p/-3MYFnEaYu4.mp4"}
 
@@ -145,17 +139,12 @@ curl localhost:5000/verify -d '{
 "results":
 [
     {
-        "stream/144p_black_and_white/1HWSFYQXa1Q.mp4":
-        {
-            "available":true,
+            "video_available":true,
             "tamper":-9.408425,
             "uri":"stream/144p_black_and_white/1HWSFYQXa1Q.mp4"
-        }
     },
     {
-        "stream/144p/1HWSFYQXa1Q.mp4":
-        {
-            "available":true,
+            "video_available":true,
             "frame_rate":false,
             "pixels":"1034500",
             "pixels_post_verification":0.09354202835648148,
@@ -171,7 +160,6 @@ curl localhost:5000/verify -d '{
             },
             "tamper":1.200134,
             "uri":"stream/144p/1HWSFYQXa1Q.mp4"
-        }
     }
 ],
 "source":"stream/sources/1HWSFYQXa1Q.mp4"}
