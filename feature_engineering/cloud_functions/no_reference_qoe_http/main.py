@@ -48,20 +48,20 @@ def dataset_generator_brisque_http(request):
                 features = cv2.quality.QualityBRISQUE_computeFeatures(frame, features)
                 features = np.array2string(np.around(features, decimals=5))
                 metrics_dict[str(n_frame)] = features
-                
+                metrics_dict['source'] = source_name
                 i = 0
         else:
             break
     print(metrics_dict)
-    add_asset_input(source_name, metrics_dict, ENTITY_NAME)
+    add_asset_input(source_name, metrics_dict)
     return 'Process completed: {} took {}s'.format(source_name, time.time() - start_time)
 
-def add_asset_input(title, input_data, entity_name):
+def add_asset_input(title, input_data):
     """
     Function to add the asset's computed data to the database
     """
 
-    key = DATASTORE_CLIENT.key(entity_name, title, namespace='livepeer-verifier-brisque')
+    key = DATASTORE_CLIENT.key(ENTITY_NAME, title, namespace='livepeer-verifier-brisque')
     video = datastore.Entity(key)
 
     video.update(input_data)
