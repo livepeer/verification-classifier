@@ -26,8 +26,10 @@ def compute_brisque_features_aggregators(row):
     row['std'] = np.std(features, axis=0)
     row['mean_dx'] = np.mean(np.diff(features, axis=0), axis=0)
     row['std_dx'] = np.std(np.diff(features, axis=0), axis=0)
-    # row['max_dx'] = np.max(np.diff(features, axis=0), axis=0)
-
+    try:
+        row['max_dx'] = np.max(np.diff(features, axis=0), axis=0)
+    except:
+        row['max_dx'] = 0
     return row
 
 @st.cache
@@ -80,17 +82,17 @@ def plot_rd_curves(df_qoe):
     metrics = list(df_qoe.columns)
     asset = st.selectbox('Which asset to represent?', list(df_qoe['source'].unique()))
     metric_x = st.selectbox('Which metric to represent for X?', metrics, index=metrics.index('crf'))
-    metric_y = st.selectbox('Which metric to represent for Y?', metrics)
+    metric_y = st.selectbox('Which metric to represent for Y?', metrics, index=metrics.index('temporal_ssim-mean'))
 
-    rate_distortion_df = df_qoe[[metric_x, metric_y, 'dimension_y', 'rendition']][df_qoe['source'] == asset]
+    rate_distortion_df = df_qoe[[metric_x, metric_y, 'pixels', 'dimension_y', 'rendition']][df_qoe['source'] == asset]
 
     data = []
     dimensions = rate_distortion_df['dimension_y'].unique()
     dimensions.sort()
     for dimension in dimensions:
 
-        trace = go.Scatter(x=rate_distortion_df[rate_distortion_df['dimension_y']==dimension][metric_x],
-                           y=rate_distortion_df[rate_distortion_df['dimension_y']==dimension][metric_y],
+        trace = go.Scatter(x=rate_distortion_df[rate_distortion_df['dimension_y'] == dimension][metric_x],
+                           y=rate_distortion_df[rate_distortion_df['dimension_y'] == dimension][metric_y],
                            mode='markers',
                            marker=dict(color=dimension,
                                        opacity=0.8,
@@ -132,15 +134,17 @@ def train_qoe_model(data_df):
 
     x_features = [feature for feature in data_df.columns if 'input' in feature]
     x_features.append('dimension_y')
-    # x_features.append('288_14_ssim')
-    # x_features.append('288_14_size')
-    # x_features.append('288_14_crf')
-    x_features.append('1080_14_size')
-    x_features.append('1080_14_ssim')
-    x_features.append('1080_14_pixels')
-    y_features = [feature for feature in data_df.columns if 'size' in feature]
+    x_features.append('pixels')
+    x_features.append('288_45_ssim')
+    x_features.append('288_45_size')
+    x_features.append('288_45_pixels')
+    # x_features.append('1080_14_size')
+    # x_features.append('1080_14_ssim')
+    # x_features.append('1080_14_pixels')
+    y_features = [feature for feature in data_df.columns if 'ssim' in feature]
     # y_features.remove('288_14_size')
-    y_features.remove('1080_14_size')
+    # y_features.remove('1080_14_size')
+    y_features.remove('288_45_ssim')
     y_features.sort()
 
     st.write(train_data[x_features].head())
@@ -153,8 +157,8 @@ def train_qoe_model(data_df):
     x_train = scaler.fit_transform(x_train)
     x_test = scaler.transform(x_test)
 
-    y_features = ['1080_18_size']
-
+    y_features = st.selectbox('Which asset to represent?', y_features)
+    y_features = [y_features]
     y_scaler = StandardScaler()
     y_train = y_scaler.fit_transform(train_data[y_features].values)
     y_test = y_scaler.transform(test_data[y_features].values)
@@ -167,14 +171,15 @@ def train_qoe_model(data_df):
     models_dict = dict()
     pools_dict = dict()
 
-    categorical_features_indices = [x_features.index('crf')]
-    x_train = pd.DataFrame(x_train, columns=x_features)
-    x_test = pd.DataFrame(x_test, columns=x_features)
+    categorical_features_indices = []#[x_features.index('crf')]
+    x_train = pd.DataFrame(x_train, columns=x_features, index=train_data.index)
+    x_test = pd.DataFrame(x_test, columns=x_features, index=test_data.index)
 
-    x_train['crf'] = train_data['crf'].astype('str')
-    x_test['crf'] = test_data['crf'].astype('str')
+    # x_train['crf'] = train_data['crf']
+    # x_test['crf'] = test_data['crf']
+    # st.write(x_train['crf'])
+    # st.write(train_data['crf'])
 
-    print(x_train['crf'].unique())
     for feature in y_features:
         print(feature)
 
@@ -185,18 +190,18 @@ def train_qoe_model(data_df):
                           label=y_train[feature],
                           cat_features=categorical_features_indices)
 
-        if 'size' in feature:
-            loss_funct = 'RMSE'
+        if 'ssim' in feature:
+            loss_funct = 'MAE'
             num_trees = 500
         else:
             loss_funct = 'RMSE'
-            num_trees = 100
-        models_dict[feature] = CatBoostRegressor(depth=3,
+            num_trees = 500
+        models_dict[feature] = CatBoostRegressor(depth=1,
                                                  num_trees=num_trees,
-                                                 l2_leaf_reg=2,
+                                                 l2_leaf_reg=0.2,
                                                  learning_rate=0.05,
                                                  loss_function=loss_funct,
-                                                 bagging_temperature=10
+                                                #  bagging_temperature=10
                                                  )
         #train the model
         print('Training QoE model:')
@@ -271,7 +276,7 @@ def setup_train(df_qoe, df_brisque):
     # df_train['input_max_dx'] = df_brisque['max_dx'].values
 
     df_train['dimension_y'] = df_qoe['dimension_y']
-    df_train['crf'] = df_qoe['crf']
+    df_train['pixels'] = df_qoe['pixels']
 
     df_train = df_train.dropna(axis='rows')
     for brisque_feature in range(36):
