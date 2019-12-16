@@ -123,32 +123,88 @@ def plot_rd_curves(df_qoe):
     )
     st.plotly_chart(fig)
 
-def train_qoe_model(data_df):
+def train_features(models_dict, pools_dict, features, x_train, x_test, y_train, y_test):
+    """
+    Function to aggregate models from a set of features
+    """
+    learn_mape_train_df = pd.DataFrame()
+    learn_rmse_train_df = pd.DataFrame()
+    learn_mape_test_df = pd.DataFrame()
+    learn_rmse_test_df = pd.DataFrame()
+    categorical_features_indices = []
+
+    for feature in features:
+
+        y_train = pd.DataFrame(data=y_train, columns=features)
+        y_test = pd.DataFrame(data=y_test, columns=features)
+
+        train_pool = Pool(data=x_train,
+                          label=y_train[feature],
+                          cat_features=categorical_features_indices)
+
+        num_trees = 500
+        loss_funct = 'MAPE'
+        depth = 1
+        if 'ssim' in feature:
+            loss_funct = 'MAE'
+            depth = 10
+            num_trees = 200
+
+        models_dict[feature] = CatBoostRegressor(depth=depth,
+                                                 num_trees=num_trees,
+                                                 l2_leaf_reg=0.2,
+                                                 learning_rate=0.05,
+                                                 loss_function=loss_funct
+                                                )
+        #train the model
+        print('Training QoE model:', feature)
+        models_dict[feature].fit(train_pool)
+
+        pools_dict[feature] = Pool(data=x_test,
+                                   label=y_test[feature],
+                                   cat_features=categorical_features_indices)
+
+        learn_mape_train_df[feature] = models_dict[feature].eval_metrics(train_pool, ['MAPE'])['MAPE']
+        learn_mape_test_df[feature] = models_dict[feature].eval_metrics(pools_dict[feature], ['MAPE'])['MAPE']
+
+        learn_rmse_train_df[feature] = models_dict[feature].eval_metrics(train_pool, ['RMSE'])['RMSE']
+        learn_rmse_test_df[feature] = models_dict[feature].eval_metrics(pools_dict[feature], ['RMSE'])['RMSE']
+
+    st.write('QoE model test set MAPE:')
+    st.write(learn_mape_test_df.min())
+    st.write(learn_mape_test_df.min().describe())
+
+    return models_dict, pools_dict
+@st.cache
+def predict_qoe(data_df):
     """
     Function to train model from given dataset
     """
     num_train = int(data_df.shape[0] * 0.8)
 
     train_data = data_df.sample(num_train)
+    st.write('Train:', train_data.shape)
     test_data = data_df[~data_df.index.isin(train_data.index)]
-
+    st.write('Test:', test_data.shape)
     x_features = [feature for feature in data_df.columns if 'input' in feature]
     x_features.append('dimension_y')
     x_features.append('pixels')
+    x_features.append('crf')
     x_features.append('288_45_ssim')
     x_features.append('288_45_size')
     x_features.append('288_45_pixels')
-    # x_features.append('1080_14_size')
-    # x_features.append('1080_14_ssim')
-    # x_features.append('1080_14_pixels')
-    y_features = [feature for feature in data_df.columns if 'ssim' in feature]
-    # y_features.remove('288_14_size')
-    # y_features.remove('1080_14_size')
-    y_features.remove('288_45_ssim')
-    y_features.sort()
+    
+    ssim_features = [feature for feature in data_df.columns if 'ssim' in feature]
+    bitrate_features = [feature for feature in data_df.columns if 'size' in feature]
+    
+    ssim_features.remove('288_45_ssim')
+    ssim_features.sort()
+    bitrate_features.remove('288_45_size')
+    bitrate_features.sort()
 
-    st.write(train_data[x_features].head())
-    st.write(train_data[y_features].head())
+    st.write(train_data[x_features].head(), 'Train')
+    st.write(train_data[ssim_features].head(), 'Test SSIM')
+    st.write(train_data[bitrate_features].head(), 'Test Size')
 
     x_train = np.asarray(train_data[x_features])
     x_test = np.asarray(test_data[x_features])
@@ -157,91 +213,62 @@ def train_qoe_model(data_df):
     x_train = scaler.fit_transform(x_train)
     x_test = scaler.transform(x_test)
 
-    y_features = st.selectbox('Which asset to represent?', y_features)
-    y_features = [y_features]
-    y_scaler = StandardScaler()
-    y_train = y_scaler.fit_transform(train_data[y_features].values)
-    y_test = y_scaler.transform(test_data[y_features].values)
-
-    learn_mape_test_df = pd.DataFrame()
-    learn_rmse_test_df = pd.DataFrame()
-    learn_mape_train_df = pd.DataFrame()
-    learn_rmse_train_df = pd.DataFrame()
+    ssim_scaler = StandardScaler()
+    bitrate_scaler = StandardScaler()
+    ssim_train = ssim_scaler.fit_transform(train_data[ssim_features].values)
+    bitrate_train = bitrate_scaler.fit_transform(train_data[bitrate_features].values)
+    ssim_test = ssim_scaler.transform(test_data[ssim_features].values)
+    bitrate_test = bitrate_scaler.transform(test_data[bitrate_features].values)
 
     models_dict = dict()
     pools_dict = dict()
 
-    categorical_features_indices = []#[x_features.index('crf')]
     x_train = pd.DataFrame(x_train, columns=x_features, index=train_data.index)
     x_test = pd.DataFrame(x_test, columns=x_features, index=test_data.index)
+    st.write('XTEST SHAPE:', x_test.shape)
+    models_dict, pools_dict = train_features(models_dict,
+                                            pools_dict,
+                                            ssim_features,
+                                            x_train,
+                                            x_test,
+                                            ssim_train,
+                                            ssim_test)
 
-    # x_train['crf'] = train_data['crf']
-    # x_test['crf'] = test_data['crf']
-    # st.write(x_train['crf'])
-    # st.write(train_data['crf'])
+    models_dict, pools_dict = train_features(models_dict,
+                                            pools_dict,
+                                            bitrate_features,
+                                            x_train,
+                                            x_test,
+                                            bitrate_train,
+                                            bitrate_test)
 
-    for feature in y_features:
-        print(feature)
+    pred_plot_ssim_df = pd.DataFrame(index=test_data.index)
+    pred_plot_bitrate_df = pd.DataFrame(index=test_data.index)
+    true_plot_ssim_df = pd.DataFrame(index=test_data.index)
+    true_plot_bitrate_df = pd.DataFrame(index=test_data.index)
 
-        y_train = pd.DataFrame(data=y_train, columns=y_features)
-        y_test = pd.DataFrame(data=y_test, columns=y_features)
 
-        train_pool = Pool(data=x_train,
-                          label=y_train[feature],
-                          cat_features=categorical_features_indices)
+    for feature_ssim in ssim_features:
+        pred_plot_ssim_df[feature_ssim] = models_dict[feature_ssim].predict(pools_dict[feature_ssim])
+        true_plot_ssim_df[feature_ssim] = test_data[feature_ssim]
+    for feature_bitrate in bitrate_features:
+        pred_plot_bitrate_df[feature_bitrate] = models_dict[feature_bitrate].predict(pools_dict[feature_bitrate])
+        true_plot_bitrate_df[feature_bitrate] = test_data[feature_bitrate]
 
-        if 'ssim' in feature:
-            loss_funct = 'MAE'
-            num_trees = 500
-        else:
-            loss_funct = 'RMSE'
-            num_trees = 500
-        models_dict[feature] = CatBoostRegressor(depth=1,
-                                                 num_trees=num_trees,
-                                                 l2_leaf_reg=0.2,
-                                                 learning_rate=0.05,
-                                                 loss_function=loss_funct,
-                                                #  bagging_temperature=10
-                                                 )
-        #train the model
-        print('Training QoE model:')
-        models_dict[feature].fit(train_pool)
-        
-        pools_dict[feature] = Pool(data=x_test,
-                                   label=y_test[feature],
-                                   cat_features=categorical_features_indices)
-
-        learn_mape_train_df[feature] = models_dict[feature].eval_metrics(train_pool, ['MAPE'])['MAPE']
-        learn_mape_test_df[feature] = models_dict[feature].eval_metrics(pools_dict[feature], ['MAPE'])['MAPE']
-     
-        learn_rmse_train_df[feature] = models_dict[feature].eval_metrics(train_pool, ['RMSE'])['RMSE']
-        learn_rmse_test_df[feature] = models_dict[feature].eval_metrics(pools_dict[feature], ['RMSE'])['RMSE']
-     
-
-    st.write('QoE model test set MAPE:')
-    st.write(learn_mape_test_df.min())
-    st.write(learn_mape_test_df.min().describe())
-    st.write('Feature:', y_features[0])
-    fig = go.Figure(data=[go.Scatter(x=learn_mape_test_df.index, y=learn_mape_test_df[y_features[0]], name='Test'),
-                          go.Scatter(x=learn_mape_test_df.index, y=learn_mape_train_df[y_features[0]], name='Train')])
-    st.plotly_chart(fig)
-    st.write('QoE model test set RMSE:')
-    st.write(learn_rmse_test_df.min())
-    fig = go.Figure(data=[go.Scatter(x=learn_rmse_test_df.index, y=learn_rmse_test_df[y_features[0]], name='Test'),
-                          go.Scatter(x=learn_rmse_test_df.index, y=learn_rmse_train_df[y_features[0]], name='Train')])
-    st.plotly_chart(fig)
-
-    y_pred = models_dict[y_features[0]].predict(pools_dict[y_features[0]])
+    pred_plot_ssim_df = pd.DataFrame(data=ssim_scaler.inverse_transform(pred_plot_ssim_df.values),
+                                     columns=ssim_features,
+                                     index=test_data.index)
+    pred_plot_bitrate_df = pd.DataFrame(data=bitrate_scaler.inverse_transform(pred_plot_bitrate_df.values),
+                                        columns=bitrate_features,
+                                        index=test_data.index)
     
-    fig = go.Figure(data=[go.Histogram(x=y_test[y_features[0]]),
-                          go.Histogram(x=y_pred)])
-    # Overlay both histograms
-    fig.update_layout(barmode='overlay')
-    # Reduce opacity to see both histograms
-    fig.update_traces(opacity=0.75)
+    pred_plot_ssim_df['source'] = test_data['source']
+    pred_plot_bitrate_df['source'] = test_data['source']
 
-    st.plotly_chart(fig)
-    return models_dict
+    st.write(pred_plot_ssim_df, 'SSIM Predictions')
+    st.write(pred_plot_bitrate_df, 'Bitrate Predictions')
+
+    return pred_plot_ssim_df, pred_plot_bitrate_df, test_data[ssim_features], test_data[bitrate_features]
 
 def aggregate_renditions(row, df_renditions):
     """
@@ -277,6 +304,7 @@ def setup_train(df_qoe, df_brisque):
 
     df_train['dimension_y'] = df_qoe['dimension_y']
     df_train['pixels'] = df_qoe['pixels']
+    df_train['crf'] = df_qoe['crf']
 
     df_train = df_train.dropna(axis='rows')
     for brisque_feature in range(36):
@@ -298,12 +326,55 @@ def setup_train(df_qoe, df_brisque):
                               'input_mean_dx',
                               'input_std_dx',
                             #   'input_max_dx',
-                              'source'],
+                              ],
                               axis='columns')
     df_train = df_train.dropna(axis='rows')
     df_train.to_csv('train.csv')
 
     return df_train
+
+def plot_predictions(pred_ssim, pred_bitrate, true_ssim, true_bitrate):
+    """
+    Function to visualize predictions of pairs bitrate-ssim
+    """
+    
+    metrics = list(pred_ssim.columns)
+    asset = st.selectbox('Which asset to represent?', list(pred_ssim['source'].unique()))
+  
+    pred_ssim_df = pred_ssim[pred_ssim['source'] == asset]
+    pred_bitrate_df = pred_bitrate[pred_bitrate['source'] == asset]
+
+    resolutions = ['1080', '720', '480', '384', '288', '144']
+    crfs = ['14', '18', '21', '25', '32', '40', '45']
+    pred_plot_data = []
+
+    x_pred = []
+    y_pred = []
+    x_true = []
+    y_true = []
+
+    for resolution in resolutions:
+        for crf in crfs:
+            ssim_feature = '{}_{}_ssim'.format(resolution, crf)
+            bitrate_feature = '{}_{}_size'.format(resolution, crf)
+            if '288_45' not in ssim_feature:
+                x_pred.append(pred_bitrate_df[bitrate_feature].values[0])
+                y_pred.append(pred_ssim_df[ssim_feature].values[0])
+                x_true.append(true_bitrate[bitrate_feature].values[0])
+                y_true.append(true_ssim[ssim_feature].values[0])
+
+    pred_plot_data.append(go.Scatter(x=x_pred,
+                                     y=y_pred,
+                                     mode='markers',
+                                     name='Predictions'))
+    pred_plot_data.append(go.Scatter(x=x_true,
+                                     y=y_true,
+                                     mode='markers',
+                                     name='True'))
+
+    fig = go.Figure(data=pred_plot_data)
+
+    st.plotly_chart(fig)
 
 def main():
     """
@@ -325,7 +396,9 @@ def main():
         train_df = setup_train(df_qoe, df_brisque)
     st.write(train_df.head(100))
 
-    train_qoe_model(train_df)
+    pred_ssim, pred_bitrate, true_ssim, true_bitrate = predict_qoe(train_df)
+
+    plot_predictions(pred_ssim, pred_bitrate, true_ssim, true_bitrate)
 
 if __name__ == '__main__':
 
