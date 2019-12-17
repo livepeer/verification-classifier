@@ -8,28 +8,39 @@ import os
 import numpy as np
 import pandas as pd
 import streamlit as st
+import random
 import plotly.graph_objects as go
 from catboost import Pool, CatBoostRegressor
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.metrics import mean_absolute_error
 
 st.title('QoE model predictor')
 
 DATA_URI_BRISQUE = '../../cloud_functions/data-brisque-large.csv'
 DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
 
+def mean_absolute_percentage_error(y_true, y_pred):
+    """
+    Computes the MAPE between two vectors of values
+    """
+    return np.mean(np.abs((y_true - y_pred) / y_true))
+
 def compute_brisque_features_aggregators(row):
+    """
+    Aggregates the 36 features of brisque for each frame 
+    of a random sequence into mean and std of both the sequence
+    and its derivative
+    """
     features = []
-    for column in row.index:
-        if row[column].shape[0] == 36:
-            features.append(row[column])
+    sampling = random.choices(row.index, k=4)
+    for frame in sampling:
+        if row[frame].shape[0] == 36:
+            features.append(row[frame])
+
     row['mean'] = np.mean(features, axis=0)
     row['std'] = np.std(features, axis=0)
     row['mean_dx'] = np.mean(np.diff(features, axis=0), axis=0)
     row['std_dx'] = np.std(np.diff(features, axis=0), axis=0)
-    try:
-        row['max_dx'] = np.max(np.diff(features, axis=0), axis=0)
-    except:
-        row['max_dx'] = 0
     return row
 
 @st.cache
@@ -103,7 +114,7 @@ def plot_rd_curves(df_qoe):
                            )
 
         data.append(trace)
-   
+
     fig = go.Figure(data=data)
     fig.update_layout(title="{} vs {}".format(metric_x, metric_y),
                       yaxis_title=metric_y,
@@ -145,15 +156,20 @@ def train_features(models_dict, pools_dict, features, x_train, x_test, y_train, 
         num_trees = 500
         loss_funct = 'MAPE'
         depth = 1
+        l2_leaf_reg = 0.2
+        learning_rate = 0.005
+
         if 'ssim' in feature:
             loss_funct = 'MAE'
-            depth = 10
-            num_trees = 200
+            depth = 1
+            num_trees = 500
+            learning_rate = 0.05
+            l2_leaf_reg = 0.2
 
         models_dict[feature] = CatBoostRegressor(depth=depth,
                                                  num_trees=num_trees,
-                                                 l2_leaf_reg=0.2,
-                                                 learning_rate=0.05,
+                                                 l2_leaf_reg=l2_leaf_reg,
+                                                 learning_rate=learning_rate,
                                                  loss_function=loss_funct
                                                 )
         #train the model
@@ -169,13 +185,13 @@ def train_features(models_dict, pools_dict, features, x_train, x_test, y_train, 
 
         learn_rmse_train_df[feature] = models_dict[feature].eval_metrics(train_pool, ['RMSE'])['RMSE']
         learn_rmse_test_df[feature] = models_dict[feature].eval_metrics(pools_dict[feature], ['RMSE'])['RMSE']
-
+        
     st.write('QoE model test set MAPE:')
     st.write(learn_mape_test_df.min())
     st.write(learn_mape_test_df.min().describe())
 
     return models_dict, pools_dict
-@st.cache
+@st.cache(suppress_st_warning=True)
 def predict_qoe(data_df):
     """
     Function to train model from given dataset
@@ -204,7 +220,7 @@ def predict_qoe(data_df):
 
     st.write(train_data[x_features].head(), 'Train')
     st.write(train_data[ssim_features].head(), 'Test SSIM')
-    st.write(train_data[bitrate_features].head(), 'Test Size')
+    st.write(train_data[bitrate_features].head(), 'Test Bitrate')
 
     x_train = np.asarray(train_data[x_features])
     x_test = np.asarray(test_data[x_features])
@@ -213,11 +229,10 @@ def predict_qoe(data_df):
     x_train = scaler.fit_transform(x_train)
     x_test = scaler.transform(x_test)
 
-    ssim_scaler = StandardScaler()
-    bitrate_scaler = StandardScaler()
-    ssim_train = ssim_scaler.fit_transform(train_data[ssim_features].values)
+    bitrate_scaler = MinMaxScaler(feature_range=(0, 1))
+    ssim_train = train_data[ssim_features].values
     bitrate_train = bitrate_scaler.fit_transform(train_data[bitrate_features].values)
-    ssim_test = ssim_scaler.transform(test_data[ssim_features].values)
+    ssim_test = test_data[ssim_features].values
     bitrate_test = bitrate_scaler.transform(test_data[bitrate_features].values)
 
     models_dict = dict()
@@ -255,7 +270,7 @@ def predict_qoe(data_df):
         pred_plot_bitrate_df[feature_bitrate] = models_dict[feature_bitrate].predict(pools_dict[feature_bitrate])
         true_plot_bitrate_df[feature_bitrate] = test_data[feature_bitrate]
 
-    pred_plot_ssim_df = pd.DataFrame(data=ssim_scaler.inverse_transform(pred_plot_ssim_df.values),
+    pred_plot_ssim_df = pd.DataFrame(data=pred_plot_ssim_df.values,
                                      columns=ssim_features,
                                      index=test_data.index)
     pred_plot_bitrate_df = pd.DataFrame(data=bitrate_scaler.inverse_transform(pred_plot_bitrate_df.values),
@@ -265,10 +280,12 @@ def predict_qoe(data_df):
     pred_plot_ssim_df['source'] = test_data['source']
     pred_plot_bitrate_df['source'] = test_data['source']
 
-    st.write(pred_plot_ssim_df, 'SSIM Predictions')
-    st.write(pred_plot_bitrate_df, 'Bitrate Predictions')
+    true_plot_ssim_df = test_data[ssim_features]
+    true_plot_bitrate_df = test_data[bitrate_features]
+    true_plot_ssim_df['source'] = test_data['source']
+    true_plot_bitrate_df['source'] = test_data['source']
 
-    return pred_plot_ssim_df, pred_plot_bitrate_df, test_data[ssim_features], test_data[bitrate_features]
+    return pred_plot_ssim_df, pred_plot_bitrate_df, true_plot_ssim_df, true_plot_bitrate_df
 
 def aggregate_renditions(row, df_renditions):
     """
@@ -300,8 +317,7 @@ def setup_train(df_qoe, df_brisque):
     df_train['input_mean'] = df_brisque['mean'].values
     df_train['input_mean_dx'] = df_brisque['mean_dx'].values
     df_train['input_std_dx'] = df_brisque['std_dx'].values
-    # df_train['input_max_dx'] = df_brisque['max_dx'].values
-
+   
     df_train['dimension_y'] = df_qoe['dimension_y']
     df_train['pixels'] = df_qoe['pixels']
     df_train['crf'] = df_qoe['crf']
@@ -317,9 +333,7 @@ def setup_train(df_qoe, df_brisque):
         df_train[input_feature_label] = df_train['input_mean_dx'].apply(lambda x: x[brisque_feature])
         input_feature_label = 'input_std_dx_{}'.format(brisque_feature)
         df_train[input_feature_label] = df_train['input_std_dx'].apply(lambda x: x[brisque_feature])
-        # input_feature_label = 'input_max_dx_{}'.format(brisque_feature)
-        # df_train[input_feature_label] = df_train['input_max_dx'].apply(lambda x: x[brisque_feature])
-
+       
     df_train = df_train.apply(lambda row: aggregate_renditions(row, df_qoe), axis=1)
     df_train = df_train.drop(['input_mean',
                               'input_std',
@@ -333,48 +347,78 @@ def setup_train(df_qoe, df_brisque):
 
     return df_train
 
-def plot_predictions(pred_ssim, pred_bitrate, true_ssim, true_bitrate):
+def plot_predictions(pred_ssim, pred_bitrate, true_ssim, true_bitrate, asset):
     """
     Function to visualize predictions of pairs bitrate-ssim
     """
-    
-    metrics = list(pred_ssim.columns)
-    asset = st.selectbox('Which asset to represent?', list(pred_ssim['source'].unique()))
-  
+
     pred_ssim_df = pred_ssim[pred_ssim['source'] == asset]
     pred_bitrate_df = pred_bitrate[pred_bitrate['source'] == asset]
+    true_ssim_df = true_ssim[true_ssim['source'] == asset]
+    true_bitrate_df = true_bitrate[true_ssim['source'] == asset]
 
+    pred_ssim_df = pred_ssim_df.drop('source', axis='columns')
+    pred_bitrate_df = pred_bitrate_df.drop('source', axis='columns')
+    true_ssim_df = true_ssim_df.drop('source', axis='columns')
+    true_bitrate_df = true_bitrate_df.drop('source', axis='columns')
     resolutions = ['1080', '720', '480', '384', '288', '144']
     crfs = ['14', '18', '21', '25', '32', '40', '45']
-    pred_plot_data = []
+    colors = [
+              '#1f77b4',
+              'black',
+              '#d62728',
+              'blue',
+              'blueviolet',
+              'brown'
+              ]
+    plot_data = []
 
-    x_pred = []
-    y_pred = []
-    x_true = []
-    y_true = []
-
-    for resolution in resolutions:
+    for resolution in resolutions:    
+        pred_resolution_ssim_points = []
+        pred_resolution_bitrate_points = []
+        true_resolution_ssim_points = []
+        true_resolution_bitrate_points = []
+        
         for crf in crfs:
-            ssim_feature = '{}_{}_ssim'.format(resolution, crf)
-            bitrate_feature = '{}_{}_size'.format(resolution, crf)
-            if '288_45' not in ssim_feature:
-                x_pred.append(pred_bitrate_df[bitrate_feature].values[0])
-                y_pred.append(pred_ssim_df[ssim_feature].values[0])
-                x_true.append(true_bitrate[bitrate_feature].values[0])
-                y_true.append(true_ssim[ssim_feature].values[0])
+            ssim_feature_resolution = '{}_{}_ssim'.format(resolution, crf)
+            bitrate_feature_resolution = '{}_{}_size'.format(resolution, crf)
+            if '288_45' not in ssim_feature_resolution:
+                pred_resolution_ssim_points.append(pred_ssim_df[ssim_feature_resolution].iloc[0])
+                pred_resolution_bitrate_points.append(pred_bitrate_df[bitrate_feature_resolution].iloc[0])
+                true_resolution_ssim_points.append(true_ssim_df[ssim_feature_resolution].iloc[0])
+                true_resolution_bitrate_points.append(true_bitrate_df[bitrate_feature_resolution].iloc[0])
 
-    pred_plot_data.append(go.Scatter(x=x_pred,
-                                     y=y_pred,
-                                     mode='markers',
-                                     name='Predictions'))
-    pred_plot_data.append(go.Scatter(x=x_true,
-                                     y=y_true,
-                                     mode='markers',
-                                     name='True'))
+        plot_data.append(go.Scatter(x=pred_resolution_bitrate_points,
+                                    y=pred_resolution_ssim_points,
+                                    mode='lines',
+                                    line=dict(color=colors[resolutions.index(resolution)],
+                                              width=2,
+                                              dash='dash'),
+                                    marker=dict(size=10,
+                                                color=resolutions.index(resolution),
+                                                opacity=0.8
+                                                ),
+                                    # hovertext=crfs,
+                                    name='Pred {}'.format(resolution)))
 
-    fig = go.Figure(data=pred_plot_data)
+        plot_data.append(go.Scatter(x=true_resolution_bitrate_points,
+                                    y=true_resolution_ssim_points,
+                                    mode='lines',
+                                    line=dict(color=colors[resolutions.index(resolution)],
+                                              width=2
+                                              ),
+                                    marker=dict(size=10,
+                                                color=resolutions.index(resolution),
+                                                opacity=0.8),
+                                    # hovertext=crfs,
+                                    name='True {}'.format(resolution)))
 
-    st.plotly_chart(fig)
+    mape_ssim = mean_absolute_percentage_error(true_ssim_df, pred_ssim_df).mean()
+    mae_ssim = mean_absolute_error(true_ssim_df, pred_ssim_df)
+    mape_bitrate = mean_absolute_percentage_error(true_bitrate_df, pred_bitrate_df).mean()
+    mae_bitrate = mean_absolute_error(true_bitrate_df, pred_bitrate_df)
+    
+    return mape_ssim, mae_ssim, mape_bitrate, mae_bitrate, plot_data
 
 def main():
     """
@@ -398,7 +442,49 @@ def main():
 
     pred_ssim, pred_bitrate, true_ssim, true_bitrate = predict_qoe(train_df)
 
-    plot_predictions(pred_ssim, pred_bitrate, true_ssim, true_bitrate)
+    max_ssim_mae = 0
+    min_ssim_mae = 1
+    max_bitrate_mae = 0
+    min_bitrate_mae = 10000000
+    max_bitrate_mape = 0
+    min_bitrate_mape = 1
+
+    for asset in pred_ssim['source']:
+        mape_ssim, mae_ssim, mape_bitrate, mae_bitrate, plot_data = plot_predictions(pred_ssim, pred_bitrate, true_ssim, true_bitrate, asset)
+        fig = go.Figure(data=plot_data)
+        st.plotly_chart(fig)    
+        st.write('ASSET:', asset, 'MAPE SSIM:', mape_ssim, 'MAPE Bitrate:', mape_bitrate)
+        if mae_ssim > max_ssim_mae:
+            max_ssim_fig = go.Figure(data=plot_data)
+            max_ssim_mae = mae_ssim
+            max_ssim_asset = asset
+
+        if mae_ssim < min_ssim_mae:
+            min_ssim_fig = go.Figure(data=plot_data)
+            min_ssim_mae = mae_ssim
+            min_ssim_asset = asset
+
+        if mae_bitrate > max_bitrate_mae:
+            max_bitrate_fig = go.Figure(data=plot_data)
+            max_bitrate_mae = mae_bitrate
+            max_bitrate_asset = asset
+            max_bitrate_mape = mape_bitrate
+
+        if mae_bitrate < min_bitrate_mae:
+            min_bitrate_fig = go.Figure(data=plot_data)
+            min_bitrate_mae = mae_bitrate
+            min_bitrate_asset = asset
+            min_bitrate_mape = mape_bitrate
+    st.write('**************************** EXTREME RESULTS ********************************')
+    st.plotly_chart(max_ssim_fig)
+    st.write('MAX MAE SSIM:', max_ssim_mae, max_ssim_asset)
+    st.plotly_chart(min_ssim_fig)
+    st.write('MIN MAE SSIM:', min_ssim_mae, min_ssim_asset)    
+    st.plotly_chart(max_bitrate_fig)
+    st.write('MAX MAE BITRATE:', max_bitrate_mae, max_bitrate_mape, max_bitrate_asset)
+    st.plotly_chart(min_bitrate_fig)
+    st.write('MIN MAE BITRATE:', min_bitrate_mae, min_bitrate_mape, min_bitrate_asset)
+
 
 if __name__ == '__main__':
 
