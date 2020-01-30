@@ -35,7 +35,7 @@ class VideoAssetProcessor:
             # Initializes original asset to OpenCV VideoCapture class
             self.original_capture = cv2.VideoCapture(self.original_path)
             # Frames Per Second of the original asset
-            self.fps = int(self.original_capture.get(cv2.CAP_PROP_FPS))
+            self.fps = self.original_capture.get(cv2.CAP_PROP_FPS)
             # Obtains number of frames of the original
             self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT))-1
             # Maximum number of frames to random sample
@@ -70,10 +70,10 @@ class VideoAssetProcessor:
 
             # Convert OpenCV video captures of original to list
             # of numpy arrays for better performance of numerical computations
-            self.random_sampler = []
-            self.create_random_list = True
+            self.random_sampler = np.asarray(sorted(list(np.random.choice(self.max_frames,
+                                            self.max_samples,
+                                            replace=False)))) / self.fps
             self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
-            self.create_random_list = False
             # Instance of the video_metrics class
             self.video_metrics = VideoMetrics(self.metrics_list,
                                             self.hash_size,
@@ -91,7 +91,7 @@ class VideoAssetProcessor:
         else:
             print('Aborting, original source not found in path provided')
             self.do_process = False
-        
+    
     def capture_to_array(self, capture):
         """
         Function to convert OpenCV video capture to a list of
@@ -101,33 +101,26 @@ class VideoAssetProcessor:
         # List of numpy arrays
         frame_list = []
         frame_list_hd = []
-        i = 0
+        frame_num = 0
+        sample_num = 0
         pixels = 0
         height = 0
         width = 0
-        n_frame = 0
+        capture_fps = capture.get(cv2.CAP_PROP_FPS)
+        sample_list = []
         # Iterate through each frame in the video
         while capture.isOpened():
 
             # Read the frame from the capture
             ret_frame, frame = capture.read()
+            frame_num += 1
             # If read successful, then append the retrieved numpy array to a python list
-            if ret_frame:
-                n_frame += 1
-                add_frame = False
-
-                if self.create_random_list:
-                    random_frame = random()
-                    if random_frame > 0.5:
-                        add_frame = True
-                        # Add the frame to the list if it belong to the random sampling list
-                        self.random_sampler.append(n_frame)
-                else:
-                    if n_frame in self.random_sampler:
-                        add_frame = True
-
-                if add_frame:
-                    i += 1
+            if ret_frame and sample_num < self.max_samples:
+                frame_time = frame_num / capture_fps
+                
+                if frame_time >= self.random_sampler[sample_num]:
+                
+                    sample_list.append(frame_time)
                     # Count the number of pixels
                     height = frame.shape[1]
                     width = frame.shape[0]
@@ -135,9 +128,10 @@ class VideoAssetProcessor:
 
                     # Change color space to have only luminance
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
+             
                     frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
                     frame_list.append(frame)
-
+                    
                     if self.make_hd_list:
                         # Resize the frame 
                         if frame.shape[0] != 1920:
@@ -146,17 +140,15 @@ class VideoAssetProcessor:
                             frame_hd = frame
 
                         frame_list_hd.append(frame_hd)
+                    sample_num += 1
                     
-
-                    if i > self.max_samples:
-                        break
-
-            # Break the loop when frames cannot be taken from original
+            # Break the loop when frames cannot be taken from capture
             else:
                 break
+
         # Clean up memory
         capture.release()            
-        print(self.random_sampler, flush=True)
+     
         return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
     def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):
