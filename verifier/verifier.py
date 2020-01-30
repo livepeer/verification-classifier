@@ -256,7 +256,7 @@ def retrieve_video_file(uri):
 
             print('Video file {} available in file system'.format(video_file), flush=True)
 
-            debug_copy_file = '/debug/{}{}'.format(uuid.uuid4(), video_file)
+            debug_copy_file = '/stream/debug/{}{}'.format(uuid.uuid4(), video_file)
             os.makedirs(os.path.dirname(debug_copy_file))
             print('Copying to debug file: {}'.format(debug_copy_file), flush=True)
             shutil.copyfile(video_file, debug_copy_file)
