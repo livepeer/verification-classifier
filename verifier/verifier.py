@@ -30,7 +30,7 @@ def pre_verify(source, rendition):
     are met as prescribed by the Broadcaster
     """
     # Extract data from video capture
-    video_file, audio_file, video_available, audio_available = retrieve_video_file(rendition['uri'])
+    video_file, audio_file, video_available, audio_available = retrieve_video_file(rendition['uri'], source=False)
     rendition['video_available'] = video_available
     rendition['audio_available'] = audio_available
 
@@ -92,7 +92,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     total_start = time.clock()
     total_start_user = time.time()
 
-    source_video, source_audio, video_available, audio_available = retrieve_video_file(source_uri)
+    source_video, source_audio, video_available, audio_available = retrieve_video_file(source_uri, source=True)
 
     if video_available:
     # Prepare source and renditions for verification
@@ -230,7 +230,7 @@ def retrieve_model(uri):
         return model_dir, model_file
 
 
-def retrieve_video_file(uri):
+def retrieve_video_file(uri, source=False):
     """
     Function to obtain a path to a video file from url or local path
     """
@@ -238,7 +238,7 @@ def retrieve_video_file(uri):
     audio_file = ''
     video_available = True
     audio_available = True
-
+    fps = 30
     if 'http' in uri:
         try:
             file_name = '/tmp/{}'.format(uuid.uuid4())
@@ -253,11 +253,30 @@ def retrieve_video_file(uri):
     else:
         if os.path.isfile(uri):
             video_file = uri
-
             print('Video file {} available in file system'.format(video_file), flush=True)
+            debug_copy_file = '/stream/debug/{}/debug_{}'.format(os.path.dirname(video_file).split('/')[-1], os.path.basename(video_file))
+            resampled_copy_file = '/stream/debug/{}/resampled_{}'.format(os.path.dirname(video_file).split('/')[-1], os.path.basename(video_file))
 
-            debug_copy_file = '/stream/debug/{}{}'.format(uuid.uuid4(), video_file)
-            os.makedirs(os.path.dirname(debug_copy_file))
+            if source:
+                os.makedirs(os.path.dirname(debug_copy_file))
+                try:
+                    print('Frame resampling with FFMPEG', flush=True)
+                    subprocess.call(['ffmpeg',
+                                '-y',
+                                '-i',
+                                video_file,
+                                '-filter:v',
+                                'fps=fps={}'.format(fps),
+                                '-f', 'mp4',
+                                resampled_copy_file])
+                except:
+                    print('Could not generate resampled rendition from video file {}'.format(video_file), flush=True)
+                if os.path.isfile(resampled_copy_file):
+                    print('Resampled SOURCE file {} available in file system'.format(resampled_copy_file), flush=True)
+                    video_file = resampled_copy_file
+                else:
+                    print('Resampled SOURCE file {} NOT available in file system'.format(video_file), flush=True)
+            
             print('Copying to debug file: {}'.format(debug_copy_file), flush=True)
             shutil.copyfile(video_file, debug_copy_file)
         else:
