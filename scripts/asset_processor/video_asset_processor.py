@@ -499,6 +499,7 @@ class VideoAssetProcessor:
                     if os.path.exists(path):
                         capture = cv2.VideoCapture(path)
 
+                        print('SOURCE-RENDITION FRAME RATE RATIO = ', self.fps / capture.get(cv2.CAP_PROP_FPS), flush=True)
                         # Turn openCV capture to a list of numpy arrays
                         frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
                         dimensions = '{}:{}'.format(int(width), int(height))
