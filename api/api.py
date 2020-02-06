@@ -112,6 +112,8 @@ def post_route():
 
         # Inform user that model was succesfully retrieved
         OPERATIONS_LOGGER.info('Model successfully donwloaded: %s', model_uri)
+        OPERATIONS_LOGGER.info('Source: %s', data['source'])
+        OPERATIONS_LOGGER.info('Renditions: %s', data['renditions'])
         CONSOLE_LOGGER.info('Model successfully donwloaded: %s', model_uri)
 
         # Define whether profiling is needed for logging
