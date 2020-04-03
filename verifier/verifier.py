@@ -265,6 +265,8 @@ def retrieve_video_file(uri, source=False):
                                 '-y',
                                 '-i',
                                 video_file,
+                                '-vsync',
+                                '0',
                                 '-filter:v',
                                 'fps=fps={}'.format(fps),
                                 '-f', 'mp4',
