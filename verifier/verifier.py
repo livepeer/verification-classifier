@@ -15,8 +15,10 @@ import subprocess
 
 import pickle
 import numpy as np
+import pandas as pd
 import cv2
 from scipy.io import wavfile
+from catboost import CatBoostClassifier
 
 sys.path.insert(0, 'scripts/asset_processor')
 
@@ -81,8 +83,10 @@ def pre_verify(source, rendition):
 
     return rendition
 
+def meta_model(row):
+    return row['ul_pred_tamper'] if row['ul_pred_tamper'] == 1 and not row['sl_pred_tamper'] == -1 else row['sl_pred_tamper']
 
-def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name):
+def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name, model_name_sl):
     """
     Function that returns the predicted compliance of a list of renditions
     with respect to a given source file using a specified model.
@@ -112,7 +116,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         if os.path.exists(source['audio_path']):
             os.remove(source['audio_path'])
 
-        # Configure model for inference
+        # Configure UL model for inference
         model_name = 'OCSVM'
         scaler_type = 'StandardScaler'
         learning_type = 'UL'
@@ -120,13 +124,19 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
                                                                   model_name), 'rb'))
         loaded_scaler = pickle.load(open('{}/{}_{}.pickle.dat'.format(model_dir,
                                                                       learning_type,
-                                                                      scaler_type), 'rb'))
+                                                                      scaler_type), 'rb'))                                                                            
+        # Configure SL model for inference
+        model_name_sl = 'CB_Binary'
+        loaded_model_sl = CatBoostClassifier().load_model('{}/{}.cbm'.format(model_dir,
+                                                                  model_name_sl))
 
-        # Open model configuration file
+        # Open model configuration files
         with open('{}/param_{}.json'.format(model_dir, model_name)) as json_file:
             params = json.load(json_file)
             features = params['features']
-
+        with open('{}/param_{}.json'.format(model_dir, model_name_sl)) as json_file:
+            params = json.load(json_file)
+            features_sl = params['features']
         # Remove non numeric features from feature list
         non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size']
         metrics_list = []
@@ -156,10 +166,14 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
 
         # Assemble output dataframe with processed metrics
         metrics_df, pixels_df, dimensions_df = asset_processor.process()
-
+ 
         # Record time for processing of assets metrics
         process_time = time.clock() - start
         process_time_user = time.time() - start_user
+
+        predictions_df = pd.DataFrame()
+        print(metrics_df[features_sl], flush=True)
+        predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(metrics_df[features_sl])
 
         # Normalize input data using the associated scaler
         x_renditions = np.asarray(metrics_df)
@@ -172,7 +186,9 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
 
         # Make predictions for given data
         start = time.clock()
-        y_pred = loaded_model.decision_function(x_renditions)
+        predictions_df['ocsvm_dist'] = loaded_model.decision_function(x_renditions)
+        predictions_df['ul_pred_tamper'] = loaded_model.predict(x_renditions)
+        predictions_df['meta_pred_tamper'] = predictions_df.apply(meta_model, axis=1)
         prediction_time = time.clock() - start
 
         # Add predictions to rendition dictionary
@@ -180,7 +196,10 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         for _, rendition in enumerate(renditions):
             if rendition['video_available']:
                 rendition.pop('path', None)
-                rendition['tamper'] = np.round(y_pred[i], 6)
+                rendition['ocsvm_dist'] = float(predictions_df['ocsvm_dist'].iloc[i])
+                rendition['tamper_ul'] = int(predictions_df['ul_pred_tamper'].iloc[i])
+                rendition['tamper_sl'] = int(predictions_df['sl_pred_tamper'].iloc[i])
+                rendition['tamper_meta'] = int(predictions_df['meta_pred_tamper'].iloc[i])
                 # Append the post-verification of resolution and pixel count
                 if 'pixels' in rendition:
                     rendition['pixels_post_verification'] = float(rendition['pixels']) / pixels_df[i]
@@ -203,13 +222,14 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     return renditions
 
 
-def retrieve_model(uri):
+def retrieve_models(uri):
     """
     Function to obtain pre-trained model for verification predictions
     """
 
     model_dir = '/tmp/model'
     model_file = uri.split('/')[-1]
+    model_file_sl = f'{model_file}_cb_sl'
     # Create target Directory if don't exist
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
@@ -217,16 +237,17 @@ def retrieve_model(uri):
         print('Model download started!')
         filename, _ = urllib.request.urlretrieve(uri,
                                                  filename='{}/{}'.format(model_dir, model_file))
-        print('Model downloaded')
+        print(f'Model {filename} downloaded')
         try:
             with tarfile.open(filename) as tar_f:
                 tar_f.extractall(model_dir)
-                return model_dir, model_file
+           
+            return model_dir, model_file, model_file_sl
         except Exception:
             return 'Unable to untar model'
     else:
         print('Directory ', model_dir, ' already exists, skipping download')
-        return model_dir, model_file
+        return model_dir, model_file, model_file_sl
 
 
 def retrieve_video_file(uri):
@@ -261,12 +282,15 @@ def retrieve_video_file(uri):
     if video_available:
         try:
             audio_file = '{}_audio.wav'.format(video_file)
+            print('Extracting audio track')
             subprocess.call(['ffmpeg',
                          '-i',
                          video_file,
                          '-vn',
                          '-acodec',
                          'pcm_s16le',
+                         '-loglevel',
+                         'quiet',
                          audio_file])
         except:
             print('Could not extract audio from video file {}'.format(video_file))
