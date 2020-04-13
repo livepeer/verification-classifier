@@ -108,7 +108,7 @@ def post_route():
 
         model_uri = data['model']
 
-        model_dir, model_name, model_name_sl = retrieve_models(model_uri)
+        model_dir, model_name_ul, model_name_sl, model_name_qoe = retrieve_models(model_uri)
 
         # Inform user that model was succesfully retrieved
         OPERATIONS_LOGGER.info('Model successfully downloaded: %s', model_uri)
@@ -125,8 +125,9 @@ def post_route():
                              do_profiling,
                              max_samples,
                              model_dir,
-                             model_name,
-                             model_name_sl)
+                             model_name_ul,
+                             model_name_sl,
+                             model_name_qoe)
         results = []
         i = 0
         for _ in data['renditions']:

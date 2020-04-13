@@ -19,6 +19,7 @@ import pandas as pd
 import cv2
 from scipy.io import wavfile
 from catboost import CatBoostClassifier
+from catboost import CatBoostRegressor
 
 sys.path.insert(0, 'scripts/asset_processor')
 
@@ -86,7 +87,7 @@ def pre_verify(source, rendition):
 def meta_model(row):
     return row['ul_pred_tamper'] if row['ul_pred_tamper'] == 1 and not row['sl_pred_tamper'] == -1 else row['sl_pred_tamper']
 
-def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name, model_name_sl):
+def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name_ul, model_name_sl, model_name_qoe):
     """
     Function that returns the predicted compliance of a list of renditions
     with respect to a given source file using a specified model.
@@ -117,11 +118,11 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
             os.remove(source['audio_path'])
 
         # Configure UL model for inference
-        model_name = 'OCSVM'
+        model_name_ul = 'OCSVM'
         scaler_type = 'StandardScaler'
         learning_type = 'UL'
-        loaded_model = pickle.load(open('{}/{}.pickle.dat'.format(model_dir,
-                                                                  model_name), 'rb'))
+        loaded_model_ul = pickle.load(open('{}/{}.pickle.dat'.format(model_dir,
+                                                                  model_name_ul), 'rb'))
         loaded_scaler = pickle.load(open('{}/{}_{}.pickle.dat'.format(model_dir,
                                                                       learning_type,
                                                                       scaler_type), 'rb'))                                                                            
@@ -130,16 +131,25 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         loaded_model_sl = CatBoostClassifier().load_model('{}/{}.cbm'.format(model_dir,
                                                                   model_name_sl))
 
+        # Configure SL model for inference
+        model_name_qoe = 'CB_Regressor'
+        loaded_model_qoe = CatBoostRegressor().load_model('{}/{}.cbm'.format(model_dir,
+                                                                  model_name_qoe))
         # Open model configuration files
-        with open('{}/param_{}.json'.format(model_dir, model_name)) as json_file:
+        with open('{}/param_{}.json'.format(model_dir, model_name_ul)) as json_file:
             params = json.load(json_file)
-            features = params['features']
+            features_ul = params['features']
         with open('{}/param_{}.json'.format(model_dir, model_name_sl)) as json_file:
             params = json.load(json_file)
             features_sl = params['features']
+        with open('{}/param_{}.json'.format(model_dir, model_name_qoe)) as json_file:
+            params = json.load(json_file)
+            features_qoe = params['features']
         # Remove non numeric features from feature list
-        non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size']
+        non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size', 'size_dimension_ratio']
         metrics_list = []
+        features = list(np.unique(features_ul + features_sl + features_qoe))
+      
         for metric in features:
             if metric not in non_temporal_features:
                 metrics_list.append(metric.split('-')[0])
@@ -172,22 +182,26 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         process_time_user = time.time() - start_user
 
         predictions_df = pd.DataFrame()
-        print(metrics_df[features_sl], flush=True)
         predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(metrics_df[features_sl])
+        predictions_df['ssim_pred'] = loaded_model_qoe.predict(metrics_df[features_qoe])
 
+        # Replace dimension and size columns with a size_dimension_ratio column
+        features_ul.remove('dimension')
+        features_ul.remove('size')
+        features_ul.append('size_dimension_ratio')
         # Normalize input data using the associated scaler
-        x_renditions = np.asarray(metrics_df)
+        x_renditions = np.asarray(metrics_df[features_ul].to_numpy())
         x_renditions = loaded_scaler.transform(x_renditions)
 
         # Remove further features that model may not need
-        if os.path.exists('{}/reduction_{}.pickle.dat'.format(model_dir, model_name)):
-            matrix = pickle.load(open('{}/reduction_{}.pickle.dat'.format(model_dir, model_name), 'rb'))
+        if os.path.exists('{}/reduction_{}.pickle.dat'.format(model_dir, model_name_ul)):
+            matrix = pickle.load(open('{}/reduction_{}.pickle.dat'.format(model_dir, model_name_ul), 'rb'))
             x_renditions = matrix.transform(x_renditions)
 
         # Make predictions for given data
         start = time.clock()
-        predictions_df['ocsvm_dist'] = loaded_model.decision_function(x_renditions)
-        predictions_df['ul_pred_tamper'] = loaded_model.predict(x_renditions)
+        predictions_df['ocsvm_dist'] = loaded_model_ul.decision_function(x_renditions)
+        predictions_df['ul_pred_tamper'] = loaded_model_ul.predict(x_renditions)
         predictions_df['meta_pred_tamper'] = predictions_df.apply(meta_model, axis=1)
         prediction_time = time.clock() - start
 
@@ -196,6 +210,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         for _, rendition in enumerate(renditions):
             if rendition['video_available']:
                 rendition.pop('path', None)
+                rendition['ssim_pred'] = float(predictions_df['ssim_pred'].iloc[i])
                 rendition['ocsvm_dist'] = float(predictions_df['ocsvm_dist'].iloc[i])
                 rendition['tamper_ul'] = int(predictions_df['ul_pred_tamper'].iloc[i])
                 rendition['tamper_sl'] = int(predictions_df['sl_pred_tamper'].iloc[i])
@@ -230,6 +245,7 @@ def retrieve_models(uri):
     model_dir = '/tmp/model'
     model_file = uri.split('/')[-1]
     model_file_sl = f'{model_file}_cb_sl'
+    model_file_qoe = f'{model_file}_cb_qoe'
     # Create target Directory if don't exist
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
@@ -242,12 +258,12 @@ def retrieve_models(uri):
             with tarfile.open(filename) as tar_f:
                 tar_f.extractall(model_dir)
            
-            return model_dir, model_file, model_file_sl
+            return model_dir, model_file, model_file_sl, model_file_qoe
         except Exception:
             return 'Unable to untar model'
     else:
         print('Directory ', model_dir, ' already exists, skipping download')
-        return model_dir, model_file, model_file_sl
+        return model_dir, model_file, model_file_sl, model_file_qoe
 
 
 def retrieve_video_file(uri):
