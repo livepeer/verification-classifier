@@ -185,19 +185,10 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         predictions_df = pd.DataFrame()
         predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(metrics_df[features_sl])
         predictions_df['ssim_pred'] = loaded_model_qoe.predict(metrics_df[features_qoe])
-
-        # Replace dimension and size columns with a size_dimension_ratio column
-        features_ul.remove('dimension')
-        features_ul.remove('size')
-        features_ul.append('size_dimension_ratio')
+        
         # Normalize input data using the associated scaler
         x_renditions = np.asarray(metrics_df[features_ul].to_numpy())
         x_renditions = loaded_scaler.transform(x_renditions)
-
-        # Remove further features that model may not need
-        if os.path.exists('{}/reduction_{}.pickle.dat'.format(model_dir, model_name_ul)):
-            matrix = pickle.load(open('{}/reduction_{}.pickle.dat'.format(model_dir, model_name_ul), 'rb'))
-            x_renditions = matrix.transform(x_renditions)
 
         # Make predictions for given data
         start = time.clock()

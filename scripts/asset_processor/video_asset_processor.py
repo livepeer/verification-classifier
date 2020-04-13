@@ -344,7 +344,8 @@ class VideoAssetProcessor:
 
             # Extract the dimensions of the rendition
             dimensions_df = metrics_df[metrics_df['path'] == rendition['path']]['dimensions']
-            rendition_dict['dimension'] = int(dimensions_df.unique()[0].split(':')[1])
+            rendition_dict['dimension_x'] = int(dimensions_df.unique()[0].split(':')[1])
+            rendition_dict['dimension_y'] = int(dimensions_df.unique()[0].split(':')[0])
 
             # Extract the pixels for this rendition
             pixels_df = metrics_df[metrics_df['path'] == rendition['path']]['pixels']
@@ -362,7 +363,7 @@ class VideoAssetProcessor:
         pixels_df = metrics_df['pixels']
 
         # Compute a size/dimension ratio column for better accuracy
-        metrics_df['size_dimension_ratio'] = metrics_df['size'] / metrics_df['dimension']
+        metrics_df['size_dimension_ratio'] = metrics_df['size'] / metrics_df['dimension_y'] * metrics_df['dimension_x'] * metrics_df['fps']
 
         metrics_df = self.cleanup_dataframe(metrics_df, self.features_list)
 
@@ -381,10 +382,9 @@ class VideoAssetProcessor:
                 features.remove('attack_ID')
             # Filter out features from metrics dataframe
 
-            metrics_df = metrics_df[features]
-
             # Scale measured metrics according to their resolution for better accuracy
             metrics_df = self.rescale_to_resolution(metrics_df, features)
+            metrics_df = metrics_df[features]
 
         return metrics_df
 
@@ -477,13 +477,12 @@ class VideoAssetProcessor:
                             ]
 
         for label in feat_labels:
-
             if label in features:
                 if label.split('-')[0] in downscale_features:
-                    df_features[label] = df_features[label] / df_features['dimension']
+                    df_features[label] = df_features[label] / df_features['dimension_x']
                     print('Downscaling', label, flush=True)
                 elif label.split('-')[0] in upscale_features:
-                    df_features[label] = df_features[label] * df_features['dimension']
+                    df_features[label] = df_features[label] * df_features['dimension_x']
                     print('Upscaling', label, flush=True)
         return df_features
 
