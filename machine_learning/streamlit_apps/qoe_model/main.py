@@ -5,8 +5,9 @@ It relies of Streamlite library for the visualization and display of widgets
 
 import os.path
 import json
-from catboost import Pool, CatBoostRegressor, CatBoostClassifier
 
+from catboost import Pool, CatBoostRegressor, CatBoostClassifier
+from joblib import dump
 import pandas as pd
 import streamlit as st
 import numpy as np
@@ -28,49 +29,17 @@ FEATURES = [
                'temporal_gaussian_mse-mean',
                'temporal_gaussian_difference-mean',
                'temporal_threshold_gaussian_difference-mean',
-    # 'temporal_dct-max',
-    #         'temporal_dct-euclidean',
-    #         'temporal_dct-manhattan',
-    #         'temporal_gaussian_mse-max',
-    #         'temporal_gaussian_mse-manhattan',
-    #         'temporal_gaussian_difference-mean',
-    #         'temporal_gaussian_difference-max',
-    #         'temporal_threshold_gaussian_difference-euclidean',
-    #         'temporal_threshold_gaussian_difference-manhattan',
-    #         'pred_ssim',
-    #         'size_dimension_ratio'
+
             ]
 FEATURES_SL = ['dimension',
                'size_dimension_ratio',
                'temporal_dct-mean',
                'temporal_gaussian_mse-mean',
                'temporal_gaussian_difference-mean',
-               'temporal_threshold_gaussian_difference-mean',
-            #    'ocsvm_dist',
-            #    'ul_pred_tamper'
+               'temporal_threshold_gaussian_difference-mean'
                ]
-FEATURES_QOE = ['temporal_dct-max',
-               'temporal_dct-mean',
-               'temporal_dct-std',
-               'temporal_dct-euclidean',
-               'temporal_dct-manhattan',
-               'temporal_gaussian_mse-max',
-               'temporal_gaussian_mse-mean',
-               'temporal_gaussian_mse-std',
-               'temporal_gaussian_mse-euclidean',
-               'temporal_gaussian_mse-manhattan',
-               'temporal_gaussian_difference-max',
-               'temporal_gaussian_difference-mean',
-               'temporal_gaussian_difference-std',
-               'temporal_gaussian_difference-euclidean',
-               'temporal_gaussian_difference-manhattan',
-               'temporal_threshold_gaussian_difference-max',
-               'temporal_threshold_gaussian_difference-mean',
-               'temporal_threshold_gaussian_difference-std',
-               'temporal_threshold_gaussian_difference-euclidean',
-               'temporal_threshold_gaussian_difference-manhattan',
-               'size_dimension_ratio'
-               ]
+FEATURES_QOE = FEATURES
+
 METRICS_QOE = ['temporal_ssim-mean']
 
 def load_data(data_uri, nrows):
@@ -331,14 +300,28 @@ def train_ul_tamper_model(data_df):
 
     # Evaluate its accuracy
     f_beta, tnr, tpr_test = ul_model_evaluation(oc_svm,
-                                                              x_train_ul,
-                                                              x_test_ul,
+                                                x_train_ul,
+                                                x_test_ul,
                                                 x_attacks
                                                               )
+
+    # Save the scaler for inference
+    dump(scaler, 'UL_StandardScaler.joblib')
+    # Save the OC-SVM for inference
+    dump(oc_svm, 'OCSVM.joblib')
+    svm_params = oc_svm.get_params()
+    svm_params['features'] = FEATURES
+    svm_params['f_beta'] = f_beta
+    svm_params['tnr'] = tnr
+    svm_params['tpr_test'] = tpr_test
+    with open('param_OCSVM.json', 'w') as fp:
+        json.dump(svm_params, fp)    
+
+
     st.write('UNSUPERVISED TAMPER MODEL ACCURACY')
     st.write('F20:{} / TNR:{} / TPR_test:{}'.format(f_beta,
-                                                                             tnr,
-                                                                             tpr_test))
+                                                    tnr,
+                                                    tpr_test))
 
     return oc_svm, scaler
 

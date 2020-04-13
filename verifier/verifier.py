@@ -13,7 +13,7 @@ import sys
 import urllib
 import subprocess
 
-import pickle
+from joblib import load
 import numpy as np
 import pandas as pd
 import cv2
@@ -121,11 +121,12 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         model_name_ul = 'OCSVM'
         scaler_type = 'StandardScaler'
         learning_type = 'UL'
-        loaded_model_ul = pickle.load(open('{}/{}.pickle.dat'.format(model_dir,
-                                                                  model_name_ul), 'rb'))
-        loaded_scaler = pickle.load(open('{}/{}_{}.pickle.dat'.format(model_dir,
-                                                                      learning_type,
-                                                                      scaler_type), 'rb'))                                                                            
+        loaded_model_ul = load(open('{}/{}.joblib'.format(model_dir,
+                                                          model_name_ul), 'rb'))
+        print(loaded_model_ul.get_params(), flush=True)                                                            
+        loaded_scaler = load(open('{}/{}_{}.joblib'.format(model_dir,
+                                                           learning_type,
+                                                           scaler_type), 'rb'))                                                                            
         # Configure SL model for inference
         model_name_sl = 'CB_Binary'
         loaded_model_sl = CatBoostClassifier().load_model('{}/{}.cbm'.format(model_dir,
