@@ -4,7 +4,7 @@ It relies of Streamlite library for the visualization and display of widgets
 """
 
 import os.path
-
+import json
 from catboost import Pool, CatBoostRegressor, CatBoostClassifier
 
 import pandas as pd
@@ -22,30 +22,32 @@ st.title('QoE model predictor')
 DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
 DATA_URI_TAMPER = '../../cloud_functions/data-large.csv'
 
-FEATURES = ['temporal_dct-max',
-            'temporal_dct-euclidean',
-            'temporal_dct-manhattan',
-            'temporal_gaussian_mse-max',
-            'temporal_gaussian_mse-manhattan',
-            'temporal_gaussian_difference-mean',
-            'temporal_gaussian_difference-max',
-            'temporal_threshold_gaussian_difference-euclidean',
-            'temporal_threshold_gaussian_difference-manhattan',
-            'pred_ssim',
-            'size_dimension_ratio'
+FEATURES = [
+               'size_dimension_ratio',
+               'temporal_dct-mean',
+               'temporal_gaussian_mse-mean',
+               'temporal_gaussian_difference-mean',
+               'temporal_threshold_gaussian_difference-mean',
+    # 'temporal_dct-max',
+    #         'temporal_dct-euclidean',
+    #         'temporal_dct-manhattan',
+    #         'temporal_gaussian_mse-max',
+    #         'temporal_gaussian_mse-manhattan',
+    #         'temporal_gaussian_difference-mean',
+    #         'temporal_gaussian_difference-max',
+    #         'temporal_threshold_gaussian_difference-euclidean',
+    #         'temporal_threshold_gaussian_difference-manhattan',
+    #         'pred_ssim',
+    #         'size_dimension_ratio'
             ]
-FEATURES_SL = ['temporal_dct-max',
-                'temporal_dct-euclidean',
-                'temporal_dct-manhattan',
-                'temporal_gaussian_mse-max',
-                'temporal_gaussian_mse-manhattan',
-                'temporal_gaussian_difference-mean',
-                'temporal_gaussian_difference-max',
-                'temporal_threshold_gaussian_difference-euclidean',
-                'temporal_threshold_gaussian_difference-manhattan',
-                'size_dimension_ratio',
-                'ocsvm_dist',
-                'ul_pred_tamper'
+FEATURES_SL = ['dimension',
+               'size_dimension_ratio',
+               'temporal_dct-mean',
+               'temporal_gaussian_mse-mean',
+               'temporal_gaussian_difference-mean',
+               'temporal_threshold_gaussian_difference-mean',
+            #    'ocsvm_dist',
+            #    'ul_pred_tamper'
                ]
 FEATURES_QOE = ['temporal_dct-max',
                'temporal_dct-mean',
@@ -260,12 +262,13 @@ def train_qoe_model(data_df):
                       cat_features=categorical_features_indices)
 
     loss_funct = 'MAE'
-    model_catbootregressor = CatBoostRegressor(depth=6,
-                                               num_trees=1000,
-                                               l2_leaf_reg=5,
-                                               learning_rate=0.05,
-                                               loss_function=loss_funct
-                                               )
+    CB_params = {'depth':6,
+                 'num_trees':1000,
+                 'l2_leaf_reg':5,
+                 'learning_rate':0.05,
+                 'loss_function':loss_funct}
+    model_catbootregressor = CatBoostRegressor(**CB_params)
+
     #Train the model
     print('Training QoE model:')
     model_catbootregressor.fit(train_pool)
@@ -281,6 +284,16 @@ def train_qoe_model(data_df):
 
     st.write('QoE model train set accuracy:')
     st.write(learn_train_df.min())
+
+    model_catbootregressor.save_model('CB_Regressor.cbm',
+           format="cbm",
+           export_parameters=None,
+           pool=None)
+ 
+    CB_params['eval_metrics'] = learn_test_df.min().to_json()
+    CB_params['features'] = FEATURES_QOE
+    with open('param_CB_Regressor.json', 'w') as outfile:
+        json.dump(CB_params, outfile)
 
     return model_catbootregressor
 
@@ -358,10 +371,11 @@ def train_sl_tamper_model(data_df):
 
     # df_train_sl['ul_pred_tamper'] = df_train_sl['ul_pred_tamper'].astype(str)
     cat_features = []
-     # Initialize CatBoostClassifier
-    catboost_binary = CatBoostClassifier(iterations=500,
-                                         learning_rate=0.01,
-                                         depth=6)
+    # Initialize CatBoostClassifier
+    CB_params = dict(iterations=500,
+                     learning_rate=0.01,
+                     depth=6)
+    catboost_binary = CatBoostClassifier(**CB_params)
     # Fit model
     catboost_binary.fit(np.asarray(df_train_sl[FEATURES]), y_train_sl, cat_features)
 
@@ -369,8 +383,18 @@ def train_sl_tamper_model(data_df):
     f_beta, tnr, tpr_test = sl_model_evaluation(catboost_binary, df_test_sl)
     st.write('SUPERVISED TAMPER MODEL ACCURACY')
     st.write('F20:{} / TNR:{} / TPR_test:{}'.format(f_beta,
-                                                                             tnr,
-                                                                             tpr_test))
+                                                    tnr,
+                                                    tpr_test))
+
+    catboost_binary.save_model('CB_Binary.cbm',
+           format="cbm",
+           export_parameters=None,
+           pool=None)
+ 
+    CB_params['eval_metrics'] = {'f_beta':f_beta, 'tnr':tnr, 'tpr_test':tpr_test}
+    CB_params['features'] = FEATURES
+    with open('param_CB_Binary.json', 'w') as outfile:
+        json.dump(CB_params, outfile)
 
     return catboost_binary
 
@@ -554,6 +578,7 @@ def main():
 
     # Train supervised tamper verification and adds its predictions
     catboost_binary = train_sl_tamper_model(df_aggregated)
+    st.write('FEATURES:', df_aggregated[FEATURES].head(100))
     df_aggregated['sl_pred_tamper'] = catboost_binary.predict(df_aggregated[FEATURES])
     df_aggregated['sl_pred_tamper'] = df_aggregated['sl_pred_tamper'].apply(lambda x: 1 if x == 1 else -1)
 
