@@ -64,12 +64,18 @@ def post_route():
 
     Returns:
 
-    {"orchestrator_id": The ID of the orchestrator responsible of transcoding,
-     "source": The URI of the video source
+    {"model": The url of the inference model used,
+     "orchestrator_id": The ID of the orchestrator responsible of transcoding,
+     "source": The URI of the video source,
      "results": A list with the verification results, with the following:
         {
+                "audio_available": A boolean indicating whether the audio track could be extracted
+                                    from the source,
                 "frame_rate": The ratio between the expected frame rate and the one extracted
-                             with OpenCv's backend (GStreamer by default)
+                             with OpenCv's backend (GStreamer by default),
+                "ocsvm_dist": A float that represents the distance to the decision function of the
+                            One Class Support Vector Machine used for inference. Negative values
+                            indicate a tampering has been detected by this model (see tamper_ul),                           
                 "pixels": The number of expected total pixels (height x width x number of frames)
                 "pixels_pre_verification": The ratio between the expected number of total pixels and
                                            the one extracted with OpenCv's backend
@@ -91,11 +97,16 @@ def post_route():
                     "width_post_verification":The ratio between the expected height and the one
                                                 computed during the decoding
                 },
-                "tamper": A float representing a distance to a decision function defined by the
-                          pre-trained model fo verification
+                "ssim_pred": A float representing an estimated measure of the transcoding's SSIM,
+                "tamper_meta": A boolean indicating whether the metamodel detected tampering,
+                "tamper_sl": A boolean indicating whether the Supervised Learning model detected
+                            tampering,
+                "tamper_ul": A boolean indicating whether the Unsupervised Learning model detected
+                            tampering, 
                 "uri": The URI of the rendition
      }
     """
+   
     if request.method == 'POST':
 
 

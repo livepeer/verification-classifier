@@ -135,31 +135,42 @@ curl localhost:5000/verify -d '{
 *Response (local assets)*
 ```
 
-{"orchestrator_id":"foo",
+{
+"model":"https://storage.googleapis.com/verification-models/verification.tar.xz",
+"orchestrator_id":"foo",
 "results":
 [
     {
-            "video_available":true,
-            "tamper":-9.408425,
-            "uri":"stream/144p_black_and_white/1HWSFYQXa1Q.mp4"
+    "audio_available":false,
+    "ocsvm_dist":-0.04083180936940067,
+    "ssim_pred":0.6080637397913853,
+    "tamper_meta":-1,
+    "tamper_sl":-1,
+    "tamper_ul":-1,
+    "uri":"stream/144p_black_and_white/1HWSFYQXa1Q.mp4","video_available":true
     },
     {
-            "video_available":true,
-            "frame_rate":false,
-            "pixels":"1034500",
-            "pixels_post_verification":0.09354202835648148,
-            "pixels_pre_verification":127119360.0,
-            "resolution":
-            {
-                "height":"144",
-                "height_post_verification":1.0,
-                "height_pre_verification":1.0,
-                "width":"256",
-                "width_post_verification":1.0,
-                "width_pre_verification":1.0
-            },
-            "tamper":1.200134,
-            "uri":"stream/144p/1HWSFYQXa1Q.mp4"
+        "audio_available":false,
+        "frame_rate":false,
+        "ocsvm_dist":0.06808371913784983,
+        "pixels":"1034500",
+        "pixels_post_verification":2.55114622790404,
+        "pixels_pre_verification":127119360.0,
+        "resolution":
+        {
+            "height":"144",
+            "height_post_verification":1.0,
+            "height_pre_verification":1.0,
+            "width":"256",
+            "width_post_verification":1.0,
+            "width_pre_verification":1.0
+        },
+        "ssim_pred":0.6214110237850428,
+        "tamper_meta":-1,
+        "tamper_sl":-1,
+        "tamper_ul":1,
+        "uri":"stream/144p/1HWSFYQXa1Q.mp4",
+        "video_available":true
     }
 ],
 "source":"stream/sources/1HWSFYQXa1Q.mp4"}
