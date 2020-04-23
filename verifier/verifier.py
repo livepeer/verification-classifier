@@ -128,7 +128,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
             features = params['features']
 
         # Remove non numeric features from feature list
-        non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size']
+        non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size', 'size_dimension_ratio']
         metrics_list = []
         for metric in features:
             if metric not in non_temporal_features:
@@ -164,12 +164,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         # Normalize input data using the associated scaler
         x_renditions = np.asarray(metrics_df)
         x_renditions = loaded_scaler.transform(x_renditions)
-
-        # Remove further features that model may not need
-        if os.path.exists('{}/reduction_{}.pickle.dat'.format(model_dir, model_name)):
-            matrix = pickle.load(open('{}/reduction_{}.pickle.dat'.format(model_dir, model_name), 'rb'))
-            x_renditions = matrix.transform(x_renditions)
-
+       
         # Make predictions for given data
         start = time.clock()
         y_pred = loaded_model.decision_function(x_renditions)
