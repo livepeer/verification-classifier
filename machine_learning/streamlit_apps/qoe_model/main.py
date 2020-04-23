@@ -31,14 +31,6 @@ FEATURES = [
                'temporal_threshold_gaussian_difference-mean',
 
             ]
-FEATURES_SL = ['dimension',
-               'size_dimension_ratio',
-               'temporal_dct-mean',
-               'temporal_gaussian_mse-mean',
-               'temporal_gaussian_difference-mean',
-               'temporal_threshold_gaussian_difference-mean'
-               ]
-FEATURES_QOE = FEATURES
 
 METRICS_QOE = ['temporal_ssim-mean']
 
@@ -72,7 +64,6 @@ def rescale_to_resolution(data):
 
     features = list(df_data.columns)
     downscale_features = ['temporal_psnr',
-                         'temporal_ssim',
                          'temporal_cross_correlation'
                          ]
 
@@ -117,7 +108,7 @@ def set_rendition_name(rendition_name):
     except:
         return ''
 
-def ul_model_evaluation(classifier, train_set, test_set, attack_set, beta=20):
+def ul_model_evaluation(classifier, test_set, attack_set, beta=20):
     """
     Evaluates performance of supervised and unsupervised learning algorithms
     """
@@ -155,7 +146,6 @@ def sl_model_evaluation(classifier, eval_df):
 
     n_accurate_test = y_pred_test[y_pred_test == 1].size
     n_accurate_outliers = y_pred_outliers[y_pred_outliers == -1].size
-
 
     f_beta = fbeta_score(np.concatenate([np.ones(y_pred_test.shape[0]),
                                          -1 * np.ones(y_pred_outliers.shape[0])]),
@@ -224,15 +214,18 @@ def train_qoe_model(data_df):
     train_data = data_df.sample(num_train)
     test_data = data_df[~data_df.index.isin(train_data.index)]
 
+    train_data = rescale_to_resolution(train_data)
+    test_data = rescale_to_resolution(test_data)
+
     categorical_features_indices = []
 
-    train_pool = Pool(data=train_data[FEATURES_QOE],
+    train_pool = Pool(data=train_data[FEATURES],
                       label=train_data[METRICS_QOE],
                       cat_features=categorical_features_indices)
 
     loss_funct = 'MAE'
     CB_params = {'depth':6,
-                 'num_trees':1000,
+                 'num_trees':100,
                  'l2_leaf_reg':5,
                  'learning_rate':0.05,
                  'loss_function':loss_funct}
@@ -242,17 +235,13 @@ def train_qoe_model(data_df):
     print('Training QoE model:')
     model_catbootregressor.fit(train_pool)
 
-    test_pool = Pool(data=test_data[FEATURES_QOE],
+    test_pool = Pool(data=test_data[FEATURES],
                       label=test_data[METRICS_QOE],
                       cat_features=categorical_features_indices)
-    learn_train_df = pd.DataFrame(model_catbootregressor.eval_metrics(train_pool, ['MAE', 'MAPE', 'RMSE']))
     learn_test_df = pd.DataFrame(model_catbootregressor.eval_metrics(test_pool, ['MAE', 'MAPE', 'RMSE']))
 
     st.write('QoE model test set accuracy:')
     st.write(learn_test_df.min())
-
-    st.write('QoE model train set accuracy:')
-    st.write(learn_train_df.min())
 
     model_catbootregressor.save_model('CB_Regressor.cbm',
            format="cbm",
@@ -260,7 +249,7 @@ def train_qoe_model(data_df):
            pool=None)
  
     CB_params['eval_metrics'] = learn_test_df.min().to_json()
-    CB_params['features'] = FEATURES_QOE
+    CB_params['features'] = FEATURES
     with open('param_CB_Regressor.json', 'w') as outfile:
         json.dump(CB_params, outfile)
 
@@ -278,11 +267,6 @@ def train_ul_tamper_model(data_df):
     df_train_ul = df_untampered.sample(frac=0.8)
     df_test_ul = df_untampered[~df_untampered.index.isin(df_train_ul.index)]
     st.write('Train / test split:', df_train_ul.shape, df_test_ul.shape)
-    
-    # Extract only good renditions for training
-    df_train_ul = rescale_to_resolution(df_train_ul)
-    df_test_ul = rescale_to_resolution(df_test_ul)
-    df_attacks = rescale_to_resolution(df_attacks)
     # Convert datasets from dataframes to numpy arrays
     x_train_ul = np.asarray(df_train_ul[FEATURES])
     x_test_ul = np.asarray(df_test_ul[FEATURES])
@@ -300,7 +284,6 @@ def train_ul_tamper_model(data_df):
 
     # Evaluate its accuracy
     f_beta, tnr, tpr_test = ul_model_evaluation(oc_svm,
-                                                x_train_ul,
                                                 x_test_ul,
                                                 x_attacks
                                                               )
@@ -331,17 +314,15 @@ def train_sl_tamper_model(data_df):
 
     # Get untampered assets dataset
     st.write('Total samples:', data_df.shape)
+
     # Get tampered (attacks) dataset
     # Split dataset into train, test and attacks and shuffle them
     df_train_sl = data_df.sample(frac=0.8)
     df_test_sl = data_df[~data_df.index.isin(df_train_sl.index)]
-    st.write('Train / test split:', df_train_sl.shape, df_test_sl.shape)
+    st.write('SL TAMPER', df_test_sl.head(100))
 
-    # Extract only good renditions for training
-    # df_train_sl = rescale_to_resolution(df_train_sl)
-    # df_test_sl = rescale_to_resolution(df_test_sl)
-    # df_attacks = rescale_to_resolution(df_attacks)
-    # data_df = rescale_to_resolution(data_df)
+    st.write('SL TAMPER RESCALED', df_test_sl.head(100))
+    st.write('Train / test split:', df_train_sl.shape, df_test_sl.shape)
 
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('black_and_white')]
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('rotate')]
@@ -356,7 +337,7 @@ def train_sl_tamper_model(data_df):
     cat_features = []
     # Initialize CatBoostClassifier
     CB_params = dict(iterations=500,
-                     learning_rate=0.01,
+                     learning_rate=0.05,
                      depth=6)
     catboost_binary = CatBoostClassifier(**CB_params)
     # Fit model
@@ -512,11 +493,11 @@ def plot_correlation_matrix(df_aggregated):
     """
     Display correlation matrix for features
     """
-    df_features = pd.DataFrame(df_aggregated[FEATURES_QOE + METRICS_QOE])
+    df_features = pd.DataFrame(df_aggregated[FEATURES + METRICS_QOE])
     corr = df_features.corr()
     corr.style.background_gradient(cmap='coolwarm')
-    fig = go.Figure(data=go.Heatmap(x=FEATURES_QOE + METRICS_QOE,
-                                    y=FEATURES_QOE + METRICS_QOE,
+    fig = go.Figure(data=go.Heatmap(x=FEATURES + METRICS_QOE,
+                                    y=FEATURES + METRICS_QOE,
                                     z=corr
                                     ))
  
@@ -539,38 +520,51 @@ def main():
     df_aggregated = df_aggregated.sample(frac=1)
     # Display datasets
     st.subheader('Raw QoE data')
-    st.write(df_qoe.head(100), df_qoe.shape)
+    st.write(df_qoe[FEATURES].describe(), df_qoe.shape)
     st.subheader('Raw tamper verification data')
-    st.write(df_tamper.head(100), df_tamper.shape)
+    st.write(df_tamper[FEATURES].describe(), df_tamper.shape)
     st.subheader('Aggregated')
-    st.write(df_aggregated.head(100), df_aggregated.shape)
+    st.write(df_aggregated[FEATURES].describe(), df_aggregated.shape)
 
     st.write('Untampered:', df_aggregated[df_aggregated['tamper'] == 1].shape)
     st.write('Tampered:', df_aggregated[df_aggregated['tamper'] == -1].shape)
 
+    qoe_columns = FEATURES + METRICS_QOE
+    ul_columns = FEATURES + ['tamper']
+    sl_columns = FEATURES + ['tamper', 'rendition']
     # Train SSIM predictor and add predictions to aggregated dataframe
-    qoe_model = train_qoe_model(df_qoe)
-    df_aggregated['pred_ssim'] = qoe_model.predict(df_aggregated[FEATURES_QOE])
-
+    qoe_model = train_qoe_model(df_qoe[qoe_columns])
+    df_aggregated = rescale_to_resolution(df_aggregated)
+    df_aggregated['pred_ssim'] = qoe_model.predict(df_aggregated[FEATURES])
+    # Output the error check to the frontend
+    df_ssim = df_aggregated[['pred_ssim', 'temporal_ssim-mean']].dropna(axis='rows')
+    st.write('RMSE:', ((df_ssim['pred_ssim'] - df_ssim['temporal_ssim-mean']) ** 2).mean() ** .5)
+    st.write('MAPE:', (np.abs(df_ssim['temporal_ssim-mean'] - df_ssim['pred_ssim']) / df_ssim['temporal_ssim-mean']).mean())
+    
     # Train unsupervised tamper verification and get its feature scaler
-    oc_svm, scaler = train_ul_tamper_model(df_aggregated)
+    oc_svm, scaler = train_ul_tamper_model(df_aggregated[ul_columns])
     # Add predictions to data set
     x_test = scaler.transform(df_aggregated[FEATURES])
     df_aggregated['ocsvm_dist'] = oc_svm.decision_function(x_test)
     df_aggregated['ul_pred_tamper'] = oc_svm.predict(x_test)
 
     # Train supervised tamper verification and adds its predictions
-    catboost_binary = train_sl_tamper_model(df_aggregated)
-    st.write('FEATURES:', df_aggregated[FEATURES].head(100))
+    catboost_binary = train_sl_tamper_model(df_aggregated[sl_columns])
+    
     df_aggregated['sl_pred_tamper'] = catboost_binary.predict(df_aggregated[FEATURES])
     df_aggregated['sl_pred_tamper'] = df_aggregated['sl_pred_tamper'].apply(lambda x: 1 if x == 1 else -1)
 
     # Apply meta-model to aggregated dataset
     df_aggregated['meta_pred_tamper'] = df_aggregated.apply(meta_model, axis=1)
-
+    st.write('FINAL DF:', df_aggregated[FEATURES + ['rendition', 'sl_pred_tamper', 'ul_pred_tamper', 'meta_pred_tamper']].head(100))
     # Display evaluation metrics for the test dataset
     meta_model_evaluation(df_aggregated)
 
+    df_test = pd.read_csv('test.csv')
+    st.write(catboost_binary.predict(df_test[FEATURES]))
+    x_test = scaler.transform(df_test[FEATURES])
+
+    st.write(oc_svm.predict(x_test))
     df_plots_aggregated = df_aggregated.sample(n=5000, random_state=1)
     df_plots_qoe = df_aggregated[df_aggregated['tamper'] == 1].sample(n=5000, random_state=1)
     # Display correlation between measured QoE metric, resolution and size.

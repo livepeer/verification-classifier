@@ -156,7 +156,6 @@ class VideoAssetProcessor:
                 break
         # Clean up memory
         capture.release()            
-        print(self.random_sampler, flush=True)
         return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
     def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):

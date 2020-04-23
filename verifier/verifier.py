@@ -123,10 +123,10 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         learning_type = 'UL'
         loaded_model_ul = load(open('{}/{}.joblib'.format(model_dir,
                                                           model_name_ul), 'rb'))
-        print(loaded_model_ul.get_params(), flush=True)                                                            
+
         loaded_scaler = load(open('{}/{}_{}.joblib'.format(model_dir,
                                                            learning_type,
-                                                           scaler_type), 'rb'))                                                                            
+                                                           scaler_type), 'rb'))
         # Configure SL model for inference
         model_name_sl = 'CB_Binary'
         loaded_model_sl = CatBoostClassifier().load_model('{}/{}.cbm'.format(model_dir,
@@ -183,9 +183,11 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         process_time_user = time.time() - start_user
 
         predictions_df = pd.DataFrame()
-        predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(metrics_df[features_sl])
+        predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(np.asarray(metrics_df[features_sl]))
         predictions_df['ssim_pred'] = loaded_model_qoe.predict(metrics_df[features_qoe])
-        
+        pd.set_option('display.max_columns', 500)
+        print(metrics_df[features_sl])
+        metrics_df[features_sl].to_csv('logs/test.csv')
         # Normalize input data using the associated scaler
         x_renditions = np.asarray(metrics_df[features_ul].to_numpy())
         x_renditions = loaded_scaler.transform(x_renditions)
