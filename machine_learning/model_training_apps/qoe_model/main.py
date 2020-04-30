@@ -17,8 +17,6 @@ st.title('QOE model training environment')
 DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
 
 FEATURES = ['size_dimension_ratio',
-            'dimension',
-            'size',
             'temporal_dct-mean',
             'temporal_gaussian_mse-mean',
             'temporal_gaussian_difference-mean',
@@ -74,12 +72,12 @@ def train_qoe_model(data_df):
                       cat_features=categorical_features_indices)
 
     loss_funct = 'MAE'
-    CB_params = {'depth':6,
+    cb_params = {'depth':6,
                  'num_trees':100,
                  'l2_leaf_reg':5,
                  'learning_rate':0.05,
                  'loss_function':loss_funct}
-    model_catbootregressor = CatBoostRegressor(**CB_params)
+    model_catbootregressor = CatBoostRegressor(**cb_params)
 
     #Train the model
     print('Training QoE model:')
@@ -99,10 +97,10 @@ def train_qoe_model(data_df):
                                       export_parameters=None,
                                       pool=None)
 
-    CB_params['eval_metrics'] = learn_test_df.min().to_json()
-    CB_params['features'] = FEATURES
+    cb_params['eval_metrics'] = learn_test_df.min().to_json()
+    cb_params['features'] = FEATURES
     with open('param_CB_Regressor.json', 'w') as outfile:
-        json.dump(CB_params, outfile)
+        json.dump(cb_params, outfile)
 
     return model_catbootregressor
 
@@ -146,6 +144,8 @@ def plot_scatter(title, x_metric, y_metric, x_axis_title, y_axis_title, df_aggre
     fig.update_layout(title=title,
                       xaxis_title=x_axis_title,
                       yaxis_title=y_axis_title,
+                      width=1000,
+                      height=1000,
                       legend=go.layout.Legend(x=0,
                                               y=1,
                                               traceorder="normal",
@@ -159,45 +159,6 @@ def plot_scatter(title, x_metric, y_metric, x_axis_title, y_axis_title, df_aggre
                                               ),
                       shapes=shapes
                      )
-    st.plotly_chart(fig, width=1000, height=1000)
-
-def plot_histogram(metric, x_title, df_aggregated):
-    """
-    Function to plot and format a histogram from the aggregated dataframe
-    """
-    resolutions = list(df_aggregated['dimension_y'].unique())
-    resolutions.sort()
-    data = []
-    for res in resolutions:
-        data.append(go.Histogram(x=df_aggregated[metric][df_aggregated['dimension_y'] == res],
-                                 name='{}p'.format(res),
-                                 autobinx=False,
-                                 nbinsx=500,
-                                 opacity=0.75))
-    shapes = list()
-    shapes.append({'type': 'line',
-                   'xref': 'x',
-                   'yref': 'y',
-                   'x0': 0,
-                   'y0': 0,
-                   'x1': 0,
-                   'y1': 1000})
-
-    fig = go.Figure(data=data)
-    fig.layout.update(barmode='overlay',
-                      title='Histogram of legit assets',
-                      xaxis_title_text=x_title,
-                      yaxis_title_text='Count',
-                      legend=go.layout.Legend(x=1,
-                                              y=1,
-                                              traceorder="normal",
-                                              font=dict(family="sans-serif",
-                                                       size=12,
-                                                       color="black"
-                                                      )
-                                             ),
-                      shapes=shapes
-                      )
     st.plotly_chart(fig)
 
 def plot_correlation_matrix(df_aggregated):
@@ -211,7 +172,11 @@ def plot_correlation_matrix(df_aggregated):
                                     y=FEATURES + METRICS_QOE,
                                     z=corr
                                     ))
-    st.plotly_chart(fig, width=1000, height=1000)
+    fig.update_layout(title='Correlation matrix',
+                      width=1000,
+                      height=1000
+                     )
+    st.plotly_chart(fig)
 
 def main():
     """
@@ -234,10 +199,11 @@ def main():
 
     # Output the error check to the frontend
     df_ssim = df_qoe[['pred_ssim', 'temporal_ssim-mean']].dropna(axis='rows')
-    rmse = (df_ssim['pred_ssim'] - df_ssim['temporal_ssim-mean']) ** 2
-    mape = np.abs(df_ssim['temporal_ssim-mean'] - df_ssim['pred_ssim']) / df_ssim['temporal_ssim-mean']
-    st.write('RMSE:', rmse.mean() ** .5)
-    st.write('MAPE:', mape.mean())
+    error = np.abs(df_ssim['temporal_ssim-mean'] - df_ssim['pred_ssim'])
+    rmse = (error ** 2).mean() ** .5
+    mape = (error / df_ssim['temporal_ssim-mean']).mean()
+    st.write('RMSE:', rmse)
+    st.write('MAPE:', mape)
 
     #######################################################################################
     # Display plots
