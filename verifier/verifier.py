@@ -186,12 +186,12 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(np.asarray(metrics_df[features_sl]))
         predictions_df['ssim_pred'] = loaded_model_qoe.predict(metrics_df[features_qoe])
         pd.set_option('display.max_columns', 500)
-        print(metrics_df[features_sl])
+        
         metrics_df[features_sl].to_csv('logs/test.csv')
         # Normalize input data using the associated scaler
         x_renditions = np.asarray(metrics_df[features_ul].to_numpy())
         x_renditions = loaded_scaler.transform(x_renditions)
-
+        print('INPUT ARRAY:', x_renditions, flush=True)
         # Make predictions for given data
         start = time.clock()
         predictions_df['ocsvm_dist'] = loaded_model_ul.decision_function(x_renditions)
@@ -273,12 +273,12 @@ def retrieve_video_file(uri):
         try:
             file_name = '/tmp/{}'.format(uuid.uuid4())
 
-            print('File download started!', flush=True)
+            print('File download started!', file_name, flush=True)
             video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
 
-            print('File downloaded to {}'.format(video_file), flush=True)
-        except:
-            print('Unable to download video file', flush=True)
+            print('File {} downloaded to {}'.format(file_name, video_file), flush=True)
+        except Exception as e:
+            print('Unable to download HTTP video file:', e, flush=True)
             video_available = False
     else:
         if os.path.isfile(uri):
