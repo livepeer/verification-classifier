@@ -92,14 +92,14 @@ def train_qoe_model(data_df):
     st.write('QoE model test set accuracy:')
     st.write(learn_test_df.min())
 
-    model_catbootregressor.save_model('CB_Regressor.cbm',
+    model_catbootregressor.save_model('../../output/models/CB_Regressor.cbm',
                                       format="cbm",
                                       export_parameters=None,
                                       pool=None)
 
     cb_params['eval_metrics'] = learn_test_df.min().to_json()
     cb_params['features'] = FEATURES
-    with open('param_CB_Regressor.json', 'w') as outfile:
+    with open('../../output/models/param_CB_Regressor.json', 'w') as outfile:
         json.dump(cb_params, outfile)
 
     return model_catbootregressor

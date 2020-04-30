@@ -242,15 +242,15 @@ def train_ul_tamper_model(data_df):
                                                 )
 
     # Save the scaler for inference
-    dump(scaler, 'UL_StandardScaler.joblib')
+    dump(scaler, '../../output/models/UL_StandardScaler.joblib')
     # Save the OC-SVM for inference
-    dump(oc_svm, 'OCSVM.joblib')
+    dump(oc_svm, '../../output/models/OCSVM.joblib')
     svm_params = oc_svm.get_params()
     svm_params['features'] = FEATURES
     svm_params['f_beta'] = f_beta
     svm_params['tnr'] = tnr
     svm_params['tpr_test'] = tpr_test
-    with open('param_OCSVM.json', 'w') as outputfile:
+    with open('../../output/models/param_OCSVM.json', 'w') as outputfile:
         json.dump(svm_params, outputfile)
 
 
@@ -301,14 +301,14 @@ def train_sl_tamper_model(data_df):
                                                     tnr,
                                                     tpr_test))
 
-    catboost_binary.save_model('CB_Binary.cbm',
+    catboost_binary.save_model('../../output/models/CB_Binary.cbm',
                                format="cbm",
                                export_parameters=None,
                                pool=None)
 
     cb_params['eval_metrics'] = {'f_beta':f_beta, 'tnr':tnr, 'tpr_test':tpr_test}
     cb_params['features'] = FEATURES
-    with open('param_CB_Binary.json', 'w') as outfile:
+    with open('../../output/models/param_CB_Binary.json', 'w') as outfile:
         json.dump(cb_params, outfile)
 
     return catboost_binary
