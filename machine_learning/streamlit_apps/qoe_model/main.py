@@ -18,18 +18,18 @@ from sklearn.preprocessing import StandardScaler
 from sklearn import svm
 from sklearn.metrics import fbeta_score, roc_curve, auc
 
-st.title('QoE model predictor')
+st.title('Model training environment')
 
 DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
 DATA_URI_TAMPER = '../../cloud_functions/data-large.csv'
 
-FEATURES = [
-               'size_dimension_ratio',
-               'temporal_dct-mean',
-               'temporal_gaussian_mse-mean',
-               'temporal_gaussian_difference-mean',
-               'temporal_threshold_gaussian_difference-mean',
-
+FEATURES = ['size_dimension_ratio',
+            'dimension',
+            'size',
+            'temporal_dct-mean',
+            'temporal_gaussian_mse-mean',
+            'temporal_gaussian_difference-mean',
+            'temporal_threshold_gaussian_difference-mean'
             ]
 
 METRICS_QOE = ['temporal_ssim-mean']
@@ -50,7 +50,7 @@ def load_data(data_uri, nrows):
         data_df['crf'] = data_df['rendition'].apply(lambda x: x.split('_')[-1])
         data_df['tamper'] = 1
     else:
-        data_df['size_dimension_ratio'] = data_df['size'] / data_df['dimension_y'] * data_df['dimension'] * data_df['fps']
+        data_df['size_dimension_ratio'] =  data_df['size'] / data_df['dimension']
         resolutions = ['1080', '720', '480', '360', '240', '144']
         data_df['tamper'] = data_df['rendition'].apply(lambda x: 1 if x in resolutions else -1)
 
@@ -209,13 +209,12 @@ def train_qoe_model(data_df):
     """
     Function to train model from given dataset
     """
+    st.write('QOE MODEL SOURCE DATASET', data_df.head(100))
+
     num_train = int(data_df.shape[0] * 0.8)
 
     train_data = data_df.sample(num_train)
     test_data = data_df[~data_df.index.isin(train_data.index)]
-
-    train_data = rescale_to_resolution(train_data)
-    test_data = rescale_to_resolution(test_data)
 
     categorical_features_indices = []
 
@@ -259,6 +258,8 @@ def train_ul_tamper_model(data_df):
     """
     Trains an unsupervised learning model for tamper verification
     """
+    st.write('UL TAMPER SOURCE DATASET', data_df.head(100))
+
     st.write('Total samples:', data_df.shape)
     # Get tampered (attacks) dataset
     df_attacks = data_df[data_df['tamper'] == -1].sample(frac=1)
@@ -279,7 +280,7 @@ def train_ul_tamper_model(data_df):
     x_attacks = scaler.transform(x_attacks)
 
     # Define One Class Support Vector Machine model and train it
-    oc_svm = svm.OneClassSVM(kernel='rbf', gamma=0.05, nu=0.001, cache_size=5000)
+    oc_svm = svm.OneClassSVM(kernel='rbf', gamma=0.05, nu=0.01, cache_size=5000)
     oc_svm.fit(x_train_ul)
 
     # Evaluate its accuracy
@@ -314,15 +315,12 @@ def train_sl_tamper_model(data_df):
 
     # Get untampered assets dataset
     st.write('Total samples:', data_df.shape)
+    st.write('SL TAMPER SOURCE DATASET', data_df.head(100))
 
     # Get tampered (attacks) dataset
     # Split dataset into train, test and attacks and shuffle them
     df_train_sl = data_df.sample(frac=0.8)
     df_test_sl = data_df[~data_df.index.isin(df_train_sl.index)]
-    st.write('SL TAMPER', df_test_sl.head(100))
-
-    st.write('SL TAMPER RESCALED', df_test_sl.head(100))
-    st.write('Train / test split:', df_train_sl.shape, df_test_sl.shape)
 
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('black_and_white')]
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('rotate')]
@@ -500,7 +498,6 @@ def plot_correlation_matrix(df_aggregated):
                                     y=FEATURES + METRICS_QOE,
                                     z=corr
                                     ))
- 
     st.plotly_chart(fig, width=1000, height=1000)
 
 def main():
@@ -513,66 +510,70 @@ def main():
     df_tamper = load_data(DATA_URI_TAMPER, 150000)
     # Remove low_bitrate kind of attacks
     df_tamper = df_tamper.loc[~df_tamper['rendition'].str.contains('low_bitrate')]
-
-    # Merge datasets to train verification with more well encoded renditions
-    frames = [df_qoe, df_tamper]
-    df_aggregated = pd.concat(frames, ignore_index=True)
-    df_aggregated = df_aggregated.sample(frac=1)
+    st.write(df_tamper.columns)
+    
     # Display datasets
     st.subheader('Raw QoE data')
-    st.write(df_qoe[FEATURES].describe(), df_qoe.shape)
+    st.write(df_qoe[FEATURES + ['path']].head(100), df_qoe.shape)
     st.subheader('Raw tamper verification data')
-    st.write(df_tamper[FEATURES].describe(), df_tamper.shape)
-    st.subheader('Aggregated')
-    st.write(df_aggregated[FEATURES].describe(), df_aggregated.shape)
-
-    st.write('Untampered:', df_aggregated[df_aggregated['tamper'] == 1].shape)
-    st.write('Tampered:', df_aggregated[df_aggregated['tamper'] == -1].shape)
+    st.write(df_tamper[FEATURES + ['path', 'tamper']].head(100), df_tamper.shape)
 
     qoe_columns = FEATURES + METRICS_QOE
-    ul_columns = FEATURES + ['tamper']
-    sl_columns = FEATURES + ['tamper', 'rendition']
-    # Train SSIM predictor and add predictions to aggregated dataframe
+    ul_columns = FEATURES + ['tamper', 'rendition', 'path']
+    sl_columns = FEATURES + ['tamper', 'rendition', 'path']
+
+    #######################################################################################
+    # Train SSIM predictor and add predictions to its dataframe
+    #######################################################################################
     qoe_model = train_qoe_model(df_qoe[qoe_columns])
-    df_aggregated = rescale_to_resolution(df_aggregated)
-    df_aggregated['pred_ssim'] = qoe_model.predict(df_aggregated[FEATURES])
+    df_qoe['pred_ssim'] = qoe_model.predict(df_qoe[FEATURES])
+
     # Output the error check to the frontend
-    df_ssim = df_aggregated[['pred_ssim', 'temporal_ssim-mean']].dropna(axis='rows')
+    df_ssim = df_qoe[['pred_ssim', 'temporal_ssim-mean']].dropna(axis='rows')
     st.write('RMSE:', ((df_ssim['pred_ssim'] - df_ssim['temporal_ssim-mean']) ** 2).mean() ** .5)
     st.write('MAPE:', (np.abs(df_ssim['temporal_ssim-mean'] - df_ssim['pred_ssim']) / df_ssim['temporal_ssim-mean']).mean())
     
-    # Train unsupervised tamper verification and get its feature scaler
-    oc_svm, scaler = train_ul_tamper_model(df_aggregated[ul_columns])
-    # Add predictions to data set
-    x_test = scaler.transform(df_aggregated[FEATURES])
-    df_aggregated['ocsvm_dist'] = oc_svm.decision_function(x_test)
-    df_aggregated['ul_pred_tamper'] = oc_svm.predict(x_test)
+    #######################################################################################
+    # Train unsupervised tamper verification model and retrieve its feature scaler
+    #######################################################################################
+    oc_svm, scaler = train_ul_tamper_model(df_tamper[ul_columns])
 
-    # Train supervised tamper verification and adds its predictions
-    catboost_binary = train_sl_tamper_model(df_aggregated[sl_columns])
-    
-    df_aggregated['sl_pred_tamper'] = catboost_binary.predict(df_aggregated[FEATURES])
-    df_aggregated['sl_pred_tamper'] = df_aggregated['sl_pred_tamper'].apply(lambda x: 1 if x == 1 else -1)
+    # Add predictions to tamper dataframe
+    x_test = scaler.transform(df_tamper[FEATURES])
+    df_tamper['ocsvm_dist'] = oc_svm.decision_function(x_test)
+    df_tamper['ul_pred_tamper'] = oc_svm.predict(x_test)
 
+    x_test_qoe = scaler.transform(df_qoe[FEATURES])
+
+
+    #######################################################################################
+    # Train supervised tamper verification and adds its predictions to dataframe
+    #######################################################################################
+    catboost_binary = train_sl_tamper_model(df_tamper[sl_columns])
+    df_tamper['sl_pred_tamper'] = catboost_binary.predict(df_tamper[FEATURES])
+    df_tamper['sl_pred_tamper'] = df_tamper['sl_pred_tamper'].apply(lambda x: 1 if x == 1 else -1)
+
+    #######################################################################################
     # Apply meta-model to aggregated dataset
-    df_aggregated['meta_pred_tamper'] = df_aggregated.apply(meta_model, axis=1)
-    st.write('FINAL DF:', df_aggregated[FEATURES + ['rendition', 'sl_pred_tamper', 'ul_pred_tamper', 'meta_pred_tamper']].head(100))
+    #######################################################################################
+    df_tamper['meta_pred_tamper'] = df_tamper.apply(meta_model, axis=1)
+
+    st.write('FINAL DF:', df_tamper[FEATURES + ['rendition', 'sl_pred_tamper', 'ul_pred_tamper', 'meta_pred_tamper', 'path']].head(100))
+    
     # Display evaluation metrics for the test dataset
-    meta_model_evaluation(df_aggregated)
+    meta_model_evaluation(df_tamper)
 
-    df_test = pd.read_csv('test.csv')
-    st.write(catboost_binary.predict(df_test[FEATURES]))
-    x_test = scaler.transform(df_test[FEATURES])
-
-    st.write(oc_svm.predict(x_test))
-    df_plots_aggregated = df_aggregated.sample(n=5000, random_state=1)
-    df_plots_qoe = df_aggregated[df_aggregated['tamper'] == 1].sample(n=5000, random_state=1)
+    #######################################################################################
+    # Display plots
+    #######################################################################################
+    df_plots_aggregated = df_tamper.sample(n=5000, random_state=1)
+    df_plots_qoe = df_tamper[df_tamper['tamper'] == 1].sample(n=5000, random_state=1)
     # Display correlation between measured QoE metric, resolution and size.
     plot_3D('SSIM Classifier', 'temporal_ssim-mean', 'SSIM', 'tamper', df_plots_aggregated)
     # Display correlation between measured distance to decision function, resolution and size.
     plot_3D('OC-SVM Classifier', 'ocsvm_dist', 'Distance to Decision Function', 'tamper', df_plots_aggregated)
     # Display histogram of non-tampered assets
-    plot_histogram('ocsvm_dist', 'Distance to decision function', df_aggregated)
+    plot_histogram('ocsvm_dist', 'Distance to decision function', df_tamper)
     # Display correlation between predicted and measured metric and color them
     # according to their tamper classification
     plot_scatter('SSIM vs Distance to Decision Function',
