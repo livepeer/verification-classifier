@@ -59,14 +59,15 @@ class MetricProcessor:
             self.info_columns.append('unique_ID')
         df['attack'] = df['attack'].apply(lambda x: self.set_attack_name(x))
         df['attack_ID'] = df['attack'].apply(lambda x: self.set_attack_id(x))
+        df['size_dimension_ratio'] = df['size'] / df['dimension']
 
         if self.scale:
             print('Rescaling {}'.format(df.columns))
             df = self.rescale_to_resolution(df)
 
 
-            hist_n_means = list(filter(lambda x: '-mean-' in x or '-hist-' in x or '-dwt-' in x, list(df)))
-            self.features.extend(hist_n_means)
+            # hist_n_means = list(filter(lambda x: '-mean-' in x or '-hist-' in x or '-dwt-' in x, list(df)))
+            # self.features.extend(hist_n_means)
 
         df = df.drop(['Unnamed: 0', 'path', 'kind'], axis=1)
         df = df.drop(self.series_features_list, axis=1)
