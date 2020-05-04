@@ -85,7 +85,18 @@ def pre_verify(source, rendition):
     return rendition
 
 def meta_model(row):
-    return row['ul_pred_tamper'] if row['ul_pred_tamper'] == 1 and not row['sl_pred_tamper'] == -1 else row['sl_pred_tamper']
+    """
+    Inputs the metamodel AND operator as condition
+    Retrieves the tamper value of the UL model only when both models agree in classifying
+    as non tampered. Otherwise retrieves the SL classification
+    UL classifier has a higher TPR but lower TNR, meaning it is less restrictive towards
+    tampered assets. SL classifier has higher TNR but is too punitive, which is undesirable,
+    plus it requires labeled data.
+    """
+    meta_condition = row['ul_pred_tamper'] == 1 and row['sl_pred_tamper'] == 1
+    if meta_condition:
+        return row['ul_pred_tamper']
+    return row['sl_pred_tamper']
 
 def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name_ul, model_name_sl, model_name_qoe):
     """
@@ -130,12 +141,12 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         # Configure SL model for inference
         model_name_sl = 'CB_Binary'
         loaded_model_sl = CatBoostClassifier().load_model('{}/{}.cbm'.format(model_dir,
-                                                                  model_name_sl))
+                                                                             model_name_sl))
 
         # Configure SL model for inference
         model_name_qoe = 'CB_Regressor'
         loaded_model_qoe = CatBoostRegressor().load_model('{}/{}.cbm'.format(model_dir,
-                                                                  model_name_qoe))
+                                                                             model_name_qoe))
         # Open model configuration files
         with open('{}/param_{}.json'.format(model_dir, model_name_ul)) as json_file:
             params = json.load(json_file)
@@ -177,25 +188,28 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
 
         # Assemble output dataframe with processed metrics
         metrics_df, pixels_df, dimensions_df = asset_processor.process()
- 
+
         # Record time for processing of assets metrics
         process_time = time.clock() - start
         process_time_user = time.time() - start_user
 
-        predictions_df = pd.DataFrame()
-        predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(np.asarray(metrics_df[features_sl]))
-        predictions_df['ssim_pred'] = loaded_model_qoe.predict(metrics_df[features_qoe])
-        pd.set_option('display.max_columns', 500)
-        
-        metrics_df[features_sl].to_csv('logs/test.csv')
-        # Normalize input data using the associated scaler
-        x_renditions = np.asarray(metrics_df[features_ul].to_numpy())
-        x_renditions = loaded_scaler.transform(x_renditions)
-        print('INPUT ARRAY:', x_renditions, flush=True)
+        x_renditions_sl = np.asarray(metrics_df[features_sl])
+        x_renditions_ul = np.asarray(metrics_df[features_ul])
+        x_renditions_ul = loaded_scaler.transform(x_renditions_ul)
+        x_renditions_qoe = np.asarray(metrics_df[features_qoe])
+
+        np.set_printoptions(precision=6, suppress=True)
+        print('INPUT SL ARRAY:', x_renditions_sl, flush=True)
+        print('Unscaled INPUT UL ARRAY:', np.asarray(metrics_df[features_ul]), flush=True)
+        print('SCALED INPUT UL ARRAY:', x_renditions_ul, flush=True)
+        print('INPUT QOE ARRAY:', x_renditions_qoe, flush=True)
         # Make predictions for given data
         start = time.clock()
-        predictions_df['ocsvm_dist'] = loaded_model_ul.decision_function(x_renditions)
-        predictions_df['ul_pred_tamper'] = loaded_model_ul.predict(x_renditions)
+        predictions_df = pd.DataFrame()
+        predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(x_renditions_sl)
+        predictions_df['ssim_pred'] = loaded_model_qoe.predict(x_renditions_qoe)
+        predictions_df['ocsvm_dist'] = loaded_model_ul.decision_function(x_renditions_ul)
+        predictions_df['ul_pred_tamper'] = loaded_model_ul.predict(x_renditions_ul)
         predictions_df['meta_pred_tamper'] = predictions_df.apply(meta_model, axis=1)
         prediction_time = time.clock() - start
 
