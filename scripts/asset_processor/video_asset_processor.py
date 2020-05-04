@@ -362,7 +362,7 @@ class VideoAssetProcessor:
         pixels_df = metrics_df['pixels']
 
         # Compute a size/dimension ratio column for better accuracy
-        metrics_df['size_dimension_ratio'] = metrics_df['size'] / metrics_df['dimension_y'] * metrics_df['dimension_x'] * metrics_df['fps']
+        metrics_df['size_dimension_ratio'] = metrics_df['size'] / (metrics_df['dimension_y'] * metrics_df['dimension_x'])
 
         metrics_df = self.cleanup_dataframe(metrics_df, self.features_list)
 
