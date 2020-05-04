@@ -118,7 +118,9 @@ def post_route():
         verification['source'] = data['source']
 
         model_uri = data['model']
-
+        # TODO: Uncomment this line for testing of the model using Livepeer's Broadcaster node
+        # Once the broadcaster allows for model selection, remove the line below
+        # model_uri = 'https://storage.googleapis.com/verification-models/verification-metamodel.tar.xz'
         model_dir, model_name_ul, model_name_sl, model_name_qoe = retrieve_models(model_uri)
 
         # Inform user that model was succesfully retrieved
