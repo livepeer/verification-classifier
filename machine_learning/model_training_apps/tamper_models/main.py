@@ -194,9 +194,8 @@ def train_ul_tamper_model(data_df):
     x_train_ul = scaler.fit_transform(x_train_ul)
     x_test_ul = scaler.transform(x_test_ul)
     x_attacks = scaler.transform(x_attacks)
-
     # Define One Class Support Vector Machine model and train it
-    oc_svm = svm.OneClassSVM(kernel='rbf', gamma='auto', nu=0.01, cache_size=5000)
+    oc_svm = svm.OneClassSVM(kernel='rbf', gamma=0.3, nu=0.001, cache_size=5000)
     oc_svm.fit(x_train_ul)
 
     # Evaluate its accuracy
