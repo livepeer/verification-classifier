@@ -1,12 +1,13 @@
 # Data Analysis Streamlit apps
 
-Streamlit apps employed in the experiments are stored here. To install Streamlit simply use pip:
+Streamlit apps for easily train models are sourced here.
+To install Streamlit simply use pip:
 
 ```
 pip install streamlit
 ```
 
-To interact with the apps, simply access the folder where they are located (i.e. /qoe_model/, etc.) and execute the following command line:
+To interact with the apps, access the folder where they are located (i.e. /qoe_model/, etc.) and execute the following command line:
 
 ```
 streamlit run main.py
@@ -22,4 +23,6 @@ A Streamlit server should be launched:
 ```
 
 It should also automatically open your default browser so that you can visualize the results.
+
+Once a model is trained, it goes to the machine_learning/output/models folder in the project, where it can be zipped and upoloaded to a public URL for later use.
 
