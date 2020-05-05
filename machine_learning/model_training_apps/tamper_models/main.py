@@ -269,7 +269,7 @@ def train_sl_tamper_model(data_df):
                      depth=6)
     catboost_binary = CatBoostClassifier(**cb_params)
     # Fit model
-    catboost_binary.fit(np.asarray(df_train_sl[FEATURES]), y_train_sl, cat_features)
+    catboost_binary.fit(np.asarray(df_train_sl[FEATURES_SL]), y_train_sl, cat_features)
 
     # Evaluate its accuracy
     f_beta, tnr, tpr_test = sl_model_evaluation(catboost_binary, df_test_sl)
