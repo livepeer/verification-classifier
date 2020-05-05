@@ -22,12 +22,18 @@ from video_asset_processor import VideoAssetProcessor
 
 DATA_URI_TAMPER = '../../cloud_functions/data-large.csv'
 
-FEATURES = ['size_dimension_ratio',
-            'temporal_dct-mean',
-            'temporal_gaussian_mse-mean',
-            'temporal_gaussian_difference-mean',
-            'temporal_threshold_gaussian_difference-mean'
-            ]
+FEATURES_UL = ['size_dimension_ratio',
+               'temporal_dct-mean',
+               'temporal_gaussian_mse-mean',
+               'temporal_gaussian_difference-mean',
+               'temporal_threshold_gaussian_difference-mean'
+               ]
+
+FEATURES_SL = ['temporal_dct-mean',
+               'temporal_gaussian_mse-mean',
+               'temporal_gaussian_difference-mean',
+               'temporal_threshold_gaussian_difference-mean'
+               ]
 
 def load_data(data_uri, nrows):
     """
@@ -38,11 +44,14 @@ def load_data(data_uri, nrows):
     data_df = pd.read_csv(data_uri, nrows=nrows)
     lowercase = lambda x: str(x).lower()
     data_df.rename(lowercase, axis='columns', inplace=True)
-    data_df.rename(columns={'attack':'rendition', 'title':'source'}, inplace=True)
+    data_df.rename(columns={'attack':'rendition',
+                            'title':'source',
+                            'dimension':'dimension_x'},
+                   inplace=True)
     data_df['rendition'] = data_df['rendition'].apply(lambda x: set_rendition_name(x))
     data_df['dimension_y'] = data_df['rendition'].apply(lambda x: int(x.split('_')[0]))
 
-    data_df['size_dimension_ratio'] = data_df['size'] / data_df['dimension']
+    data_df['size_dimension_ratio'] = data_df['size'] / (data_df['dimension_y'] * data_df['dimension_x'])
     resolutions = ['1080', '720', '480', '360', '240', '144']
     data_df['tamper'] = data_df['rendition'].apply(lambda x: 1 if x in resolutions else -1)
 
@@ -88,8 +97,8 @@ def sl_model_evaluation(classifier, eval_df):
     untampered_df = eval_df[eval_df['tamper'] == 1]
     attacks_df = eval_df[eval_df['tamper'] == -1]
 
-    y_pred_test = classifier.predict(np.asarray(untampered_df[FEATURES]))
-    y_pred_outliers = classifier.predict(np.asarray(attacks_df[FEATURES]))
+    y_pred_test = classifier.predict(np.asarray(untampered_df[FEATURES_SL]))
+    y_pred_outliers = classifier.predict(np.asarray(attacks_df[FEATURES_SL]))
 
     # Format the output of the classifier
     y_pred_test[y_pred_test == 0] = -1
@@ -184,10 +193,11 @@ def train_ul_tamper_model(data_df):
     df_train_ul = df_untampered.sample(frac=0.8)
     df_test_ul = df_untampered[~df_untampered.index.isin(df_train_ul.index)]
     st.write('Train / test split:', df_train_ul.shape, df_test_ul.shape)
+
     # Convert datasets from dataframes to numpy arrays
-    x_train_ul = np.asarray(df_train_ul[FEATURES])
-    x_test_ul = np.asarray(df_test_ul[FEATURES])
-    x_attacks = np.asarray(df_attacks[FEATURES])
+    x_train_ul = np.asarray(df_train_ul[FEATURES_UL])
+    x_test_ul = np.asarray(df_test_ul[FEATURES_UL])
+    x_attacks = np.asarray(df_attacks[FEATURES_UL])
 
     # Scale the data
     scaler = StandardScaler()
@@ -206,10 +216,11 @@ def train_ul_tamper_model(data_df):
 
     # Save the scaler for inference
     dump(scaler, '../../output/models/UL_StandardScaler.joblib')
+
     # Save the OC-SVM for inference
     dump(oc_svm, '../../output/models/OCSVM.joblib')
     svm_params = oc_svm.get_params()
-    svm_params['features'] = FEATURES
+    svm_params['features'] = FEATURES_UL
     svm_params['f_beta'] = f_beta
     svm_params['tnr'] = tnr
     svm_params['tpr_test'] = tpr_test
@@ -238,13 +249,16 @@ def train_sl_tamper_model(data_df):
     df_train_sl = data_df.sample(frac=0.8)
     df_test_sl = data_df[~data_df.index.isin(df_train_sl.index)]
 
-    # Remove types of attacks from training that are too obvious to reduce bias
+    # Remove types of attacks from training that are too obvious in order to reduce bias
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('black_and_white')]
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('rotate')]
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('vignette')]
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('vertical')]
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('345x114')]
     df_train_sl = df_train_sl.loc[~df_train_sl['rendition'].str.contains('856x856')]
+
+    st.write('Total training samples after removing non-subtle attacks:', df_train_sl.shape)
+    st.write('SL training attacks:', df_train_sl['rendition'].unique())
 
     y_train_sl = df_train_sl['tamper']
 
@@ -270,7 +284,7 @@ def train_sl_tamper_model(data_df):
                                pool=None)
 
     cb_params['eval_metrics'] = {'f_beta':f_beta, 'tnr':tnr, 'tpr_test':tpr_test}
-    cb_params['features'] = FEATURES
+    cb_params['features'] = FEATURES_SL
     with open('../../output/models/param_CB_Binary.json', 'w') as outfile:
         json.dump(cb_params, outfile)
 
@@ -409,19 +423,29 @@ def main():
     Main function to train and evaluate tamper models
     """
 
+    # Creating the Titles and Image
+    st.title("Tamper model training")
+
+    #######################################################################################
+    # Start training
+    #######################################################################################
     # Get tamper verification dataset (contains attacks)
     df_tamper = load_data(DATA_URI_TAMPER, None)
 
     df_tamper = VideoAssetProcessor.rescale_to_resolution(df_tamper, FEATURES_UL)
     # Display dataset
     st.subheader('Raw tamper verification data')
-    st.write(df_tamper[FEATURES + ['path', 'tamper']].head(100), df_tamper.shape)
+    st.write(df_tamper[FEATURES_UL + ['path',
+                                      'tamper',
+                                      'dimension_y',
+                                      'dimension_x',
+                                      'size']].head(1000), df_tamper.shape)
 
     st.write('Dataframe available features:', df_tamper.columns)
     st.write('Dataframe considered attacks', df_tamper['rendition'].unique())
 
-    ul_columns = FEATURES + ['tamper', 'rendition', 'path']
-    sl_columns = FEATURES + ['tamper', 'rendition', 'path']
+    ul_columns = FEATURES_UL + ['tamper', 'rendition', 'path']
+    sl_columns = FEATURES_SL + ['tamper', 'rendition', 'path']
 
 
     #######################################################################################
@@ -430,7 +454,7 @@ def main():
     oc_svm, scaler = train_ul_tamper_model(df_tamper[ul_columns])
 
     # Add predictions to tamper dataframe
-    x_test = scaler.transform(df_tamper[FEATURES])
+    x_test = scaler.transform(df_tamper[FEATURES_UL])
     df_tamper['ocsvm_dist'] = oc_svm.decision_function(x_test)
     df_tamper['ul_pred_tamper'] = oc_svm.predict(x_test)
 
@@ -439,7 +463,7 @@ def main():
     # Train supervised tamper verification and adds its predictions to dataframe
     #######################################################################################
     catboost_binary = train_sl_tamper_model(df_tamper[sl_columns])
-    df_tamper['sl_pred_tamper'] = catboost_binary.predict(df_tamper[FEATURES])
+    df_tamper['sl_pred_tamper'] = catboost_binary.predict(df_tamper[FEATURES_SL])
     df_tamper['sl_pred_tamper'] = df_tamper['sl_pred_tamper'].apply(lambda x: 1 if x == 1 else -1)
 
     #######################################################################################
@@ -447,11 +471,11 @@ def main():
     #######################################################################################
     df_tamper['meta_pred_tamper'] = df_tamper.apply(meta_model, axis=1)
 
-    st.write('FINAL DF:', df_tamper[FEATURES + ['rendition',
-                                                'sl_pred_tamper',
-                                                'ul_pred_tamper',
-                                                'meta_pred_tamper',
-                                                'path']].head(100))
+    st.write('FINAL DF:', df_tamper[FEATURES_UL + ['rendition',
+                                                   'sl_pred_tamper',
+                                                   'ul_pred_tamper',
+                                                   'meta_pred_tamper',
+                                                   'path']].head(100))
 
     # Display evaluation metrics for the test dataset
     meta_model_evaluation(df_tamper)
