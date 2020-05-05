@@ -5,6 +5,7 @@ It relies of Streamlite library for the visualization and display of widgets
 
 import os.path
 import json
+import sys
 
 from catboost import CatBoostClassifier
 from joblib import dump
@@ -16,7 +17,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn import svm
 from sklearn.metrics import fbeta_score
 
-st.title('Model training environment')
+sys.path.insert(0, '../../../scripts/asset_processor')
+from video_asset_processor import VideoAssetProcessor
 
 DATA_URI_TAMPER = '../../cloud_functions/data-large.csv'
 
@@ -45,44 +47,6 @@ def load_data(data_uri, nrows):
     data_df['tamper'] = data_df['rendition'].apply(lambda x: 1 if x in resolutions else -1)
 
     return data_df
-
-def rescale_to_resolution(data):
-    """
-    Function to rescale features to improve accuracy
-    """
-    df_features = pd.DataFrame(data)
-    downscale_features = ['temporal_psnr',
-                          'temporal_ssim',
-                          'temporal_cross_correlation'
-                         ]
-
-    upscale_features = ['temporal_difference',
-                        'temporal_dct',
-                        'temporal_canny',
-                        'temporal_gaussian_mse',
-                        'temporal_gaussian_difference',
-                        'temporal_histogram_distance',
-                        'temporal_entropy',
-                        'temporal_lbp',
-                        'temporal_texture',
-                        'temporal_match',
-                        ]
-
-    for label in downscale_features:
-        downscale_feature = [feature for feature in FEATURES if label in feature]
-        if downscale_feature:
-            for feature in downscale_feature:
-                print('Downscaling', label, feature)
-                df_features[feature] = df_features[feature] / df['dimension']
-
-    for label in upscale_features:
-        upscale_feature = [feature for feature in FEATURES if label in feature]
-        if upscale_feature:
-            for feature in upscale_feature:
-                print('Upscaling', label, feature)
-                df_features[feature] = df_features[feature] * df_features['dimension']
-
-    return df_features
 
 def set_rendition_name(rendition_name):
     """
@@ -449,7 +413,7 @@ def main():
     # Get tamper verification dataset (contains attacks)
     df_tamper = load_data(DATA_URI_TAMPER, None)
 
-    df_tamper = rescale_to_resolution(df_tamper)
+    df_tamper = VideoAssetProcessor.rescale_to_resolution(df_tamper, FEATURES_UL)
     # Display dataset
     st.subheader('Raw tamper verification data')
     st.write(df_tamper[FEATURES + ['path', 'tamper']].head(100), df_tamper.shape)

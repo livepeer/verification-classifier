@@ -5,12 +5,15 @@ It relies of Streamlite library for the visualization and display of widgets
 
 import os.path
 import json
+import sys
 
 from catboost import Pool, CatBoostRegressor
 import pandas as pd
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
+sys.path.insert(0, '../../../scripts/asset_processor')
+from video_asset_processor import VideoAssetProcessor
 
 st.title('QOE model training environment')
 
@@ -184,7 +187,7 @@ def main():
     """
     # Get QoE pristine dataset (no attacks)
     df_qoe = load_data(DATA_URI_QOE, 50000)
-
+    df_qoe = VideoAssetProcessor.rescale_to_resolution(df_qoe, FEATURES)
     # Display datasets
     st.subheader('Raw QoE data')
     st.write(df_qoe[FEATURES + ['path']].head(100), df_qoe.shape)
