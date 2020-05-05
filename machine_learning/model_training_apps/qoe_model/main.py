@@ -19,8 +19,7 @@ st.title('QOE model training environment')
 
 DATA_URI_QOE = '../../cloud_functions/data-qoe-metrics-large.csv'
 
-FEATURES = ['size_dimension_ratio',
-            'temporal_dct-mean',
+FEATURES = ['temporal_dct-mean',
             'temporal_gaussian_mse-mean',
             'temporal_gaussian_difference-mean',
             'temporal_threshold_gaussian_difference-mean'
