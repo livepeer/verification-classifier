@@ -94,7 +94,7 @@ def read_data():
 
 def format_ffmpeg_command(full_input_file, full_output_file, start_time, end_time):
     command = ['ffmpeg', '-y',
-               '-i', '"' + full_input_file + '"', '-ss', start_time, '-to', end_time, full_output_file
+               '-i', '"' + full_input_file + '"', '-acodec copy', '-vcodec copy', '-ss', start_time, '-to', end_time, full_output_file
                ]
     return command
 
