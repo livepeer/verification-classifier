@@ -20,7 +20,7 @@ First script should be the one that generates the different renditions based on 
 
 This script takes an input folder containing 1080p renditions and will encode them with the params in the metadata leaving them in the specified output folder. 
 
-A sample of usaage is:
+A sample of usage is:
 
 ```
 python enconde_renditions.py -i /path/to/1080pRenditions -o /path/to/renditions -m /path/to/metadatafile 
