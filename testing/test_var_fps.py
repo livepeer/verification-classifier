@@ -9,6 +9,7 @@ import time
 import ffmpeg_quality_metrics
 import pandas as pd
 import os
+from random import seed
 
 # init logging
 logging.basicConfig(level=logging.DEBUG,
@@ -24,29 +25,32 @@ pd.set_option('display.max_columns', None)
 
 from video_asset_processor import VideoAssetProcessor
 
+
 def process(original_asset, renditions_list, metrics_list):
-    asset_processor = VideoAssetProcessor(original_asset,
-                                          renditions_list,
-                                          metrics_list,
-                                          do_profiling=False
-                                          )
-    data_df, pixels_df, dimensions_df = asset_processor.process()
-    return data_df
+	seed(123)
+	asset_processor = VideoAssetProcessor(original_asset,
+										  renditions_list,
+										  metrics_list,
+										  do_profiling=False,
+										  max_samples=10
+										  )
+	data_df, pixels_df, dimensions_df = asset_processor.process()
+	return data_df
+
 
 def get_metrics():
-    original_asset = {'path':'../../data/renditions/1080p/0vFdsx2x-wI.mp4'}
-    renditions_list = [{'path':'../../data/renditions/1080p_watermark/0vFdsx2x-wI.mp4'},
-                       {'path': '../../data/renditions/1080p_watermark_60-30fps/0vFdsx2x-wI.mp4'}
-    ]
-    metrics_list = ['temporal_ssim',
-                    'temporal_psnr']
+	original_asset = {'path': '../../data/renditions/1080p/0vFdsx2x-wI.mp4'}
+	renditions_list = [{'path': '../../data/renditions/1080p_watermark_60-30fps/0vFdsx2x-wI.mp4'}
+					   ]
+	metrics_list = ['temporal_ssim',
+					'temporal_psnr']
 
-    logger.info('Processing videos...')
-    data_df = process(original_asset, renditions_list, metrics_list)
-    logger.info('Done')
+	logger.info('Processing videos...')
+	data_df = process(original_asset, renditions_list, metrics_list)
+	logger.info('Done')
 
-    print(data_df)
+	print(data_df)
 
 
 if __name__ == '__main__':
-    get_metrics()
+	get_metrics()
