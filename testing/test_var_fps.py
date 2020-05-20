@@ -5,7 +5,7 @@ import sys
 from functools import reduce
 import logging
 import time
-
+import numpy as np
 import ffmpeg_quality_metrics
 import pandas as pd
 import os
@@ -28,6 +28,7 @@ from video_asset_processor import VideoAssetProcessor
 
 def process(original_asset, renditions_list, metrics_list):
 	seed(123)
+	np.random.seed(123)
 	asset_processor = VideoAssetProcessor(original_asset,
 										  renditions_list,
 										  metrics_list,

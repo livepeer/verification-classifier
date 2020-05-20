@@ -11,8 +11,8 @@ from random import random
 import cv2
 import numpy as np
 import pandas as pd
+import math
 from scipy.spatial import distance
-
 from video_metrics import VideoMetrics
 
 
@@ -70,17 +70,15 @@ class VideoAssetProcessor:
 				self.make_hd_list = True
 			else:
 				self.make_hd_list = False
-
 			# read renditions metadata like fps
 			self.read_renditions_metadata()
-
-			# 
-
+			# estimate quantization steps to select aligned frames for different fps
+			self.calc_quant_steps()
 			# Convert OpenCV video captures of original to list
 			# of numpy arrays for better performance of numerical computations
 			self.random_sampler = []
 			self.create_random_list = True
-			self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
+			self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture, self.q)
 			self.create_random_list = False
 			# Instance of the video_metrics class
 			self.video_metrics = VideoMetrics(self.metrics_list,
@@ -100,11 +98,18 @@ class VideoAssetProcessor:
 			print('Aborting, original source not found in path provided')
 			self.do_process = False
 
-	def capture_to_array(self, capture):
+	def capture_to_array(self, capture, q):
 		"""
 		Function to convert OpenCV video capture to a list of
-		numpy arrays for faster processing and analysis
+		numpy arrays for faster processing and analysis.
+		@param q - quantization parameter to sample frames aligned by timestamp from source video and renditions
 		"""
+		# Create list of indexes for source video
+		if self.create_random_list:
+			self.random_sampler = np.sort(np.random.randint(1, self.max_sample_idx, self.max_samples))
+
+		# Create list of aligned frame indexes of actual video
+		frame_indexes = self.random_sampler * q
 
 		# List of numpy arrays
 		frame_list = []
@@ -124,17 +129,7 @@ class VideoAssetProcessor:
 				n_frame += 1
 				add_frame = False
 
-				if self.create_random_list:
-					random_frame = random()
-					if random_frame > 0.5:
-						add_frame = True
-						# Add the frame to the list if it belong to the random sampling list
-						self.random_sampler.append(n_frame)
-				else:
-					if n_frame in self.random_sampler:
-						add_frame = True
-
-				if add_frame:
+				if n_frame in frame_indexes:
 					i += 1
 					# Count the number of pixels
 					height = frame.shape[1]
@@ -163,7 +158,7 @@ class VideoAssetProcessor:
 				break
 		# Clean up memory
 		capture.release()
-		print(self.random_sampler, flush=True)
+		print(frame_indexes, flush=True)
 		return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
 	def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):
@@ -209,7 +204,7 @@ class VideoAssetProcessor:
 																   reference_frame,
 																   next_reference_frame)
 
-			# Retrieve rendition dimensions for further evaluation
+		# Retrieve rendition dimensions for further evaluation
 		rendition_metrics['dimensions'] = dimensions
 
 		# Retrieve rendition number of pixels for further verification
@@ -512,7 +507,7 @@ class VideoAssetProcessor:
 					if os.path.exists(path):
 						capture = cv2.VideoCapture(path)
 						# Turn openCV capture to a list of numpy arrays
-						frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
+						frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture, rendition['q'])
 						dimensions = '{}:{}'.format(int(width), int(height))
 						# Compute the metrics for the rendition
 						self.metrics[path] = self.compute(frame_list,
@@ -555,3 +550,10 @@ class VideoAssetProcessor:
 					raise Exception(f'Rendition not found: {path}')
 			finally:
 				capture.release()
+
+	def calc_quant_steps(self):
+		gcd = math.gcd(self.fps, self.renditions_list[0]['fps'])
+		self.q = int(self.fps / gcd)
+		self.max_sample_idx = int(self.max_frames // self.q)
+		for r in self.renditions_list:
+			r['q'] = int(r['fps'] / gcd)
