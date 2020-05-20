@@ -12,8 +12,10 @@ import youtube_dl
 
 parser = argparse.ArgumentParser(description='Download dataset')
 parser.add_argument('-o', '--output', action='store', help='Folder where the videos will be', type=str, required=True)
+parser.add_argument('-f', '--format', action='store', help='YT downloader video format filter. 137 for 1080p30fps, 299 for 1080p60fps.', type=str, required=False, default='137')
 
 args = parser.parse_args()
+format_filter = args.format
 output_folder = args.output + '/raw/1080p'
 output_trim_folder = args.output + '/trim/1080p'
 output_trim_folder_placeholder = args.output + '/trim/1080p/{}'
@@ -40,7 +42,7 @@ def load_dict_from_file():
 
 def download(url):
     try:
-        ydl_video = youtube_dl.YoutubeDL({'format': '137',
+        ydl_video = youtube_dl.YoutubeDL({'format': format_filter,
                                           'outtmpl': output_folder + '/%(id)s.%(ext)s',
                                           'quiet': True}
                                          )
