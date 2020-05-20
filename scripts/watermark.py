@@ -13,9 +13,9 @@ parser.add_argument('-o', "--output", action='store', help='Folder where the ren
                     type=str, required=True)
 parser.add_argument('-m', "--metadata", action='store', help='File where the metadata is', type=str, required=True)
 parser.add_argument('-w', "--watermark", action='store', help='Watermark file', type=str, required=True)
-parser.add_argument('-s', "--suffix", action='store', help='Watermark folder suffix', type=str, required=True)
-parser.add_argument('-x', "--pos_x", action='store', help='Watermark x position (in pixels)', type=str, required=True)
-parser.add_argument('-y', "--pos_y", action='store', help='Watermark y position (in pixels)', type=str, required=True)
+parser.add_argument('-s', "--suffix", action='store', help='Watermark folder suffix', type=str, default='')
+parser.add_argument('-x', "--pos_x", action='store', help='Watermark x position (in pixels)', type=str, default=10)
+parser.add_argument('-y', "--pos_y", action='store', help='Watermark y position (in pixels)', type=str, default=10)
 parser.add_argument('-r', "--reprocess", action='store', help='input file with files to reprocess', type=str,
                     required=False)
 
@@ -29,18 +29,20 @@ pos_x = args.pos_x
 pos_y = args.pos_y
 reprocess = False
 file_to_reprocess = None
+if args.suffix:
+    args.suffix = '-' + args.suffix
 
 if args.reprocess is not None:
     reprocess = True
     file_to_reprocess = args.reprocess
 
 output_folders = {
-    '1080': '1080p_watermark-{}'.format(args.suffix),
-    '720': '720p_watermark-{}'.format(args.suffix),
-    '480': '480p_watermark-{}'.format(args.suffix),
-    '360': '360p_watermark-{}'.format(args.suffix),
-    '240': '240p_watermark-{}'.format(args.suffix),
-    '144': '144p_watermark-{}'.format(args.suffix)
+    '1080': '1080p_watermark{}'.format(args.suffix),
+    '720': '720p_watermark{}'.format(args.suffix),
+    '480': '480p_watermark{}'.format(args.suffix),
+    '360': '360p_watermark{}'.format(args.suffix),
+    '240': '240p_watermark{}'.format(args.suffix),
+    '144': '144p_watermark{}'.format(args.suffix)
 }
 
 cpu_count = multiprocessing.cpu_count()
