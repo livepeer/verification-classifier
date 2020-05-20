@@ -63,7 +63,7 @@ class VideoAssetProcessor:
             self.do_profiling = do_profiling
             
             # Check if HD list is necessary
-            if 'ssim' in self.metrics_list or 'psnr' in self.metrics_list:
+            if 'temporal_ssim' in self.metrics_list or 'temporal_psnr' in self.metrics_list:
                 self.make_hd_list = True
             else:
                 self.make_hd_list = False
