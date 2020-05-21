@@ -15,6 +15,8 @@ import math
 from scipy.spatial import distance
 from video_metrics import VideoMetrics
 
+from ffmpeg_capture import FfmpegCapture
+
 
 class VideoAssetProcessor:
 	"""
@@ -22,7 +24,6 @@ class VideoAssetProcessor:
 	It is instantiated as part of the data creation as well
 	as in the inference, both in the CLI as in the notebooks.
 	"""
-
 	def __init__(self, original, renditions, metrics_list,
 				 do_profiling=False, max_samples=-1, features_list=None):
 		# ************************************************************************
@@ -33,17 +34,14 @@ class VideoAssetProcessor:
 		if os.path.exists(original['path']):
 			self.do_process = True
 			self.original_path = original['path']
-			# Initializes original asset to OpenCV VideoCapture class
-			self.original_capture = cv2.VideoCapture(self.original_path)
+			self.original_capture = FfmpegCapture(self.original_path)
 			# Frames Per Second of the original asset
-			self.true_fps = self.original_capture.get(cv2.CAP_PROP_FPS)
-			# Some videos have NTSC compatible fractional frame rates
-			self.fps = round(self.true_fps)
+			self.fps = self.original_capture.fps
 			# Obtains number of frames of the original
-			self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
+			self.total_frames = self.original_capture.frame_count
 			# Maximum number of frames to random sample
 			if max_samples == -1:
-				self.max_samples = self.max_frames
+				self.max_samples = self.total_frames
 			else:
 				self.max_samples = max_samples
 
@@ -72,14 +70,12 @@ class VideoAssetProcessor:
 				self.make_hd_list = False
 			# read renditions metadata like fps
 			self.read_renditions_metadata()
-			# estimate quantization steps to select aligned frames for different fps
-			self.calc_quant_steps()
 			# Convert OpenCV video captures of original to list
 			# of numpy arrays for better performance of numerical computations
-			self.random_sampler = []
-			self.create_random_list = True
-			self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture, self.q)
-			self.create_random_list = False
+			self.master_indexes = []
+			self.markup_master_frames = True
+			self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture, )
+			self.markup_master_frames = False
 			# Instance of the video_metrics class
 			self.video_metrics = VideoMetrics(self.metrics_list,
 											  self.hash_size,
@@ -98,18 +94,16 @@ class VideoAssetProcessor:
 			print('Aborting, original source not found in path provided')
 			self.do_process = False
 
-	def capture_to_array(self, capture, q):
+	def capture_to_array(self, capture):
 		"""
 		Function to convert OpenCV video capture to a list of
 		numpy arrays for faster processing and analysis.
 		@param q - quantization parameter to sample frames aligned by timestamp from source video and renditions
 		"""
-		# Create list of indexes for source video
-		if self.create_random_list:
-			self.random_sampler = np.sort(np.random.randint(1, self.max_sample_idx, self.max_samples))
-
-		# Create list of aligned frame indexes of actual video
-		frame_indexes = self.random_sampler * q
+		# Create list of random timestamps in video file to calculate metrics at
+		if self.markup_master_frames:
+			self.master_indexes = np.sort(np.random.randint(0, self.total_frames, self.max_samples))
+			self.master_timestamps = []
 
 		# List of numpy arrays
 		frame_list = []
@@ -119,18 +113,20 @@ class VideoAssetProcessor:
 		height = 0
 		width = 0
 		n_frame = 0
+		timestamps_selected = []
 		# Iterate through each frame in the video
-		while capture.isOpened():
-
+		while True:
 			# Read the frame from the capture
-			ret_frame, frame = capture.read()
+			frame_idx, frame_timestamp, frame = capture.read()
 			# If read successful, then append the retrieved numpy array to a python list
-			if ret_frame:
-				n_frame += 1
+			if frame is not None:
 				add_frame = False
-
-				if n_frame in frame_indexes:
+				if self.markup_master_frames and n_frame in self.master_indexes:
+					self.master_timestamps.append(frame_timestamp)
+				# candidate frames
+				if any([abs(ts-frame_timestamp) < 1/(2*capture.fps) for ts in self.master_timestamps]):
 					i += 1
+					timestamps_selected.append(frame_timestamp)
 					# Count the number of pixels
 					height = frame.shape[1]
 					width = frame.shape[0]
@@ -152,13 +148,15 @@ class VideoAssetProcessor:
 
 					if i > self.max_samples:
 						break
+				n_frame += 1
 
 			# Break the loop when frames cannot be taken from original
 			else:
 				break
 		# Clean up memory
 		capture.release()
-		print(frame_indexes, flush=True)
+		print(f'Master timestamps:    {self.master_timestamps}', flush=True)
+		print(f'Rendition timestamps: {timestamps_selected}', flush=True)
 		return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
 	def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):
@@ -505,9 +503,9 @@ class VideoAssetProcessor:
 				path = rendition['path']
 				try:
 					if os.path.exists(path):
-						capture = cv2.VideoCapture(path)
+						capture = FfmpegCapture(path)
 						# Turn openCV capture to a list of numpy arrays
-						frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture, rendition['q'])
+						frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
 						dimensions = '{}:{}'.format(int(width), int(height))
 						# Compute the metrics for the rendition
 						self.metrics[path] = self.compute(frame_list,
@@ -536,24 +534,16 @@ class VideoAssetProcessor:
 			path = rendition['path']
 			try:
 				if os.path.exists(path):
-					capture = cv2.VideoCapture(path)
+					capture = FfmpegCapture(path)
 					# Get framerate
-					true_fps = capture.get(cv2.CAP_PROP_FPS)
-					# Some videos have NTSC-compatible fractional frame rates
-					fps = round(true_fps)
+					fps = capture.fps
 					# Validate frame rates, only renditions with same FPS (though not necessarily equal to source video) are currently supported in a single instance
-					if last_rendition_fps is not None and last_rendition_fps != true_fps:
-						raise Exception(f'Rendition has frame rate incompatible with other renditions: {true_fps}')
+					if last_rendition_fps is not None and last_rendition_fps != fps:
+						raise Exception(f'Rendition has frame rate incompatible with other renditions: {fps}')
 					rendition['fps'] = fps
-					rendition['true_fps'] = true_fps
+					rendition['width'] = capture.width
+					rendition['height'] = capture.height
 				else:
 					raise Exception(f'Rendition not found: {path}')
 			finally:
 				capture.release()
-
-	def calc_quant_steps(self):
-		gcd = math.gcd(self.fps, self.renditions_list[0]['fps'])
-		self.q = int(self.fps / gcd)
-		self.max_sample_idx = int(self.max_frames // self.q)
-		for r in self.renditions_list:
-			r['q'] = int(r['fps'] / gcd)

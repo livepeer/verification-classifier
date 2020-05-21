@@ -37,8 +37,8 @@ input_path = args.input
 output_path = args.output
 
 # Set encoder and decoder based on whether GPU processed is enabled. To use GPU, decoder must be specified explicitly.
-decoder_params = ''
-encoder_params = '-vcodec libx264'
+decoder = ''
+encoder = '-vcodec libx264'
 if args.gpu:
 	decoder = '-hwaccel cuvid -c:v h264_cuvid'
 	encoder = '-vcodec h264_nvenc'
