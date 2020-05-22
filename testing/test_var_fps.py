@@ -41,7 +41,7 @@ def process(original_asset, renditions_list, metrics_list):
 
 def get_metrics():
 	original_asset = {'path': '../../data/renditions/1080p/0vFdsx2x-wI.mp4'}
-	renditions_list = [{'path': '../../data/renditions/1080p_watermark_60-30fps/0vFdsx2x-wI.mp4'}
+	renditions_list = [{'path': '../../data/renditions/1080p_60-30fps_cpu/0vFdsx2x-wI.mp4'}
 					   ]
 	metrics_list = ['temporal_ssim',
 					'temporal_psnr']

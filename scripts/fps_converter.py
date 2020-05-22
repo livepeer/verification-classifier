@@ -29,6 +29,8 @@ parser.add_argument('-o', "--output", action='store', help='Folder where the ren
 					required=True)
 parser.add_argument('-g', "--gpu", action='store_true', help='Use hardware codecs. Supported only for H264 input and output. Make sure Ffmpeg is compiled to support Nvidia hardware codecs.', required=False, default=False)
 
+parser.add_argument('-s', "--suffix", action='store', help='Add suffix to output folder name', required=False, default='')
+
 args = parser.parse_args()
 
 cpu_count = multiprocessing.cpu_count()
@@ -79,7 +81,7 @@ def get_input_output_jobs():
 		fps = round(float(fps))
 		# generate output path and metadata for each target fps
 		for target_fps in set(rendition_fps).difference({fps}):
-			rend_dirname = f'{dirname}_{fps}-{target_fps}fps'
+			rend_dirname = f'{dirname}_{fps}-{target_fps}fps' + args.suffix
 			dst_dir = out_dir / rend_dirname
 			dst_filename = dst_dir / f.name
 			os.makedirs(dst_dir, exist_ok=True)

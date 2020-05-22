@@ -24,6 +24,7 @@ class FfmpegCapture:
 		"""
 		Object holding pixel data and metadata
 		"""
+
 		def __init__(self, index: int, timestamp: float, frame: np.ndarray):
 			self.frame = frame
 			self.index = index
@@ -37,8 +38,10 @@ class FfmpegCapture:
 		self.started = False
 		self.stopping = False
 		self.timestamps = []
-		self.frame_idx = 0
+		self.frame_idx = -1
+		self.stream_data_read = False
 		self.decoder = ''
+		self.offset = 0
 		if use_gpu:
 			self.decoder = '-hwaccel cuvid -c:v h264_cuvid'
 		self._read_metadata()
@@ -75,10 +78,13 @@ class FfmpegCapture:
 		bytes = self.process.stdout.read(self.height * self.width * 3)
 		if len(bytes) == 0:
 			return None
+		self.frame_idx += 1
+		if 0 < self.frame_count == self.frame_idx:
+			logger.error(f'Frame count mismatch, possibly corrupted video file: {self.filename}')
+			return None
 		frame = np.frombuffer(bytes, np.uint8).reshape([self.height, self.width, 3])
 		timestamp = self._get_timestamp_for_frame(self.frame_idx)
 		logger.debug(f'Read frame {self.frame_idx} at PTS_TIME {timestamp}')
-		self.frame_idx += 1
 		return FfmpegCapture.FrameData(self.frame_idx, timestamp, frame)
 
 	def _get_timestamp_for_frame(self, frame_idx) -> float:
@@ -95,7 +101,7 @@ class FfmpegCapture:
 
 	def start(self):
 		# start ffmpeg process
-		ffmpeg_cmd = f"ffmpeg -y -debug_ts -hide_banner -i {self.decoder} {self.filename} -copyts -f rawvideo -pix_fmt bgr24 pipe:"
+		ffmpeg_cmd = f"ffmpeg -y -debug_ts -hide_banner {self.decoder} -i {self.filename} -copyts -f rawvideo -pix_fmt bgr24 pipe:"
 		self.process = subprocess.Popen(ffmpeg_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		# stderr and stdout are not synchronized, read timestamp data in separate thread
 		self.stream_thread = threading.Thread(target=self.stream_reader, args=[self.process.stderr])
@@ -110,9 +116,24 @@ class FfmpegCapture:
 				last_line = stream.readline().decode('ascii')
 				if not last_line:
 					break
+				if not self.stream_data_read:
+					# read stream offset
+					m = re.match('.+Duration:.+start: (?P<start>\d*\.?\d*)', last_line)
+					if m:
+						self.offset = float(m.group('start'))
+						logger.info(f'Video start offset is: {self.offset}')
+						self.stream_data_read = True
 				m = re.match('^demuxer\+ffmpeg -> ist_index:[0-9].+type:video.+pkt_pts_time:(?P<pkt_pts_time>\d*\.?\d*)', last_line)
 				if m:
-					self.timestamps.append(float(m.group('pkt_pts_time')))
+					timestamp = float(m.group('pkt_pts_time'))
+					if timestamp < self.offset:
+						logger.warning('Unknown behavior: pkt_pts_time is expected to be greater than stream start offset')
+						timestamp = self.offset
+					self.timestamps.append(timestamp - self.offset)
+					if not self.stream_data_read:
+						# stream data wasn't parsed, no point in searching for it
+						logger.warning('Unable to parse stream data, start offset set to 0')
+						self.stream_data_read = True
 			except:
 				if not self.stopping:
 					raise

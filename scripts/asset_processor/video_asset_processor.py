@@ -112,7 +112,7 @@ class VideoAssetProcessor:
 		candidate_frames = [None]*len(self.master_indexes)
 		frame_list = []
 		frame_list_hd = []
-		i = 0
+		frames_read = 0
 		pixels = 0
 		height = 0
 		width = 0
@@ -122,6 +122,7 @@ class VideoAssetProcessor:
 			# Read the frame from the capture
 			frame_data = capture.read()
 			if frame_data is not None:
+				frames_read += 1
 				if self.markup_master_frames:
 					if frame_data.index in self.master_indexes:
 						self.master_timestamps.append(frame_data.timestamp)
@@ -139,9 +140,11 @@ class VideoAssetProcessor:
 			# Break the loop when frames cannot be taken from original
 			else:
 				break
+
 		# process picked frames
 		for i in range(len(candidate_frames)):
 			frame_data = candidate_frames[i]
+			cv2.imwrite(f'cur/{i}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp}.png', frame_data.frame)
 			ts_diff = master_timestamp_diffs[i]
 			if frame_data is None or ts_diff > 1/capture.fps:
 				print(f'No candidate rendition frame for master frame {i} at {self.master_timestamps[i]} sec!')
@@ -165,10 +168,11 @@ class VideoAssetProcessor:
 					frame_hd = frame
 
 				frame_list_hd.append(frame_hd)
-
+		selected_indexes = list([f.index for f in candidate_frames])
 		# Clean up memory
 		capture.release()
 		print(f'Mean master-rendition timestamp diff, sec: {np.mean(master_timestamp_diffs)} SD: {np.std(master_timestamp_diffs)}')
+		print(f'Selected indexes for {capture.filename}: {selected_indexes}')
 		return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
 	def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):
