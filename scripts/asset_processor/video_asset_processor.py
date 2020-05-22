@@ -4,6 +4,7 @@ Module for management and parallelization of verification jobs.
 
 import os
 from concurrent.futures.thread import ThreadPoolExecutor
+from collections import deque
 import multiprocessing
 from random import seed
 from random import random
@@ -102,61 +103,72 @@ class VideoAssetProcessor:
 		"""
 		# Create list of random timestamps in video file to calculate metrics at
 		if self.markup_master_frames:
-			self.master_indexes = np.sort(np.random.randint(0, self.total_frames, self.max_samples))
+			self.master_indexes = np.sort(np.random.choice(self.total_frames, self.max_samples, False))
 			self.master_timestamps = []
 
-		# List of numpy arrays
+		# difference between master timestamp and best matching frame timestamp of current video
+		master_timestamp_diffs = [np.inf]*len(self.master_indexes)
+		# currently selected frames
+		candidate_frames = [None]*len(self.master_indexes)
 		frame_list = []
 		frame_list_hd = []
 		i = 0
 		pixels = 0
 		height = 0
 		width = 0
-		n_frame = 0
 		timestamps_selected = []
 		# Iterate through each frame in the video
 		while True:
 			# Read the frame from the capture
-			frame_idx, frame_timestamp, frame = capture.read()
-			# If read successful, then append the retrieved numpy array to a python list
-			if frame is not None:
-				add_frame = False
-				if self.markup_master_frames and n_frame in self.master_indexes:
-					self.master_timestamps.append(frame_timestamp)
-				# candidate frames
-				if any([abs(ts-frame_timestamp) < 1/(2*capture.fps) for ts in self.master_timestamps]):
-					i += 1
-					timestamps_selected.append(frame_timestamp)
-					# Count the number of pixels
-					height = frame.shape[1]
-					width = frame.shape[0]
-					pixels += height * width
-
-					# Change color space to have only luminance
-					frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-					frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
-					frame_list.append(frame)
-
-					if self.make_hd_list:
-						# Resize the frame
-						if frame.shape[0] != 1920:
-							frame_hd = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_LINEAR)
-						else:
-							frame_hd = frame
-
-						frame_list_hd.append(frame_hd)
-
-					if i > self.max_samples:
-						break
-				n_frame += 1
-
+			frame_data = capture.read()
+			if frame_data is not None:
+				if self.markup_master_frames:
+					if frame_data.index in self.master_indexes:
+						self.master_timestamps.append(frame_data.timestamp)
+					else:
+						continue
+				# update candidate frames
+				ts_diffs = [abs(frame_data.timestamp-mts) for mts in self.master_timestamps]
+				best_match_idx = int(np.argmin(ts_diffs))
+				best_match = np.min(ts_diffs)
+				# max theoretical timestamp difference between 'matching' frames would be 1/(2*fps) + max(jitter)
+				# don't consider frames that are too far, otherwise the algorithm will be linear on memory vs video length
+				if best_match < 1/capture.fps and master_timestamp_diffs[best_match_idx] > best_match:
+					master_timestamp_diffs[best_match_idx] = best_match
+					candidate_frames[best_match_idx] = frame_data
 			# Break the loop when frames cannot be taken from original
 			else:
 				break
+		# process picked frames
+		for i in range(len(candidate_frames)):
+			frame_data = candidate_frames[i]
+			ts_diff = master_timestamp_diffs[i]
+			if frame_data is None or ts_diff > 1/capture.fps:
+				print(f'No candidate rendition frame for master frame {i} at {self.master_timestamps[i]} sec!')
+				continue
+			timestamps_selected.append(frame_data.timestamp)
+			# Count the number of pixels
+			height = frame_data.frame.shape[1]
+			width = frame_data.frame.shape[0]
+			pixels += height * width
+
+			# Change color space to have only luminance
+			frame = cv2.cvtColor(frame_data.frame, cv2.COLOR_BGR2HSV)[:, :, 2]
+			frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
+			frame_list.append(frame)
+
+			if self.make_hd_list:
+				# Resize the frame
+				if frame.shape[0] != 1920:
+					frame_hd = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_LINEAR)
+				else:
+					frame_hd = frame
+
+				frame_list_hd.append(frame_hd)
+
 		# Clean up memory
 		capture.release()
-		print(f'Master timestamps:    {self.master_timestamps}', flush=True)
-		print(f'Rendition timestamps: {timestamps_selected}', flush=True)
+		print(f'Mean master-rendition timestamp diff, sec: {np.mean(master_timestamp_diffs)} SD: {np.std(master_timestamp_diffs)}')
 		return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
 	def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):

@@ -20,6 +20,15 @@ class FfmpegCapture:
 	MAX_TIMESTAMP_WAIT = 100
 	TIMESTAMP_POLL_INTERVAL = 0.01
 
+	class FrameData:
+		"""
+		Object holding pixel data and metadata
+		"""
+		def __init__(self, index: int, timestamp: float, frame: np.ndarray):
+			self.frame = frame
+			self.index = index
+			self.timestamp = timestamp
+
 	def __init__(self, filename: str, use_gpu=False):
 		if not os.path.exists(filename):
 			raise ValueError(f'File {filename} doesn\'t exist')
@@ -55,7 +64,7 @@ class FfmpegCapture:
 			if cap is not None:
 				cap.release()
 
-	def read(self) -> Union[Tuple[int, float, np.ndarray], Tuple[None, None, None]]:
+	def read(self) -> Union[FrameData, None]:
 		"""
 		Reads next frame from video.
 		@return: Tuple[frame_index, frame_timestamp, frame] or [None, None, None] if end of video
@@ -65,12 +74,12 @@ class FfmpegCapture:
 		# get raw frame from stdout and convert it to numpy array
 		bytes = self.process.stdout.read(self.height * self.width * 3)
 		if len(bytes) == 0:
-			return None, None, None
+			return None
 		frame = np.frombuffer(bytes, np.uint8).reshape([self.height, self.width, 3])
 		timestamp = self._get_timestamp_for_frame(self.frame_idx)
 		logger.debug(f'Read frame {self.frame_idx} at PTS_TIME {timestamp}')
 		self.frame_idx += 1
-		return self.frame_idx, timestamp, frame
+		return FfmpegCapture.FrameData(self.frame_idx, timestamp, frame)
 
 	def _get_timestamp_for_frame(self, frame_idx) -> float:
 		# wait for timestamp record to be available, normally it available before frame is read
