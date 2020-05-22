@@ -1,1 +1,1 @@
-docker build -f Dockerfile -t verifier:v1 . && docker build -f Dockerfile-cli -t verifier-cli:v1 . && docker run --rm -it --volume="$(pwd)/stream":/stream --ipc=host verifier-cli:v1
+docker build -f Dockerfile -t livepeer/verifier:latest . && docker build -f Dockerfile-cli -t livepeer/verifier-cli:latest . && docker run --rm -it --volume="$(pwd)/stream":/stream --ipc=host livepeer/verifier-cli:latest
