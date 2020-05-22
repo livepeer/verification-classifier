@@ -21,7 +21,7 @@ class Verifier:
 	def verify(self, in_file, out_file):
 		url = "http://localhost:5000/verify"
 
-		res = verifier.verify(in_file, [{'uri': out_file}], False, 10, '../../models/', '')
+		res = verifier.verify(in_file, [{'uri': out_file}], False, -1, '../../models/', '')
 
 		tamper = float(res[0]["tamper"])
 		print("Tamper: {}".format(str(tamper)))

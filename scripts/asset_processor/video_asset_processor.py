@@ -144,7 +144,7 @@ class VideoAssetProcessor:
 		# process picked frames
 		for i in range(len(candidate_frames)):
 			frame_data = candidate_frames[i]
-			cv2.imwrite(f'cur/{i}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp}.png', frame_data.frame)
+			#cv2.imwrite(f'cur/{i}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp}.png', frame_data.frame)
 			ts_diff = master_timestamp_diffs[i]
 			if frame_data is None or ts_diff > 1/capture.fps:
 				print(f'No candidate rendition frame for master frame {i} at {self.master_timestamps[i]} sec!')
