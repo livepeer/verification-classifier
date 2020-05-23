@@ -1,4 +1,4 @@
-FROM verifier:v1
+FROM livepeer/verifier:latest
 COPY /api ./scripts
 ENTRYPOINT ["python"]
 CMD ["scripts/api.py"]
