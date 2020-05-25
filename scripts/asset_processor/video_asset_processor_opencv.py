@@ -4,7 +4,6 @@ Module for management and parallelization of verification jobs.
 
 import os
 from concurrent.futures.thread import ThreadPoolExecutor
-from collections import deque
 import multiprocessing
 from random import seed
 from random import random
@@ -12,14 +11,12 @@ from random import random
 import cv2
 import numpy as np
 import pandas as pd
-import math
 from scipy.spatial import distance
+
 from video_metrics import VideoMetrics
 
-from ffmpeg_capture import FfmpegCapture
 
-
-class VideoAssetProcessor:
+class VideoAssetProcessorOpenCV:
 	"""
 	Class to extract and aggregate values from video sequences.
 	It is instantiated as part of the data creation as well
@@ -27,17 +24,7 @@ class VideoAssetProcessor:
 	"""
 
 	def __init__(self, original, renditions, metrics_list,
-				 do_profiling=False, max_samples=-1, features_list=None, debug_frames=False):
-		"""
-
-		@param original:
-		@param renditions:
-		@param metrics_list:
-		@param do_profiling:
-		@param max_samples:
-		@param features_list:
-		@param debug_frames: dump frames selected for metric extraction on disk, decreases performance
-		"""
+				 do_profiling=False, max_samples=-1, features_list=None, debug_frames = False):
 		# ************************************************************************
 		# Initialize global variables
 		# ************************************************************************
@@ -47,14 +34,15 @@ class VideoAssetProcessor:
 		if os.path.exists(original['path']):
 			self.do_process = True
 			self.original_path = original['path']
-			self.original_capture = FfmpegCapture(self.original_path)
+			# Initializes original asset to OpenCV VideoCapture class
+			self.original_capture = cv2.VideoCapture(self.original_path)
 			# Frames Per Second of the original asset
-			self.fps = self.original_capture.fps
+			self.fps = int(self.original_capture.get(cv2.CAP_PROP_FPS))
 			# Obtains number of frames of the original
-			self.total_frames = self.original_capture.frame_count
+			self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
 			# Maximum number of frames to random sample
 			if max_samples == -1:
-				self.max_samples = self.total_frames
+				self.max_samples = self.max_frames
 			else:
 				self.max_samples = max_samples
 
@@ -77,18 +65,17 @@ class VideoAssetProcessor:
 			self.do_profiling = do_profiling
 
 			# Check if HD list is necessary
-			if 'temporal_ssim' in self.metrics_list or 'temporal_psnr' in self.metrics_list:
+			if 'ssim' in self.metrics_list or 'psnr' in self.metrics_list:
 				self.make_hd_list = True
 			else:
 				self.make_hd_list = False
-			# read renditions metadata like fps
-			self.read_renditions_metadata()
+
 			# Convert OpenCV video captures of original to list
 			# of numpy arrays for better performance of numerical computations
-			self.master_indexes = []
-			self.markup_master_frames = True
-			self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture, )
-			self.markup_master_frames = False
+			self.random_sampler = []
+			self.create_random_list = True
+			self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture)
+			self.create_random_list = False
 			# Instance of the video_metrics class
 			self.video_metrics = VideoMetrics(self.metrics_list,
 											  self.hash_size,
@@ -110,82 +97,69 @@ class VideoAssetProcessor:
 	def capture_to_array(self, capture):
 		"""
 		Function to convert OpenCV video capture to a list of
-		numpy arrays for faster processing and analysis.
-		@param q - quantization parameter to sample frames aligned by timestamp from source video and renditions
+		numpy arrays for faster processing and analysis
 		"""
-		# Create list of random timestamps in video file to calculate metrics at
-		if self.markup_master_frames:
-			self.master_indexes = np.sort(np.random.choice(self.total_frames, self.max_samples, False))
-			self.master_timestamps = []
 
-		# difference between master timestamp and best matching frame timestamp of current video
-		master_timestamp_diffs = [np.inf] * len(self.master_indexes)
-		# currently selected frames
-		candidate_frames = [None] * len(self.master_indexes)
+		# List of numpy arrays
 		frame_list = []
 		frame_list_hd = []
-		frames_read = 0
+		i = 0
 		pixels = 0
 		height = 0
 		width = 0
-		timestamps_selected = []
+		n_frame = 0
 		# Iterate through each frame in the video
-		while True:
+		while capture.isOpened():
+
 			# Read the frame from the capture
-			frame_data = capture.read()
-			if frame_data is not None:
-				frames_read += 1
-				if self.markup_master_frames:
-					if frame_data.index in self.master_indexes:
-						self.master_timestamps.append(frame_data.timestamp)
-					else:
-						continue
-				# update candidate frames
-				ts_diffs = [abs(frame_data.timestamp - mts) for mts in self.master_timestamps]
-				best_match_idx = int(np.argmin(ts_diffs))
-				best_match = np.min(ts_diffs)
-				# max theoretical timestamp difference between 'matching' frames would be 1/(2*fps) + max(jitter)
-				# don't consider frames that are too far, otherwise the algorithm will be linear on memory vs video length
-				if best_match < 1 / capture.fps and master_timestamp_diffs[best_match_idx] > best_match:
-					master_timestamp_diffs[best_match_idx] = best_match
-					candidate_frames[best_match_idx] = frame_data
+			ret_frame, frame = capture.read()
+			# If read successful, then append the retrieved numpy array to a python list
+			if ret_frame:
+				n_frame += 1
+				add_frame = False
+
+				if self.create_random_list:
+					random_frame = random()
+					if random_frame > 0.5:
+						add_frame = True
+						# Add the frame to the list if it belong to the random sampling list
+						self.random_sampler.append(n_frame)
+				else:
+					if n_frame in self.random_sampler:
+						add_frame = True
+
+				if add_frame:
+					if self.debug_frames:
+						cv2.imwrite(f'opencv/{i}_{"m" if self.create_random_list else ""}_{n_frame}.png', frame)
+					i += 1
+					# Count the number of pixels
+					height = frame.shape[1]
+					width = frame.shape[0]
+					pixels += height * width
+
+					# Change color space to have only luminance
+					frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2]
+					frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
+					frame_list.append(frame)
+
+					if self.make_hd_list:
+						# Resize the frame
+						if frame.shape[0] != 1920:
+							frame_hd = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_LINEAR)
+						else:
+							frame_hd = frame
+
+						frame_list_hd.append(frame_hd)
+
+					if i > self.max_samples:
+						break
+
 			# Break the loop when frames cannot be taken from original
 			else:
 				break
-
-		# process picked frames
-		for i in range(len(candidate_frames)):
-			frame_data = candidate_frames[i]
-			if self.debug_frames:
-				cv2.imwrite(f'ffmpeg/{i}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp}.png', frame_data.frame)
-			ts_diff = master_timestamp_diffs[i]
-			if frame_data is None or ts_diff > 1 / capture.fps:
-				print(f'No candidate rendition frame for master frame {i} at {self.master_timestamps[i]} sec!')
-				continue
-			timestamps_selected.append(frame_data.timestamp)
-			# Count the number of pixels
-			height = frame_data.frame.shape[1]
-			width = frame_data.frame.shape[0]
-			pixels += height * width
-
-			# Change color space to have only luminance
-			frame = cv2.cvtColor(frame_data.frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-			frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
-			frame_list.append(frame)
-
-			if self.make_hd_list:
-				# Resize the frame
-				if frame.shape[0] != 1920:
-					frame_hd = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_LINEAR)
-				else:
-					frame_hd = frame
-
-				frame_list_hd.append(frame_hd)
-		selected_indexes = list([f.index for f in candidate_frames])
 		# Clean up memory
 		capture.release()
-		print(f'Mean master-rendition timestamp diff, sec: {np.mean(master_timestamp_diffs)} SD: {np.std(master_timestamp_diffs)}')
-		print(f'Selected indexes for {capture.filename}: {selected_indexes}')
+		print(self.random_sampler, flush=True)
 		return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
 	def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):
@@ -532,7 +506,8 @@ class VideoAssetProcessor:
 				path = rendition['path']
 				try:
 					if os.path.exists(path):
-						capture = FfmpegCapture(path)
+						capture = cv2.VideoCapture(path)
+
 						# Turn openCV capture to a list of numpy arrays
 						frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
 						dimensions = '{}:{}'.format(int(width), int(height))
@@ -555,24 +530,3 @@ class VideoAssetProcessor:
 		else:
 			print('Unable to process. Original source path does not exist')
 			return False
-
-	def read_renditions_metadata(self):
-		# Iterate through renditions
-		last_rendition_fps = None
-		for rendition in self.renditions_list:
-			path = rendition['path']
-			try:
-				if os.path.exists(path):
-					capture = FfmpegCapture(path)
-					# Get framerate
-					fps = capture.fps
-					# Validate frame rates, only renditions with same FPS (though not necessarily equal to source video) are currently supported in a single instance
-					if last_rendition_fps is not None and last_rendition_fps != fps:
-						raise Exception(f'Rendition has frame rate incompatible with other renditions: {fps}')
-					rendition['fps'] = fps
-					rendition['width'] = capture.width
-					rendition['height'] = capture.height
-				else:
-					raise Exception(f'Rendition not found: {path}')
-			finally:
-				capture.release()

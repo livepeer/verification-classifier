@@ -6,6 +6,8 @@ import os
 import glob
 import verifier
 import logging
+from video_asset_processor_opencv import VideoAssetProcessorOpenCV
+from video_asset_processor import VideoAssetProcessor
 
 logging.basicConfig(level=logging.INFO,
 					format='[%(asctime)s]: {} %(levelname)s %(name)s %(message)s'.format(os.getpid()),
@@ -21,7 +23,7 @@ class Verifier:
 	def verify(self, in_file, out_file):
 		url = "http://localhost:5000/verify"
 
-		res = verifier.verify(in_file, [{'uri': out_file}], False, -1, '../../models/', '')
+		res = verifier.verify(in_file, [{'uri': out_file}], False, 10, '../../models/', '', VideoAssetProcessorOpenCV)
 
 		tamper = float(res[0]["tamper"])
 		print("Tamper: {}".format(str(tamper)))

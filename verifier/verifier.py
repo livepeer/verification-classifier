@@ -82,7 +82,7 @@ def pre_verify(source, rendition):
     return rendition
 
 
-def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name):
+def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name, video_asset_processor=VideoAssetProcessor):
     """
     Function that returns the predicted compliance of a list of renditions
     with respect to a given source file using a specified model.
@@ -139,7 +139,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         start_user = time.time()
 
         # Instantiate VideoAssetProcessor class
-        asset_processor = VideoAssetProcessor(source,
+        asset_processor = video_asset_processor(source,
                                               pre_verified_renditions,
                                               metrics_list,
                                               do_profiling,
