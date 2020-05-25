@@ -27,13 +27,15 @@ class Verifier:
 	def verify(self, in_file, out_file):
 		url = "http://localhost:5000/verify"
 
-		start = timeit.default_timer()
-		res = verifier.verify(in_file, [{'uri': out_file}], False, -1, '../../models/', '', VideoAssetProcessorOpenCV, False, True)
-		opencv_time = timeit.default_timer() - start
-		tamper_opencv = float(res[0]["tamper"])
+		# start = timeit.default_timer()
+		# res = verifier.verify(in_file, [{'uri': out_file}], False, -1, '../../models/', '', VideoAssetProcessorOpenCV, False, True)
+		# opencv_time = timeit.default_timer() - start
+		# tamper_opencv = float(res[0]["tamper"])
+		tamper_opencv = -1
+		opencv_time = 0
 
 		start = timeit.default_timer()
-		n_samples = -1
+		n_samples = 100
 		gpu = False
 		res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '../../models/', '', VideoAssetProcessor, False, gpu)
 		ffmpeg_time = timeit.default_timer() - start
@@ -84,7 +86,7 @@ def run_test(source_dir, rendition_dir, files=None):
 
 
 source_dir = '../../data/renditions/1080p/'
-rendition_dir = '../../data/renditions/1080p_60-24fps_cpu/'
+rendition_dir = '../../data/renditions/1080p_60-30fps_cpu/'
 # files = ['pfkmHwfR8ms.mp4']
 files = None
 

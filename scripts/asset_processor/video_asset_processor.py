@@ -127,7 +127,7 @@ class VideoAssetProcessor:
 			self.master_timestamps = []
 
 		# difference between master timestamp and best matching frame timestamp of current video
-		master_timestamp_diffs = [np.nan] * len(self.master_indexes)
+		master_timestamp_diffs = [np.inf] * len(self.master_indexes)
 		# currently selected frames
 		candidate_frames = [None] * len(self.master_indexes)
 		frame_list = []
@@ -192,7 +192,7 @@ class VideoAssetProcessor:
 		selected_indexes = list([f.index for f in filter(None, candidate_frames)])
 		# Clean up memory
 		capture.release()
-		print(f'Mean master-rendition timestamp diff, sec: {np.nanmean(master_timestamp_diffs)} SD: {np.nanstd(master_timestamp_diffs)}')
+		print(f'Mean master-rendition timestamp diff, sec: {np.mean(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))} SD: {np.std(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))}')
 		print(f'Selected indexes for {capture.filename}: {selected_indexes}')
 		return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
