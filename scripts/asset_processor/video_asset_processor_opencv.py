@@ -3,6 +3,7 @@ Module for management and parallelization of verification jobs.
 """
 
 import os
+import shutil
 from concurrent.futures.thread import ThreadPoolExecutor
 import multiprocessing
 from random import seed
@@ -24,13 +25,18 @@ class VideoAssetProcessorOpenCV:
 	"""
 
 	def __init__(self, original, renditions, metrics_list,
-				 do_profiling=False, max_samples=-1, features_list=None, debug_frames = False, use_gpu=False):
+				 do_profiling=False, max_samples=-1, features_list=None, debug_frames=False, use_gpu=False):
 		# ************************************************************************
 		# Initialize global variables
 		# ************************************************************************
 
 		# Stores system path to original asset
 		self.debug_frames = debug_frames
+		# init debug dirs
+		if self.debug_frames:
+			self.frame_dir_name = type(self).__name__
+			shutil.rmtree(self.frame_dir_name, ignore_errors=True)
+			os.makedirs(self.frame_dir_name, exist_ok=True)
 		if os.path.exists(original['path']):
 			self.do_process = True
 			self.original_path = original['path']
@@ -99,7 +105,6 @@ class VideoAssetProcessorOpenCV:
 		Function to convert OpenCV video capture to a list of
 		numpy arrays for faster processing and analysis
 		"""
-
 		# List of numpy arrays
 		frame_list = []
 		frame_list_hd = []
@@ -110,17 +115,15 @@ class VideoAssetProcessorOpenCV:
 		n_frame = 0
 		# Iterate through each frame in the video
 		while capture.isOpened():
-
 			# Read the frame from the capture
 			ret_frame, frame = capture.read()
 			# If read successful, then append the retrieved numpy array to a python list
 			if ret_frame:
 				n_frame += 1
 				add_frame = False
-
 				if self.create_random_list:
 					random_frame = random()
-					if random_frame > 0.5:
+					if random_frame < (self.max_samples / self.max_frames):
 						add_frame = True
 						# Add the frame to the list if it belong to the random sampling list
 						self.random_sampler.append(n_frame)
@@ -130,9 +133,7 @@ class VideoAssetProcessorOpenCV:
 
 				if add_frame:
 					if self.debug_frames:
-						dir_name = type(self).__name__
-						os.makedirs(dir_name, exist_ok=True)
-						cv2.imwrite(f'{dir_name}/{i}_{"m" if self.create_random_list else ""}_{n_frame}.png', frame)
+						cv2.imwrite(f'{self.frame_dir_name}/{i:04}_{"m" if self.create_random_list else ""}_{n_frame}.png', frame)
 					i += 1
 					# Count the number of pixels
 					height = frame.shape[1]

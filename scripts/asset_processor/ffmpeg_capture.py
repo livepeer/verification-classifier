@@ -8,6 +8,7 @@ from typing import Union, Tuple
 
 import cv2
 import numpy as np
+import bisect
 import subprocess
 import threading
 import logging
@@ -43,6 +44,7 @@ class FfmpegCapture:
 		self.decoder = ''
 		self.offset = 0
 		if use_gpu:
+			logger.warning('Nvcodec sometimes duplicates frames producing more frames than it\'s actually in the video. In tests, it happened only at the end of the video, but potentially it can corrupt timestamps')
 			self.decoder = '-hwaccel nvdec -c:v h264_cuvid'
 		self._read_metadata()
 
@@ -81,6 +83,7 @@ class FfmpegCapture:
 		self.frame_idx += 1
 		if 0 < self.frame_count == self.frame_idx:
 			logger.error(f'Frame count mismatch, possibly corrupted video file: {self.filename}')
+			self.release()
 			return None
 		frame = np.frombuffer(bytes, np.uint8).reshape([self.height, self.width, 3])
 		timestamp = self._get_timestamp_for_frame(self.frame_idx)
@@ -129,7 +132,11 @@ class FfmpegCapture:
 					if timestamp < self.offset:
 						logger.warning('Unknown behavior: pkt_pts_time is expected to be greater than stream start offset')
 						timestamp = self.offset
-					self.timestamps.append(timestamp - self.offset)
+					# Some frames are out-of-order by PTS, but returned to output in proper order. This may fail if corresponding debug record wasn't yet fetched when frame was read, but such behavior never observed during testing.
+					bisect.insort(self.timestamps, timestamp - self.offset)
+					if 2 < len(self.timestamps) < self.frame_idx + 3:
+						logger.warning('Don\'t have enough timestamp records to account for out-of-order frames')
+					self.timestamps = list(sorted(self.timestamps))
 					if not self.stream_data_read:
 						# stream data wasn't parsed, no point in searching for it
 						logger.warning('Unable to parse stream data, start offset set to 0')

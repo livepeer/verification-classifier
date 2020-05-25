@@ -3,6 +3,7 @@ Module for management and parallelization of verification jobs.
 """
 
 import os
+import shutil
 from concurrent.futures.thread import ThreadPoolExecutor
 from collections import deque
 import multiprocessing
@@ -45,14 +46,19 @@ class VideoAssetProcessor:
 		# Stores system path to original asset
 		self.debug_frames = debug_frames
 		self.use_gpu = use_gpu
+		# init debug dirs
+		if self.debug_frames:
+			self.frame_dir_name = type(self).__name__
+			shutil.rmtree(self.frame_dir_name, ignore_errors=True)
+			os.makedirs(self.frame_dir_name, exist_ok=True)
 		if os.path.exists(original['path']):
 			self.do_process = True
 			self.original_path = original['path']
-			self.original_capture = FfmpegCapture(self.original_path, use_gpu=use_gpu)
+			self.master_capture = FfmpegCapture(self.original_path, use_gpu=use_gpu)
 			# Frames Per Second of the original asset
-			self.fps = self.original_capture.fps
+			self.fps = self.master_capture.fps
 			# Obtains number of frames of the original
-			self.total_frames = self.original_capture.frame_count
+			self.total_frames = self.master_capture.frame_count
 			# Maximum number of frames to random sample
 			if max_samples == -1:
 				self.max_samples = self.total_frames
@@ -88,7 +94,8 @@ class VideoAssetProcessor:
 			# of numpy arrays for better performance of numerical computations
 			self.master_indexes = []
 			self.markup_master_frames = True
-			self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.original_capture, )
+			self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.master_capture, )
+			self.master_capture.release()
 			self.markup_master_frames = False
 			# Instance of the video_metrics class
 			self.video_metrics = VideoMetrics(self.metrics_list,
@@ -120,7 +127,7 @@ class VideoAssetProcessor:
 			self.master_timestamps = []
 
 		# difference between master timestamp and best matching frame timestamp of current video
-		master_timestamp_diffs = [np.inf] * len(self.master_indexes)
+		master_timestamp_diffs = [np.nan] * len(self.master_indexes)
 		# currently selected frames
 		candidate_frames = [None] * len(self.master_indexes)
 		frame_list = []
@@ -158,12 +165,10 @@ class VideoAssetProcessor:
 		for i in range(len(candidate_frames)):
 			frame_data = candidate_frames[i]
 			if self.debug_frames:
-				dir_name = type(self).__name__
-				os.makedirs(dir_name, exist_ok=True)
-				cv2.imwrite(f'{dir_name}/{i}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp}.png', frame_data.frame)
+				cv2.imwrite(f'{self.frame_dir_name}/{i:04}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp:.4}.png', frame_data.frame)
 			ts_diff = master_timestamp_diffs[i]
 			if frame_data is None or ts_diff > 1 / capture.fps:
-				print(f'No candidate rendition frame for master frame {i} at {self.master_timestamps[i]} sec!')
+				print(f'No candidate frame at index {i}/{self.total_frames-1}!')
 				continue
 			timestamps_selected.append(frame_data.timestamp)
 			# Count the number of pixels
@@ -184,10 +189,10 @@ class VideoAssetProcessor:
 					frame_hd = frame
 
 				frame_list_hd.append(frame_hd)
-		selected_indexes = list([f.index for f in candidate_frames])
+		selected_indexes = list([f.index for f in filter(None, candidate_frames)])
 		# Clean up memory
 		capture.release()
-		print(f'Mean master-rendition timestamp diff, sec: {np.mean(master_timestamp_diffs)} SD: {np.std(master_timestamp_diffs)}')
+		print(f'Mean master-rendition timestamp diff, sec: {np.nanmean(master_timestamp_diffs)} SD: {np.nanstd(master_timestamp_diffs)}')
 		print(f'Selected indexes for {capture.filename}: {selected_indexes}')
 		return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
@@ -533,6 +538,7 @@ class VideoAssetProcessor:
 			# Iterate through renditions
 			for rendition in self.renditions_list:
 				path = rendition['path']
+				capture = None
 				try:
 					if os.path.exists(path):
 						capture = FfmpegCapture(path, use_gpu=self.use_gpu)
@@ -550,6 +556,9 @@ class VideoAssetProcessor:
 				except Exception as err:
 					print('Unable to compute metrics for {}'.format(path))
 					print(err)
+				finally:
+					if capture is not None:
+						capture.release()
 
 			if self.do_profiling:
 				self.cpu_profiler.print_stats()
@@ -566,7 +575,7 @@ class VideoAssetProcessor:
 			path = rendition['path']
 			try:
 				if os.path.exists(path):
-					capture = FfmpegCapture(path, use_gpu=self.use_gpu)
+					capture = FfmpegCapture(path, use_gpu=False)
 					# Get framerate
 					fps = capture.fps
 					# Validate frame rates, only renditions with same FPS (though not necessarily equal to source video) are currently supported in a single instance
