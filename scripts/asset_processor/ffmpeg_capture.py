@@ -43,7 +43,7 @@ class FfmpegCapture:
 		self.decoder = ''
 		self.offset = 0
 		if use_gpu:
-			self.decoder = '-hwaccel cuvid -c:v h264_cuvid'
+			self.decoder = '-hwaccel nvdec -c:v h264_cuvid'
 		self._read_metadata()
 
 	def _read_metadata(self):

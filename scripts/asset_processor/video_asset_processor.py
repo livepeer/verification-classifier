@@ -27,7 +27,7 @@ class VideoAssetProcessor:
 	"""
 
 	def __init__(self, original, renditions, metrics_list,
-				 do_profiling=False, max_samples=-1, features_list=None, debug_frames=False):
+				 do_profiling=False, max_samples=-1, features_list=None, debug_frames=False, use_gpu=False):
 		"""
 
 		@param original:
@@ -44,10 +44,11 @@ class VideoAssetProcessor:
 
 		# Stores system path to original asset
 		self.debug_frames = debug_frames
+		self.use_gpu = use_gpu
 		if os.path.exists(original['path']):
 			self.do_process = True
 			self.original_path = original['path']
-			self.original_capture = FfmpegCapture(self.original_path)
+			self.original_capture = FfmpegCapture(self.original_path, use_gpu=use_gpu)
 			# Frames Per Second of the original asset
 			self.fps = self.original_capture.fps
 			# Obtains number of frames of the original
@@ -157,7 +158,9 @@ class VideoAssetProcessor:
 		for i in range(len(candidate_frames)):
 			frame_data = candidate_frames[i]
 			if self.debug_frames:
-				cv2.imwrite(f'ffmpeg/{i}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp}.png', frame_data.frame)
+				dir_name = type(self).__name__
+				os.makedirs(dir_name, exist_ok=True)
+				cv2.imwrite(f'{dir_name}/{i}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp}.png', frame_data.frame)
 			ts_diff = master_timestamp_diffs[i]
 			if frame_data is None or ts_diff > 1 / capture.fps:
 				print(f'No candidate rendition frame for master frame {i} at {self.master_timestamps[i]} sec!')
@@ -532,7 +535,7 @@ class VideoAssetProcessor:
 				path = rendition['path']
 				try:
 					if os.path.exists(path):
-						capture = FfmpegCapture(path)
+						capture = FfmpegCapture(path, use_gpu=self.use_gpu)
 						# Turn openCV capture to a list of numpy arrays
 						frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
 						dimensions = '{}:{}'.format(int(width), int(height))
@@ -563,7 +566,7 @@ class VideoAssetProcessor:
 			path = rendition['path']
 			try:
 				if os.path.exists(path):
-					capture = FfmpegCapture(path)
+					capture = FfmpegCapture(path, use_gpu=self.use_gpu)
 					# Get framerate
 					fps = capture.fps
 					# Validate frame rates, only renditions with same FPS (though not necessarily equal to source video) are currently supported in a single instance

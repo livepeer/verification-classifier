@@ -24,7 +24,7 @@ class VideoAssetProcessorOpenCV:
 	"""
 
 	def __init__(self, original, renditions, metrics_list,
-				 do_profiling=False, max_samples=-1, features_list=None, debug_frames = False):
+				 do_profiling=False, max_samples=-1, features_list=None, debug_frames = False, use_gpu=False):
 		# ************************************************************************
 		# Initialize global variables
 		# ************************************************************************
@@ -130,7 +130,9 @@ class VideoAssetProcessorOpenCV:
 
 				if add_frame:
 					if self.debug_frames:
-						cv2.imwrite(f'opencv/{i}_{"m" if self.create_random_list else ""}_{n_frame}.png', frame)
+						dir_name = type(self).__name__
+						os.makedirs(dir_name, exist_ok=True)
+						cv2.imwrite(f'{dir_name}/{i}_{"m" if self.create_random_list else ""}_{n_frame}.png', frame)
 					i += 1
 					# Count the number of pixels
 					height = frame.shape[1]
