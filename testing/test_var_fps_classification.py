@@ -56,7 +56,7 @@ def run_test(source_dir, rendition_dirs, files=None):
 	verifier = Verifier()
 	src_videos = sorted(glob.glob(source_dir + '/*'))
 	results = []
-	for src in src_videos[:10]:
+	for src in src_videos:
 		filename = src.split(os.path.sep)[-1]
 		if files is not None and not filename in files:
 			continue
@@ -74,7 +74,7 @@ def run_test(source_dir, rendition_dirs, files=None):
 	df_res: pd.DataFrame = pd.DataFrame(results)
 	df_res.set_index(['master_filename', 'rendition_type'], inplace=True)
 	df_res.sort_index(inplace=True)
-	df_res.to_csv('test_fps_renditions.csv')
+	df_res.to_csv('../feature_engineering/notebooks/test_fps_renditions.csv')
 	print(df_res)
 
 

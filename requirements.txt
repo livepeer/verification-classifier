@@ -11,3 +11,4 @@ line_profiler==2.1.2
 flask==1.1.1
 flask-restful==0.3.7
 bjoern==3.0.1
+requests
