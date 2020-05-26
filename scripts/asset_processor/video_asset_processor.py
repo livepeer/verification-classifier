@@ -13,11 +13,14 @@ from random import random
 import cv2
 import numpy as np
 import pandas as pd
+import logging
 import math
 from scipy.spatial import distance
 from video_metrics import VideoMetrics
 
 from ffmpeg_capture import FfmpegCapture
+
+logger = logging.getLogger()
 
 
 class VideoAssetProcessor:
@@ -94,7 +97,7 @@ class VideoAssetProcessor:
 			# of numpy arrays for better performance of numerical computations
 			self.master_indexes = []
 			self.markup_master_frames = True
-			self.original_capture, self.original_capture_hd, self.original_pixels, self.height, self.width = self.capture_to_array(self.master_capture, )
+			master_idx_map, self.master_samples, self.master_samples_hd, self.master_pixels, self.height, self.width = self.capture_to_array(self.master_capture, )
 			self.master_capture.release()
 			self.markup_master_frames = False
 			# Instance of the video_metrics class
@@ -106,19 +109,29 @@ class VideoAssetProcessor:
 			# Collects both dimensional values in a string
 			self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
 			# Compute its features
-			self.metrics[self.original_path] = self.compute(self.original_capture,
-															self.original_capture_hd,
+			self.metrics[self.original_path] = self.compute(master_idx_map,
+															self.master_samples,
+															self.master_samples_hd,
 															self.original_path,
 															self.dimensions,
-															self.original_pixels)
+															self.master_pixels)
 		else:
-			print('Aborting, original source not found in path provided')
+			logger.error(f'Aborting, path does not exist: {original["path"]}')
 			self.do_process = False
 
 	def capture_to_array(self, capture):
 		"""
 		Function to convert OpenCV video capture to a list of
 		numpy arrays for faster processing and analysis.
+		@rtype: Tuple[list, np.ndarray, np.ndarray, int, int, int]
+		@param capture:
+		@return:  A tuple:
+					- list mapping indexes in returned sample frames to corresponding master samples
+					- sample frames
+					- sample frames HD
+					- total sample pixels count
+					- original sample height
+					- original sample width
 		@param q - quantization parameter to sample frames aligned by timestamp from source video and renditions
 		"""
 		# Create list of random timestamps in video file to calculate metrics at
@@ -130,6 +143,9 @@ class VideoAssetProcessor:
 		master_timestamp_diffs = [np.inf] * len(self.master_indexes)
 		# currently selected frames
 		candidate_frames = [None] * len(self.master_indexes)
+		# maps selected rendition sample to master sample
+		debug_index_mapping = {}
+		master_idx_map = []
 		frame_list = []
 		frame_list_hd = []
 		frames_read = 0
@@ -164,13 +180,15 @@ class VideoAssetProcessor:
 		# process picked frames
 		for i in range(len(candidate_frames)):
 			frame_data = candidate_frames[i]
-			if self.debug_frames:
-				cv2.imwrite(f'{self.frame_dir_name}/{i:04}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp:.4}.png', frame_data.frame)
 			ts_diff = master_timestamp_diffs[i]
 			if frame_data is None or ts_diff > 1 / capture.fps:
-				print(f'No candidate frame at index {i}/{self.total_frames-1}!')
+				# no candidate frame
 				continue
+			if self.debug_frames:
+				cv2.imwrite(f'{self.frame_dir_name}/{i:04}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp:.4}.png', frame_data.frame)
 			timestamps_selected.append(frame_data.timestamp)
+			master_idx_map.append(i)
+			debug_index_mapping[self.master_indexes[i]] = frame_data.index
 			# Count the number of pixels
 			height = frame_data.frame.shape[1]
 			width = frame_data.frame.shape[0]
@@ -189,38 +207,45 @@ class VideoAssetProcessor:
 					frame_hd = frame
 
 				frame_list_hd.append(frame_hd)
-		selected_indexes = list([f.index for f in filter(None, candidate_frames)])
 		# Clean up memory
 		capture.release()
-		print(f'Mean master-rendition timestamp diff, sec: {np.mean(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))} SD: {np.std(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))}')
-		print(f'Selected indexes for {capture.filename}: {selected_indexes}')
-		return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
+		logger.info(f'Mean master-rendition timestamp diff, sec: {np.mean(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))} SD: {np.std(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))}')
+		logger.info(f'Master frame index mapping for {capture.filename}: \n {debug_index_mapping}')
+		return master_idx_map, np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
-	def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):
+	def compare_renditions_instant(self, rendition_sample_idx, master_sample_idx_map, frame_list, frame_list_hd, dimensions, pixels, path):
 		"""
 		Function to compare pairs of numpy arrays extracting their corresponding metrics.
 		It basically takes the global original frame at frame_pos and its subsequent to
 		compare them against the corresponding ones in frame_list (a rendition).
 		It then extracts the metrics defined in the constructor under the metrics_list.
 		Methods of comparison are implemented in the video_metrics class
+		@param master_sample_idx_map: Mapping from rendition sample index to master sample index. If Nframes is different between master and rendition, the index mapping is not 1:1
+		@param rendition_sample_idx: Index of master sample we compare rendition against
+		@param frame_list:
+		@param frame_list_hd:
+		@param dimensions:
+		@param pixels:
+		@param path:
+		@return:
 		"""
 
 		# Dictionary of metrics
 		frame_metrics = {}
 		# Original frame to compare against (downscaled for performance)
-		reference_frame = self.original_capture[frame_pos]
+		reference_frame = self.master_samples[master_sample_idx_map[rendition_sample_idx]]
 		# Original's subsequent frame (downscaled for performance)
-		next_reference_frame = self.original_capture[frame_pos + 1]
+		next_reference_frame = self.master_samples[master_sample_idx_map[rendition_sample_idx + 1]]
 		# Rendition frame (downscaled for performance)
-		rendition_frame = frame_list[frame_pos]
+		rendition_frame = frame_list[rendition_sample_idx]
 		# Rendition's subsequent frame (downscaled for performance)
-		next_rendition_frame = frame_list[frame_pos + 1]
+		next_rendition_frame = frame_list[rendition_sample_idx + 1]
 
 		if self.make_hd_list:
 			# Original frame to compare against (HD for QoE metrics)
-			reference_frame_hd = self.original_capture_hd[frame_pos]
+			reference_frame_hd = self.master_samples_hd[rendition_sample_idx]
 			# Rendition frame (HD for QoE metrics)
-			rendition_frame_hd = frame_list_hd[frame_pos]
+			rendition_frame_hd = frame_list_hd[rendition_sample_idx]
 
 			# Compute the metrics defined in the global metrics_list.
 			# Uses the global instance of video_metrics
@@ -253,9 +278,9 @@ class VideoAssetProcessor:
 
 		# Return the metrics, together with the position of the frame
 		# frame_pos is needed for the ThreadPoolExecutor optimizations
-		return rendition_metrics, frame_pos
+		return rendition_metrics, rendition_sample_idx
 
-	def compute(self, frame_list, frame_list_hd, path, dimensions, pixels):
+	def compute(self, master_sample_idx_map, frame_list, frame_list_hd, path, dimensions, pixels):
 		"""
 		Function to compare lists of numpy arrays extracting their corresponding metrics.
 		It basically takes the global original list of frames and the input frame_list
@@ -263,6 +288,13 @@ class VideoAssetProcessor:
 		frame_pos establishes the index of the frames to be compared.
 		It is optimized by means of the ThreadPoolExecutor of Python's concurrent package
 		for better parallel performance.
+		@param master_sample_idx_map: Mapping from rendition sample index to master sample index. If Nframes is different between master and rendition, the index mapping is not 1:1
+		@param frame_list:
+		@param frame_list_hd:
+		@param path:
+		@param dimensions:
+		@param pixels:
+		@return:
 		"""
 
 		# Dictionary of metrics
@@ -284,6 +316,7 @@ class VideoAssetProcessor:
 			# Compare the original asset against its renditions
 			future_list = {executor.submit(self.compare_renditions_instant,
 										   i,
+										   master_sample_idx_map,
 										   frame_list,
 										   frame_list_hd,
 										   dimensions,
@@ -519,10 +552,10 @@ class VideoAssetProcessor:
 			if label in features:
 				if label.split('-')[0] in downscale_features:
 					df_features[label] = df_features[label] / df_features['dimension']
-					print('Downscaling', label, flush=True)
+					logger.debug(f'Downscaling {label}')
 				elif label.split('-')[0] in upscale_features:
 					df_features[label] = df_features[label] * df_features['dimension']
-					print('Upscaling', label, flush=True)
+					logger.debug(f'Upscaling {label}')
 		return df_features
 
 	def process(self):
@@ -534,7 +567,6 @@ class VideoAssetProcessor:
 			if self.do_profiling:
 				self.capture_to_array = self.cpu_profiler(self.capture_to_array)
 				self.compare_renditions_instant = self.cpu_profiler(self.compare_renditions_instant)
-
 			# Iterate through renditions
 			for rendition in self.renditions_list:
 				path = rendition['path']
@@ -543,19 +575,19 @@ class VideoAssetProcessor:
 					if os.path.exists(path):
 						capture = FfmpegCapture(path, use_gpu=self.use_gpu)
 						# Turn openCV capture to a list of numpy arrays
-						frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
+						master_idx_map, frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
 						dimensions = '{}:{}'.format(int(width), int(height))
 						# Compute the metrics for the rendition
-						self.metrics[path] = self.compute(frame_list,
+						self.metrics[path] = self.compute(master_idx_map,
+														  frame_list,
 														  frame_list_hd,
 														  path,
 														  dimensions,
 														  pixels)
 					else:
-						print('Unable to find path')
+						logger.error(f'Unable to find rendition file: {path}')
 				except Exception as err:
-					print('Unable to compute metrics for {}'.format(path))
-					print(err)
+					logger.exception('Unable to compute metrics for {}'.format(path))
 				finally:
 					if capture is not None:
 						capture.release()
@@ -565,7 +597,7 @@ class VideoAssetProcessor:
 
 			return self.aggregate(self.metrics)
 		else:
-			print('Unable to process. Original source path does not exist')
+			logger.error('Unable to process. Original source path does not exist')
 			return False
 
 	def read_renditions_metadata(self):

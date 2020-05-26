@@ -2,6 +2,7 @@ import requests
 import json
 import random
 import numpy as np
+import pandas as pd
 import os
 import glob
 import verifier
@@ -35,29 +36,13 @@ class Verifier:
 		opencv_time = 0
 
 		start = timeit.default_timer()
-		n_samples = 100
+		n_samples = 10
 		gpu = False
 		res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '../../models/', '', VideoAssetProcessor, False, gpu)
 		ffmpeg_time = timeit.default_timer() - start
 		tamper_ffmpeg = float(res[0]["tamper"])
 
-		logger.info(f'OpenCV processing took: {opencv_time} sec')
-		logger.info(f'Ffmpeg processing with GPU={gpu} took: {ffmpeg_time} sec')
-		logger.info(f"Tamper OpenCV: {tamper_opencv} Tamper Ffmpeg: {tamper_ffmpeg}")
-
-		if tamper_ffmpeg < 0.0:
-			logger.info("Failed!")
-			self.ffmpeg_fails += 1
-		else:
-			logger.info("Passed!")
-			self.ffmpeg_passes += 1
-
-		if tamper_opencv < 0.0:
-			logger.info("Failed!")
-			self.opencv_fails += 1
-		else:
-			logger.info("Passed!")
-			self.opencv_passes += 1
+		return {'score': tamper_ffmpeg, 'time_sec': ffmpeg_time}
 
 	def print_results(self, fails, passes):
 		logger.info("Passes: {}".format(str(passes)))
@@ -67,29 +52,46 @@ class Verifier:
 		logger.info("TPR: {}".format(str(tpr)))
 
 
-def run_test(source_dir, rendition_dir, files=None):
+def run_test(source_dir, rendition_dirs, files=None):
 	verifier = Verifier()
 	src_videos = sorted(glob.glob(source_dir + '/*'))
-	for src in src_videos:
+	results = []
+	for src in src_videos[:10]:
 		filename = src.split(os.path.sep)[-1]
 		if files is not None and not filename in files:
 			continue
-		rend_path = rendition_dir + os.path.sep + filename
-		if not os.path.exists(rend_path):
-			continue
-		print('Videos:', src, rend_path)
-		verifier.verify(src, rend_path)
-	logger.info('FFMPEG RESULTS:')
-	verifier.print_results(verifier.ffmpeg_fails, verifier.ffmpeg_passes)
-	logger.info('OPENCV RESULTS:')
-	verifier.print_results(verifier.opencv_fails, verifier.opencv_passes)
+		i = 0
+		for rendition_dir, tamper in rendition_dirs:
+			rendition_name = rendition_dir.strip(os.path.sep).split(os.path.sep)[-1]
+			rend_path = rendition_dir + os.path.sep + filename
+			if not os.path.exists(rend_path):
+				continue
+			res = verifier.verify(src, rend_path)
+			res['master_filename'] = filename
+			res['rendition_type'] = rendition_name
+			res['is_tamper'] = tamper
+			results.append(res)
+	df_res: pd.DataFrame = pd.DataFrame(results)
+	df_res.set_index(['master_filename', 'rendition_type'], inplace=True)
+	df_res.sort_index(inplace=True)
+	df_res.to_csv('test_fps_renditions.csv')
+	print(df_res)
 
 
 source_dir = '../../data/renditions/1080p/'
-rendition_dir = '../../data/renditions/1080p_60-30fps_cpu/'
-# files = ['pfkmHwfR8ms.mp4']
+rendition_dirs = [
+	('../../data/renditions/720p/', False),
+	('../../data/renditions/1080p_60-30fps_cpu_cpr/', False),
+	('../../data/renditions/1080p_60-24fps_cpu_cpr/', False),
+	('../../data/renditions/1080p_watermark_60-30fps_cpu_cpr/', True),
+	('../../data/renditions/720p_60-30fps_cpu_cpr/', False),
+	('../../data/renditions/720p_watermark_60-30fps_cpu_cpr/', True)
+]
 files = None
+# files = ['pfkmHwfR8ms.mp4']
+# files = ['0fIdY5IAnhY.mp4']
+
 
 np.random.seed(123)
 random.seed(123)
-run_test(source_dir, rendition_dir, files)
+run_test(source_dir, rendition_dirs, files)
