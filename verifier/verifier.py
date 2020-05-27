@@ -258,12 +258,14 @@ def retrieve_video_file(uri):
 		try:
 			audio_file = '{}_audio.wav'.format(video_file)
 			subprocess.call(['ffmpeg',
+							 '-y',
+							 '-hide_banner',
 							 '-i',
 							 video_file,
 							 '-vn',
 							 '-acodec',
 							 'pcm_s16le',
-							 audio_file])
+							 audio_file], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 		except:
 			print('Could not extract audio from video file {}'.format(video_file))
 			audio_available = False

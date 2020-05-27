@@ -185,7 +185,7 @@ class VideoAssetProcessor:
 				# no candidate frame
 				continue
 			if self.debug_frames:
-				cv2.imwrite(f'{self.frame_dir_name}/{i:04}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp:.4}.png', frame_data.frame)
+				cv2.imwrite(f'{self.frame_dir_name}/{i:04}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp:.4}.png', self._convert_debug_frame(frame_data.frame))
 			timestamps_selected.append(frame_data.timestamp)
 			master_idx_map.append(i)
 			debug_index_mapping[self.master_indexes[i]] = frame_data.index
@@ -212,6 +212,10 @@ class VideoAssetProcessor:
 		logger.info(f'Mean master-rendition timestamp diff, sec: {np.mean(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))} SD: {np.std(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))}')
 		logger.info(f'Master frame index mapping for {capture.filename}: \n {debug_index_mapping}')
 		return master_idx_map, np.array(frame_list), np.array(frame_list_hd), pixels, height, width
+
+	@staticmethod
+	def _convert_debug_frame(frame):
+		return cv2.resize(frame, (1920,1080), cv2.INTER_CUBIC)
 
 	def compare_renditions_instant(self, rendition_sample_idx, master_sample_idx_map, frame_list, frame_list_hd, dimensions, pixels, path):
 		"""
@@ -240,6 +244,11 @@ class VideoAssetProcessor:
 		rendition_frame = frame_list[rendition_sample_idx]
 		# Rendition's subsequent frame (downscaled for performance)
 		next_rendition_frame = frame_list[rendition_sample_idx + 1]
+		if self.debug_frames:
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_ref.png', self._convert_debug_frame(reference_frame))
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_next_ref.png', self._convert_debug_frame(next_reference_frame))
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_rend.png', self._convert_debug_frame(reference_frame))
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_next_rend.png', self._convert_debug_frame(next_reference_frame))
 
 		if self.make_hd_list:
 			# Original frame to compare against (HD for QoE metrics)
@@ -594,11 +603,26 @@ class VideoAssetProcessor:
 
 			if self.do_profiling:
 				self.cpu_profiler.print_stats()
-
+			if self.debug_frames:
+				print(f'Frames metrics of {type(self).__name__}')
+				print(self._convert_debug_metrics(self.metrics))
 			return self.aggregate(self.metrics)
 		else:
 			logger.error('Unable to process. Original source path does not exist')
 			return False
+
+	@staticmethod
+	def _convert_debug_metrics(metrics):
+		res = []
+		for f, frames in metrics.items():
+			for id, frame in frames.items():
+				row = {'file': f, 'sample': id}
+				row.update(frame)
+				res.append(row)
+		df = pd.DataFrame(res)
+		df.set_index(['file', 'sample'], inplace=True)
+		df.sort_index(inplace=True)
+		return df
 
 	def read_renditions_metadata(self):
 		# Iterate through renditions

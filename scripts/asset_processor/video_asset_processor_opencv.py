@@ -41,11 +41,11 @@ class VideoAssetProcessorOpenCV:
 			self.do_process = True
 			self.original_path = original['path']
 			# Initializes original asset to OpenCV VideoCapture class
-			self.original_capture = cv2.VideoCapture(self.original_path)
+			self.original_capture = cv2.VideoCapture(self.original_path, cv2.CAP_FFMPEG)
 			# Frames Per Second of the original asset
 			self.fps = int(self.original_capture.get(cv2.CAP_PROP_FPS))
 			# Obtains number of frames of the original
-			self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
+			self.max_frames = int(self.original_capture.get(cv2.CAP_PROP_FRAME_COUNT))
 			# Maximum number of frames to random sample
 			if max_samples == -1:
 				self.max_samples = self.max_frames
@@ -113,6 +113,8 @@ class VideoAssetProcessorOpenCV:
 		height = 0
 		width = 0
 		n_frame = 0
+		if self.create_random_list:
+			self.random_sampler = np.sort(np.random.choice(self.max_frames, self.max_samples, False))
 		# Iterate through each frame in the video
 		while capture.isOpened():
 			# Read the frame from the capture
@@ -122,18 +124,15 @@ class VideoAssetProcessorOpenCV:
 				n_frame += 1
 				add_frame = False
 				if self.create_random_list:
-					random_frame = random()
-					if random_frame < (self.max_samples / self.max_frames):
+					if (n_frame-1) in self.random_sampler:
 						add_frame = True
-						# Add the frame to the list if it belong to the random sampling list
-						self.random_sampler.append(n_frame)
 				else:
-					if n_frame in self.random_sampler:
+					if (n_frame-1) in self.random_sampler:
 						add_frame = True
 
 				if add_frame:
 					if self.debug_frames:
-						cv2.imwrite(f'{self.frame_dir_name}/{i:04}_{"m" if self.create_random_list else ""}_{n_frame}.png', frame)
+						cv2.imwrite(f'{self.frame_dir_name}/{i:04}_{"m" if self.create_random_list else ""}_{n_frame-1}.png', self._convert_debug_frame(frame))
 					i += 1
 					# Count the number of pixels
 					height = frame.shape[1]
@@ -165,6 +164,10 @@ class VideoAssetProcessorOpenCV:
 		print(self.random_sampler, flush=True)
 		return np.array(frame_list), np.array(frame_list_hd), pixels, height, width
 
+	@staticmethod
+	def _convert_debug_frame(frame):
+		return cv2.resize(frame, (1920,1080), cv2.INTER_CUBIC)
+
 	def compare_renditions_instant(self, frame_pos, frame_list, frame_list_hd, dimensions, pixels, path):
 		"""
 		Function to compare pairs of numpy arrays extracting their corresponding metrics.
@@ -184,6 +187,12 @@ class VideoAssetProcessorOpenCV:
 		rendition_frame = frame_list[frame_pos]
 		# Rendition's subsequent frame (downscaled for performance)
 		next_rendition_frame = frame_list[frame_pos + 1]
+
+		if self.debug_frames:
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{frame_pos:04}_ref.png', self._convert_debug_frame(reference_frame))
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{frame_pos:04}_next_ref.png', self._convert_debug_frame(next_reference_frame))
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{frame_pos:04}_rend.png', self._convert_debug_frame(reference_frame))
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{frame_pos:04}_next_rend.png', self._convert_debug_frame(next_reference_frame))
 
 		if self.make_hd_list:
 			# Original frame to compare against (HD for QoE metrics)
@@ -509,7 +518,7 @@ class VideoAssetProcessorOpenCV:
 				path = rendition['path']
 				try:
 					if os.path.exists(path):
-						capture = cv2.VideoCapture(path)
+						capture = cv2.VideoCapture(path, cv2.CAP_FFMPEG)
 
 						# Turn openCV capture to a list of numpy arrays
 						frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
@@ -528,8 +537,23 @@ class VideoAssetProcessorOpenCV:
 
 			if self.do_profiling:
 				self.cpu_profiler.print_stats()
-
+			if self.debug_frames:
+				print(f'Frames metrics of {type(self).__name__}')
+				print(self._convert_debug_metrics(self.metrics))
 			return self.aggregate(self.metrics)
 		else:
 			print('Unable to process. Original source path does not exist')
 			return False
+
+	@staticmethod
+	def _convert_debug_metrics(metrics):
+		res = []
+		for f, frames in metrics.items():
+			for id, frame in frames.items():
+				row = {'file': f, 'sample': id}
+				row.update(frame)
+				res.append(row)
+		df = pd.DataFrame(res)
+		df.set_index(['file', 'sample'], inplace=True)
+		df.sort_index(inplace=True)
+		return df
