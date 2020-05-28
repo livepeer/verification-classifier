@@ -30,16 +30,8 @@ class Verifier:
 
 	def verify(self, in_file, out_file):
 		url = "http://localhost:5000/verify"
-		debug = True
+		debug = False
 		n_samples = 10
-
-		np.random.seed(123)
-		random.seed(123)
-
-		start = timeit.default_timer()
-		res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '../../models/', '', VideoAssetProcessorOpenCV, debug, True)
-		opencv_time = timeit.default_timer() - start
-		tamper_opencv = float(res[0]["tamper"])
 
 		np.random.seed(123)
 		random.seed(123)
@@ -50,7 +42,15 @@ class Verifier:
 		ffmpeg_time = timeit.default_timer() - start
 		tamper_ffmpeg = float(res[0]["tamper"])
 
-		return {'score': tamper_ffmpeg, 'score_old': tamper_opencv, 'time_sec': ffmpeg_time}
+		np.random.seed(123)
+		random.seed(123)
+
+		start = timeit.default_timer()
+		res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '../../models/', '', VideoAssetProcessorOpenCV, debug, True)
+		opencv_time = timeit.default_timer() - start
+		tamper_opencv = float(res[0]["tamper"])
+
+		return {'score': tamper_ffmpeg, 'score_old': tamper_opencv, 'time_sec': ffmpeg_time, 'time_sec_old': opencv_time}
 
 	def print_results(self, fails, passes):
 		logger.info("Passes: {}".format(str(passes)))
@@ -97,7 +97,7 @@ rendition_dirs = [
 	# ('../../data/renditions/720p_watermark_60-30fps_cpu_cpr/', True)
 ]
 files = None
-files = ['-9iNCv3-YnY.mp4']
+# files = ['-9iNCv3-YnY.mp4']
 # files = ['0fIdY5IAnhY.mp4']
 
 from video_metrics import VideoMetrics

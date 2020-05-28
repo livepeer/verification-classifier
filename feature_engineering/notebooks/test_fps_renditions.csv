@@ -1,2 +1,2 @@
-master_filename,rendition_type,is_correct,score,score_old,time_sec
--9iNCv3-YnY.mp4,720p,True,-2.125995,0.18346,4.787420552005642
+master_filename,rendition_type,is_correct,score,score_old,time_sec,time_sec_old
+-9iNCv3-YnY.mp4,720p,True,0.18346,0.18346,2.1561133689974668,1.4524171340017347

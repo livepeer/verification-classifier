@@ -5,7 +5,6 @@ import os
 import re
 import time
 from typing import Union, Tuple
-
 import cv2
 import numpy as np
 import bisect
@@ -13,7 +12,35 @@ import subprocess
 import threading
 import logging
 
+have_tf = True
+try:
+	import tensorflow as tf
+except:
+	have_tf = False
+
 logger = logging.getLogger()
+
+
+class YUV2RGB_GPU():
+	"""
+	High performance YUV - RGB conversion with Tensorflow
+	"""
+
+	def __init__(self, w=1920, h=1080):
+		config = tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.03))
+		self.y = tf.placeholder(shape=(1, h, w), dtype=tf.float32)
+		self.u = tf.placeholder(shape=(1, h, w), dtype=tf.float32)
+		self.v = tf.placeholder(shape=(1, h, w), dtype=tf.float32)
+		r = self.y + 1.371 * (self.v - 128)
+		g = self.y + 0.338 * (self.u - 128) - 0.698 * (self.v - 128)
+		b = self.y + 1.732 * (self.u - 128)
+		result = tf.stack([b, g, r], axis=-1)
+		self.result = tf.clip_by_value(result, 0, 255)
+		self.sess = tf.Session(config=config)
+
+	def convert(self, y, u, v):
+		results = self.sess.run(self.result, feed_dict={self.y: y, self.u: u, self.v: v})
+		return results.astype(np.uint8)
 
 
 class FfmpegCapture:
@@ -31,21 +58,35 @@ class FfmpegCapture:
 			self.index = index
 			self.timestamp = timestamp
 
-	def __init__(self, filename: str, use_gpu=False):
+	def __init__(self, filename: str, use_gpu=False, video_reader: str = 'opencv'):
+		"""
+
+		@param filename:
+		@param use_gpu:
+		@param video_reader: 'ffmpeg_bgr' - read video with ffmpeg bgr24 output, warning: Ffmpeg has some color conversion issue which adds irregular noise to pixel data
+							 'ffmpeg_yuv' - read video with ffmpeg yuv420p output, slower, requires tensorflow
+							 'opencv' - read video with opencv, and use ffmpeg only for reading timestamps, fastest, but scans video 2 times
+		"""
 		if not os.path.exists(filename):
 			raise ValueError(f'File {filename} doesn\'t exist')
-		self.stream_thread: threading.Thread
+		if video_reader not in ['ffmpeg_bgr', 'ffmpeg_yuv', 'opencv']:
+			raise ValueError(f'Unknown video reader type {video_reader}')
+		if video_reader == 'ffmpeg_yuv' and not have_tf:
+			raise ValueError(f'Can\'t use ffmpeg_yuv mode without Tensorflow available')
+		self.video_reader = video_reader
+		self.ts_reader_thread: threading.Thread
 		self.filename = filename
 		self.started = False
 		self.stopping = False
 		self.timestamps = []
 		self.frame_idx = -1
 		self.stream_data_read = False
-		self.decoder = ''
+		self.ffmpeg_decoder = ''
 		self.offset = 0
+		self.opencv_capture = None
 		if use_gpu:
 			logger.warning('Nvcodec sometimes duplicates frames producing more frames than it\'s actually in the video. In tests, it happened only at the end of the video, but potentially it can corrupt timestamps')
-			self.decoder = '-hwaccel nvdec -c:v h264_cuvid'
+			self.ffmpeg_decoder = '-hwaccel nvdec -c:v h264_cuvid'
 		self._read_metadata()
 
 	def _read_metadata(self):
@@ -60,14 +101,38 @@ class FfmpegCapture:
 			self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 			self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 			self.frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+			self.pixel_converter = YUV2RGB_GPU(self.width, self.height)
 			if not self.width or not self.height:
 				# have to read frame to get dimensions
 				frame = cap.read()
 				self.height, self.width = frame.shape[:2]
+			if self.video_reader == 'opencv':
+				self.opencv_capture = cap
 			logger.info(f'Video file opened {self.filename}, {self.width}x{self.height}, {self.fps} FPS')
 		finally:
-			if cap is not None:
+			if cap is not None and self.video_reader != 'opencv':
 				cap.release()
+
+	def _read_next_frame(self):
+		if self.video_reader == 'ffmpeg_yuv':
+			# get raw frame from stdout and convert it to numpy array
+			bytes = self.video_capture.stdout.read(int(self.height * self.width * 6 // 4))
+			if len(bytes) == 0:
+				return None
+			k = self.height * self.width
+			y = np.frombuffer(bytes[0:k], dtype=np.uint8).reshape((self.height, self.width))
+			u = np.frombuffer(bytes[k:k + k // 4], dtype=np.uint8).reshape((self.height // 2, self.width // 2))
+			v = np.frombuffer(bytes[k + k // 4:], dtype=np.uint8).reshape((self.height // 2, self.width // 2))
+			u = np.reshape(cv2.resize(np.expand_dims(u, -1), (self.width, self.height)), (self.height, self.width))
+			v = np.reshape(cv2.resize(np.expand_dims(v, -1), (self.width, self.height)), (self.height, self.width))
+			return self.pixel_converter.convert([y], [u], [v])[0]
+		elif self.video_reader == 'ffmpeg_bgr':
+			bytes = self.video_capture.stdout.read(int(self.height * self.width * 3))
+			if len(bytes) == 0:
+				return None
+			return np.frombuffer(bytes, np.uint8).reshape([self.height, self.width, 3])
+		elif self.video_reader == 'opencv':
+			return self.opencv_capture.read()[1]
 
 	def read(self) -> Union[FrameData, None]:
 		"""
@@ -76,16 +141,14 @@ class FfmpegCapture:
 		"""
 		if not self.started:
 			self.start()
-		# get raw frame from stdout and convert it to numpy array
-		bytes = self.process.stdout.read(self.height * self.width * 3)
-		if len(bytes) == 0:
+		frame = self._read_next_frame()
+		if frame is None:
 			return None
 		self.frame_idx += 1
 		if 0 < self.frame_count == self.frame_idx:
 			logger.error(f'Frame count mismatch, possibly corrupted video file: {self.filename}')
 			self.release()
 			return None
-		frame = np.frombuffer(bytes, np.uint8).reshape([self.height, self.width, 3])
 		timestamp = self._get_timestamp_for_frame(self.frame_idx)
 		logger.debug(f'Read frame {self.frame_idx} at PTS_TIME {timestamp}')
 		return FfmpegCapture.FrameData(self.frame_idx, timestamp, frame)
@@ -103,12 +166,18 @@ class FfmpegCapture:
 		return self.timestamps[frame_idx]
 
 	def start(self):
+		format = 'null'
+		pix_fmt = 'yuv420p' if self.video_reader == 'ffmpeg_yuv' else ('bgr24' if self.video_reader == 'ffmpeg_bgr' else '')
+		if pix_fmt:
+			pix_fmt = f'-pix_fmt {pix_fmt}'
+			format = 'rawvideo'
+		output = 'pipe:' if self.video_reader != 'opencv' else '-'
 		# start ffmpeg process
-		ffmpeg_cmd = f"ffmpeg -y -debug_ts -hide_banner {self.decoder} -i {self.filename} -copyts -f rawvideo -pix_fmt bgr24 pipe:"
-		self.process = subprocess.Popen(ffmpeg_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		ffmpeg_cmd = f"ffmpeg -y -debug_ts -hide_banner {self.ffmpeg_decoder} -i {self.filename} -copyts -f {format} {pix_fmt} {output}"
+		self.video_capture = subprocess.Popen(ffmpeg_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		# stderr and stdout are not synchronized, read timestamp data in separate thread
-		self.stream_thread = threading.Thread(target=self.stream_reader, args=[self.process.stderr])
-		self.stream_thread.start()
+		self.ts_reader_thread = threading.Thread(target=self.stream_reader, args=[self.video_capture.stderr])
+		self.ts_reader_thread.start()
 		# wait for stream reader thread to fill timestamp list
 		time.sleep(0.05)
 		self.started = True
@@ -153,6 +222,8 @@ class FfmpegCapture:
 		try:
 			if self.started:
 				self.stopping = True
-				self.process.terminate()
+				self.video_capture.terminate()
+				if self.opencv_capture is not None:
+					self.opencv_capture.release()
 		except:
 			pass

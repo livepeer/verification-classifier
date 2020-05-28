@@ -155,7 +155,7 @@ for original_asset in glob.iglob(originals_path.format('1080p') + '**', recursiv
 
         asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, 1, False)
 
-        asset_metrics_dict = asset_processor.process()
+        asset_metrics_dict = asset_processor.video_capture()
 
         dict_of_df = {k: pd.DataFrame(v) for k,v in asset_metrics_dict.items()}
 
