@@ -40,7 +40,7 @@ output_path = args.output
 
 # Set encoder and decoder based on whether GPU processed is enabled. To use GPU, decoder must be specified explicitly.
 decoder = ''
-encoder = '-vcodec copy'
+encoder = '-vcodec libx264'
 if args.gpu:
 	decoder = '-hwaccel cuvid -c:v h264_cuvid'
 	encoder = '-vcodec h264_nvenc'
@@ -93,7 +93,7 @@ def get_input_output_jobs():
 
 def format_command(input_file, output_file, source_fps, target_fps, encoder, decoder):
 	logger.info('processing {}'.format(input_file))
-	command = f'ffmpeg -y {decoder} -i {input_file} -vsync 0 -r {target_fps} {encoder} {output_file}'
+	command = f'ffmpeg -y {decoder} -i {input_file} -filter:v fps=fps={target_fps} {encoder} {output_file}'
 	return command.split()
 
 

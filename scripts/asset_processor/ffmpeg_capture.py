@@ -12,12 +12,6 @@ import subprocess
 import threading
 import logging
 
-have_tf = True
-try:
-	import tensorflow as tf
-except:
-	have_tf = False
-
 logger = logging.getLogger()
 
 
@@ -71,8 +65,10 @@ class FfmpegCapture:
 			raise ValueError(f'File {filename} doesn\'t exist')
 		if video_reader not in ['ffmpeg_bgr', 'ffmpeg_yuv', 'opencv']:
 			raise ValueError(f'Unknown video reader type {video_reader}')
-		if video_reader == 'ffmpeg_yuv' and not have_tf:
-			raise ValueError(f'Can\'t use ffmpeg_yuv mode without Tensorflow available')
+		if video_reader == 'ffmpeg_yuv':
+			global tf
+			import tensorflow as tf
+			self.pixel_converter = YUV2RGB_GPU(self.width, self.height)
 		self.video_reader = video_reader
 		self.ts_reader_thread: threading.Thread
 		self.filename = filename
@@ -101,7 +97,6 @@ class FfmpegCapture:
 			self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 			self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 			self.frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-			self.pixel_converter = YUV2RGB_GPU(self.width, self.height)
 			if not self.width or not self.height:
 				# have to read frame to get dimensions
 				frame = cap.read()

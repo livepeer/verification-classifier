@@ -170,7 +170,7 @@ class VideoAssetProcessor:
 				best_match = np.min(ts_diffs)
 				# max theoretical timestamp difference between 'matching' frames would be 1/(2*fps) + max(jitter)
 				# don't consider frames that are too far, otherwise the algorithm will be linear on memory vs video length
-				if best_match < 1 / capture.fps and master_timestamp_diffs[best_match_idx] > best_match:
+				if best_match < 1 / (2 * capture.fps) and master_timestamp_diffs[best_match_idx] > best_match:
 					master_timestamp_diffs[best_match_idx] = best_match
 					candidate_frames[best_match_idx] = frame_data
 			# Break the loop when frames cannot be taken from original
@@ -181,7 +181,7 @@ class VideoAssetProcessor:
 		for i in range(len(candidate_frames)):
 			frame_data = candidate_frames[i]
 			ts_diff = master_timestamp_diffs[i]
-			if frame_data is None or ts_diff > 1 / capture.fps:
+			if frame_data is None or ts_diff > 1 / (2 * capture.fps):
 				# no candidate frame
 				continue
 			if self.debug_frames:
@@ -215,7 +215,7 @@ class VideoAssetProcessor:
 
 	@staticmethod
 	def _convert_debug_frame(frame):
-		return cv2.resize(frame, (1920,1080), cv2.INTER_CUBIC)
+		return cv2.resize(frame, (1920, 1080), cv2.INTER_CUBIC)
 
 	def compare_renditions_instant(self, rendition_sample_idx, master_sample_idx_map, frame_list, frame_list_hd, dimensions, pixels, path):
 		"""
@@ -247,8 +247,8 @@ class VideoAssetProcessor:
 		if self.debug_frames:
 			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_ref.png', self._convert_debug_frame(reference_frame))
 			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_next_ref.png', self._convert_debug_frame(next_reference_frame))
-			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_rend.png', self._convert_debug_frame(reference_frame))
-			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_next_rend.png', self._convert_debug_frame(next_reference_frame))
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_rend.png', self._convert_debug_frame(rendition_frame))
+			cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_next_rend.png', self._convert_debug_frame(next_rendition_frame))
 
 		if self.make_hd_list:
 			# Original frame to compare against (HD for QoE metrics)
