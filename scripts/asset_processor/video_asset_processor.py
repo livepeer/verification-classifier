@@ -34,11 +34,12 @@ class VideoAssetProcessor:
 				 do_profiling=False, max_samples=-1, features_list=None, debug_frames=False, use_gpu=False):
 		"""
 
+		@param use_gpu:
 		@param original:
 		@param renditions:
 		@param metrics_list:
 		@param do_profiling:
-		@param max_samples:
+		@param max_samples: Max number of matched master-rendition frames to calculate metrics against. -1 = all
 		@param features_list:
 		@param debug_frames: dump frames selected for metric extraction on disk, decreases performance
 		"""
@@ -46,7 +47,6 @@ class VideoAssetProcessor:
 		# Initialize global variables
 		# ************************************************************************
 
-		# Stores system path to original asset
 		self.debug_frames = debug_frames
 		self.use_gpu = use_gpu
 		# init debug dirs
@@ -62,11 +62,6 @@ class VideoAssetProcessor:
 			self.fps = self.master_capture.fps
 			# Obtains number of frames of the original
 			self.total_frames = self.master_capture.frame_count
-			# Maximum number of frames to random sample
-			if max_samples == -1:
-				self.max_samples = self.total_frames
-			else:
-				self.max_samples = max_samples
 
 			# Size of the hash for frame hash analysis in video_metrics
 			self.hash_size = 16
@@ -93,11 +88,19 @@ class VideoAssetProcessor:
 				self.make_hd_list = False
 			# read renditions metadata like fps
 			self.read_renditions_metadata()
+			# Maximum number of frames to random sample
+			if max_samples == -1:
+				self.max_samples = self.total_frames
+			else:
+				# Take more master samples if rendition FPS is lower for a better chance to have good timestamp matches. This is a compromise between storing all master frames in memory or looping through all frames for each master-rendition pair.
+				fps_ratios = [self.fps / r['fps'] for r in self.renditions_list]
+				highest_ratio = np.max(fps_ratios)
+				self.max_samples = max(max_samples, int(round(max_samples * highest_ratio)))
 			# Convert OpenCV video captures of original to list
 			# of numpy arrays for better performance of numerical computations
 			self.master_indexes = []
 			self.markup_master_frames = True
-			master_idx_map, self.master_samples, self.master_samples_hd, self.master_pixels, self.height, self.width = self.capture_to_array(self.master_capture, )
+			master_idx_map, self.master_samples, self.master_samples_hd, self.master_pixels, self.height, self.width = self.capture_to_array(self.master_capture)
 			self.master_capture.release()
 			self.markup_master_frames = False
 			# Instance of the video_metrics class
@@ -109,12 +112,16 @@ class VideoAssetProcessor:
 			# Collects both dimensional values in a string
 			self.dimensions = '{}:{}'.format(int(self.width), int(self.height))
 			# Compute its features
+			# Disable debug output for
+			debug = self.debug_frames
+			self.debug_frames = False
 			self.metrics[self.original_path] = self.compute(master_idx_map,
 															self.master_samples,
 															self.master_samples_hd,
 															self.original_path,
 															self.dimensions,
 															self.master_pixels)
+			self.debug_frames = debug
 		else:
 			logger.error(f'Aborting, path does not exist: {original["path"]}')
 			self.do_process = False
@@ -181,8 +188,8 @@ class VideoAssetProcessor:
 		for i in range(len(candidate_frames)):
 			frame_data = candidate_frames[i]
 			ts_diff = master_timestamp_diffs[i]
-			if frame_data is None or ts_diff > 1 / (2 * capture.fps):
-				# no candidate frame
+			if frame_data is None or ts_diff > 1 / (2 * self.fps):
+				# no good matching candidate frame
 				continue
 			if self.debug_frames:
 				cv2.imwrite(f'{self.frame_dir_name}/{i:04}_{"m" if self.markup_master_frames else ""}_{frame_data.index}_{frame_data.timestamp:.4}.png', self._convert_debug_frame(frame_data.frame))
