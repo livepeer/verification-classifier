@@ -98,7 +98,7 @@ def meta_model(row):
         return row['ul_pred_tamper']
     return row['sl_pred_tamper']
 
-def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name_ul, model_name_sl, model_name_qoe):
+def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name_ul, model_name_sl, model_name_qoe, video_asset_processor=VideoAssetProcessor, debug=False, use_gpu=False):
     """
     Function that returns the predicted compliance of a list of renditions
     with respect to a given source file using a specified model.
@@ -161,7 +161,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size', 'size_dimension_ratio']
         metrics_list = []
         features = list(np.unique(features_ul + features_sl + features_qoe))
-      
+
         for metric in features:
             if metric not in non_temporal_features:
                 metrics_list.append(metric.split('-')[0])
@@ -171,12 +171,14 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         start_user = time.time()
 
         # Instantiate VideoAssetProcessor class
-        asset_processor = VideoAssetProcessor(source,
+        asset_processor = video_asset_processor(source,
                                               pre_verified_renditions,
                                               metrics_list,
                                               do_profiling,
                                               max_samples,
-                                              features)
+                                              features,
+												debug,
+												use_gpu)
 
         # Record time for class initialization
         initialize_time = time.clock() - start
@@ -265,7 +267,7 @@ def retrieve_models(uri):
         try:
             with tarfile.open(filename) as tar_f:
                 tar_f.extractall(model_dir)
-           
+
             return model_dir, model_file, model_file_sl, model_file_qoe
         except Exception:
             return 'Unable to untar model'

@@ -24,3 +24,4 @@ out.log
 *secrets
 *.csv
 */vimeo/*.txt
+api/logs/

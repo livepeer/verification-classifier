@@ -1,3 +1,5 @@
+scikit-learn==0.22.1
+opencv-python==4.0.0.21
 opencv_contrib_python==4.1.0.25
 catboost==0.22
 click==7.0
@@ -10,4 +12,4 @@ line_profiler==2.1.2
 flask==1.1.1
 flask-restful==0.3.7
 bjoern==3.0.1
-scikit-learn==0.22.1
+requests

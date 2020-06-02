@@ -20,7 +20,7 @@ First script should be the one that generates the different renditions based on 
 
 This script takes an input folder containing 1080p renditions and will encode them with the params in the metadata leaving them in the specified output folder. 
 
-A sample of usaage is:
+A sample of usage is:
 
 ```
 python enconde_renditions.py -i /path/to/1080pRenditions -o /path/to/renditions -m /path/to/metadatafile 
@@ -55,7 +55,7 @@ This script receives 4 parameters:
 
 It is important to note that the subsampling is done from 1080p renditions as it is hard to find videos with a different color space other than yuv420p, so we take the 1080p and subsample in the lower resolution renditions.
 
-A sample of usaage is:
+A sample of usage is:
 
 ```
 python chroma_subsampling.py -i /path/to/1080pRenditions -o /path/to/renditions -m /path/to/metadatafile -s yuv422p
@@ -73,7 +73,7 @@ This script does a flip / rotation of the video. It receives 3 parameters:
     -  -cf or for the 90 degrees clockwise rotation
     -  -ccf for the 90 degrees counterclockwise rotation
 
-A sample of usaage is:
+A sample of usage is:
 ```
 python flip.py -i /path/to/renditions -o /path/to/renditions -vf
 ```
@@ -86,7 +86,7 @@ This script lower the bitrate of a video.  It receives 4 parameters:
 - The metadata (-m or --metadata) which is the file containing data about the videos, the most important is the needed bitrate to enconde the video.
 - The chosen divisor for the bitrate (-d, --divisor) which is the divisoe to be applied to the video bitrate. It must be greater than 0
 
-A sample of usaage is:
+A sample of usage is:
 
 ```
 python low_bitrate.py -i /path/to/1080pRenditions -o /path/to/renditions -d 4
@@ -100,7 +100,7 @@ This script performs a vignette in the video. It has 3 parameters (One is option
 - The angle (-a or --angle) which is the angle of the vignette filter to be applied to the video. This param is optional and by default is [PI/5](https://ffmpeg.org/ffmpeg-filters.html#vignette-1)
 
 
-A sample of usaage is:
+A sample of usage is:
 
 ```
 python vignette.py -i /path/to/1080pRenditions -o /path/to/renditions
@@ -155,7 +155,7 @@ for original_asset in glob.iglob(originals_path.format('1080p') + '**', recursiv
 
         asset_processor = VideoAssetProcessor(original_asset, renditions_list, metrics_list, 1, False)
 
-        asset_metrics_dict = asset_processor.process()
+        asset_metrics_dict = asset_processor.video_capture()
 
         dict_of_df = {k: pd.DataFrame(v) for k,v in asset_metrics_dict.items()}
 
