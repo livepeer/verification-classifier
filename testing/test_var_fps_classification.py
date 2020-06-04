@@ -74,7 +74,7 @@ def run_test(source_dir, rendition_dirs, files=None):
 	df_res: pd.DataFrame = pd.DataFrame(results)
 	df_res.set_index(['master_filename', 'rendition_type'], inplace=True)
 	df_res.sort_index(inplace=True)
-	df_res.to_csv('test_fps_renditions.csv')
+	df_res.to_csv('../feature_engineering/notebooks/test_fps_renditions_gpu.csv')
 	df_res['prediction'] = df_res['score'] > 0
 	print(df_res)
 
@@ -84,25 +84,26 @@ rendition_dirs = [
 #	('../../data/renditions/720p_watermark/', True),
 #	('../../data/renditions/720p/', False),
 
-	('../../data/renditions/1080p_watermark_30-60fps_cpu_ff/', True),
-	('../../data/renditions/1080p_30-60fps_cpu_ff/', False),
+	('../../data/renditions/1080p_watermark_30-60fps_gpu_ff/', True),
+	('../../data/renditions/1080p_30-60fps_gpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_60-30fps_cpu_ff/', True),
-	('../../data/renditions/1080p_60-30fps_cpu_ff/', False),
+	('../../data/renditions/1080p_watermark_60-30fps_gpu_ff/', True),
+	('../../data/renditions/1080p_60-30fps_gpu_ff/', False),
+	#
+	('../../data/renditions/1080p_watermark_60-24fps_gpu_ff/', True),
+	('../../data/renditions/1080p_60-24fps_gpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_60-24fps_cpu_ff/', True),
-	('../../data/renditions/1080p_60-24fps_cpu_ff/', False),
+	('../../data/renditions/1080p_watermark_30-24fps_gpu_ff/', True),
+	('../../data/renditions/1080p_30-24fps_gpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_30-24fps_cpu_ff/', True),
-	('../../data/renditions/1080p_30-24fps_cpu_ff/', False),
+	('../../data/renditions/1080p_watermark_24-30fps_gpu_ff/', True),
+	('../../data/renditions/1080p_24-30fps_gpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_24-30fps_cpu_ff/', True),
-	('../../data/renditions/1080p_24-60fps_cpu_ff/', False),
-
-	('../../data/renditions/1080p_watermark_24-60fps_cpu_ff/', True),
-	('../../data/renditions/1080p_24-60fps_cpu_ff/', False),
+	('../../data/renditions/1080p_watermark_24-60fps_gpu_ff/', True),
+	('../../data/renditions/1080p_24-60fps_gpu_ff/', False),
 ]
 files = None
+#files = ['0fIdY5IAnhY.mp4']
 # files = ['076dnF-MT6k.mp4']
 #files = ['0fIdY5IAnhY.mp4']
 #files = ['Aq50GEAJ5NQ.mp4']

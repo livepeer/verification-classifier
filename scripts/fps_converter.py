@@ -6,6 +6,8 @@
 
 import argparse
 import math
+import numpy as np
+import re
 import subprocess
 from os import makedirs
 import multiprocessing
@@ -86,14 +88,22 @@ def get_input_output_jobs():
 			dst_filename = dst_dir / f.name
 			os.makedirs(dst_dir, exist_ok=True)
 			# don't re-encode if rendition already exist
-			if not os.path.exists(dst_filename):
-				jobs.append((str(f), str(dst_filename), fps, target_fps))
+		if not os.path.exists(dst_filename):
+			jobs.append((str(f), str(dst_filename), fps, target_fps))
 	return jobs
 
 
 def format_command(input_file, output_file, source_fps, target_fps, encoder, decoder):
-	logger.info('processing {}'.format(input_file))
-	command = f'ffmpeg -y {decoder} -i {input_file} -filter:v fps=fps={target_fps} {encoder} {output_file}'
+	logger.info('Processing {}'.format(input_file))
+	# detect bitrate
+	ffprobe = subprocess.Popen(f'ffprobe -i {input_file}'.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	metadata_str = ffprobe.stderr.read().decode('ascii')
+	# read stream offset
+	m = re.search('.+bitrate: (?P<bitrate>\d*)', metadata_str)
+	bitrate = int(m.group('bitrate'))
+	# bitrate = np.ceil(bitrate/1000)
+	logger.info(f'Video bitrate is: {bitrate}')
+	command = f'ffmpeg -y {decoder} -i {input_file} -b:v {bitrate}K -filter:v fps=fps={target_fps} {encoder} {output_file}'
 	return command.split()
 
 
