@@ -17,3 +17,4 @@ python watermark.py -i "$input_raw" -o "$output" -m "$metadata" -w watermark/liv
 python watermark.py -i "$input_raw" -o "$output" -m "$metadata" -s 345x114 -w watermark/livepeer-345x114.png
 python watermark.py -i "$input_raw" -o "$output" -m "$metadata" -s 856x856 -w watermark/lpt-856x856.png
 python vignette.py -i $rescaled_input -o $output
+python fps_converter.py -i $rescaled_input -o $output

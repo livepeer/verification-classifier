@@ -99,7 +99,7 @@ class FfmpegCapture:
 			self.frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 			if not self.width or not self.height:
 				# have to read frame to get dimensions
-				frame = cap.read()
+				_, frame = cap.read()
 				self.height, self.width = frame.shape[:2]
 			if self.video_reader == 'opencv':
 				self.opencv_capture = cap
