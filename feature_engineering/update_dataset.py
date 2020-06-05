@@ -234,6 +234,8 @@ def update_dataset(args):
 		metrics['title'] = os.sep.join(metrics['title'].split(os.sep)[-2:])
 		metrics['path'] = os.sep.join(metrics['path'].split(os.sep)[-2:])
 		values = []
+		for novel_metric in set(metrics.keys()).difference(df.columns):
+			df[novel_metric] = np.nan
 		for c in df.columns:
 			if c in metrics.keys():
 				values.append(metrics[c])
