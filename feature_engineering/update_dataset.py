@@ -213,7 +213,7 @@ def update_dataset(args):
 		if not os.path.exists(master_path):
 			logger.warning(f'Source video doesn\'t exist: {master_path}')
 			continue
-		if rendition_id in df.index:
+		if rendition_id in df.index and not np.isnan(df.loc[rendition_id]['temporal_ssim-mean']):
 			continue
 		if args.filter and args.filter not in rendition_id:
 			continue
