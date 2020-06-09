@@ -22,6 +22,7 @@ def load_data(data_uri, nrows=None):
     data_df['dimension_y'] = data_df['rendition'].apply(lambda x: int(x.replace('p','').split('_')[0]))
     data_df['size_dimension_ratio'] = data_df['size'] / (data_df['dimension_y'] * data_df['dimension_x'])
     data_df['target'] = np.logical_not(data_df['rendition'].str.contains('^[0-9]+p(_[0-9][0-9]?-[0-9][0-9]?fps(_gpu)?)?$')).astype(np.int32)
+    data_df['master_id'] = data_df.id.str.extract('/(.+)')
     return data_df
 
 def set_rendition_name(rendition_name):
