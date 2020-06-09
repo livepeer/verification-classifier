@@ -121,11 +121,11 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
 		# Remove non numeric features from feature list
 		non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size', 'size_dimension_ratio']
 		metrics_list = []
-		model_features = ['temporal_gaussian_difference-mean',
-						   'size_dimension_ratio',
-						   'temporal_dct-mean',
-						   'temporal_gaussian_mse-mean',
-						   'temporal_threshold_gaussian_difference-mean']
+		model_features = ['size_dimension_ratio',
+							 'temporal_dct-mean',
+							 'temporal_gaussian_difference-mean',
+							 'temporal_gaussian_mse-mean',
+							 'temporal_threshold_gaussian_difference-mean']
 		for metric in model_features:
 			if metric not in non_temporal_features:
 				metrics_list.append(metric.split('-')[0])
