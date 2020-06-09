@@ -31,14 +31,14 @@ class Verifier:
 	def verify(self, in_file, out_file):
 		url = "http://localhost:5000/verify"
 		debug = False
-		n_samples = 10
+		n_samples = 30
 
 		np.random.seed(123)
 		random.seed(123)
 
 		start = timeit.default_timer()
 		gpu = False
-		res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '../../models/', '', VideoAssetProcessor, debug, gpu)
+		res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '../machine_learning/output/models', 'CB_Full_v2.cbm', VideoAssetProcessor, debug, gpu)
 		ffmpeg_time = timeit.default_timer() - start
 		tamper_ffmpeg = float(res[0]["tamper"])
 
@@ -74,37 +74,37 @@ def run_test(source_dir, rendition_dirs, files=None):
 	df_res: pd.DataFrame = pd.DataFrame(results)
 	df_res.set_index(['master_filename', 'rendition_type'], inplace=True)
 	df_res.sort_index(inplace=True)
-	df_res.to_csv('test_fps_renditions.csv')
-	df_res['prediction'] = df_res['score'] > 0
+	df_res.to_csv('../feature_engineering/notebooks/test_fps_renditions_nm.csv')
+	df_res['prediction'] = df_res['score'] < 0.5
 	print(df_res)
 
 
-source_dir = '../../data/renditions/1080p/'
+source_dir = '../../data/renditions_fps/1080p/'
 rendition_dirs = [
-#	('../../data/renditions/720p_watermark/', True),
-#	('../../data/renditions/720p/', False),
+#	('../../data/renditions_fps/720p_watermark/', True),
+#	('../../data/renditions_fps/720p/', False),
 
-	('../../data/renditions/1080p_watermark_30-60fps_cpu_ff/', True),
-	('../../data/renditions/1080p_30-60fps_cpu_ff/', False),
+	('../../data/renditions_fps/1080p_watermark_30-60fps_cpu_ff/', True),
+	('../../data/renditions_fps/1080p_30-60fps_cpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_60-30fps_cpu_ff/', True),
-	('../../data/renditions/1080p_60-30fps_cpu_ff/', False),
+	('../../data/renditions_fps/1080p_watermark_60-30fps_cpu_ff/', True),
+	('../../data/renditions_fps/1080p_60-30fps_cpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_60-24fps_cpu_ff/', True),
-	('../../data/renditions/1080p_60-24fps_cpu_ff/', False),
+	('../../data/renditions_fps/1080p_watermark_60-24fps_cpu_ff/', True),
+	('../../data/renditions_fps/1080p_60-24fps_cpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_30-24fps_cpu_ff/', True),
-	('../../data/renditions/1080p_30-24fps_cpu_ff/', False),
+	('../../data/renditions_fps/1080p_watermark_30-24fps_cpu_ff/', True),
+	('../../data/renditions_fps/1080p_30-24fps_cpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_24-30fps_cpu_ff/', True),
-	('../../data/renditions/1080p_24-60fps_cpu_ff/', False),
+	('../../data/renditions_fps/1080p_watermark_24-30fps_cpu_ff/', True),
+	('../../data/renditions_fps/1080p_24-60fps_cpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_24-60fps_cpu_ff/', True),
-	('../../data/renditions/1080p_24-60fps_cpu_ff/', False),
+	('../../data/renditions_fps/1080p_watermark_24-60fps_cpu_ff/', True),
+	('../../data/renditions_fps/1080p_24-60fps_cpu_ff/', False),
 ]
 files = None
-# files = ['076dnF-MT6k.mp4']
-#files = ['0fIdY5IAnhY.mp4']
+#files = ['076dnF-MT6k.mp4']
+files = ['0fIdY5IAnhY.mp4']
 #files = ['Aq50GEAJ5NQ.mp4']
 
 from video_metrics import VideoMetrics

@@ -10,7 +10,7 @@ FORMATTER = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s',
 import bjoern
 from flask import Flask, request, jsonify
 
-from verifier import verify, retrieve_models
+from verifier import verify, retrieve_model
 
 APP = Flask(__name__)
 
@@ -64,18 +64,12 @@ def post_route():
 
     Returns:
 
-    {"model": The url of the inference model used,
-     "orchestrator_id": The ID of the orchestrator responsible of transcoding,
-     "source": The URI of the video source,
+    {"orchestrator_id": The ID of the orchestrator responsible of transcoding,
+     "source": The URI of the video source
      "results": A list with the verification results, with the following:
         {
-                "audio_available": A boolean indicating whether the audio track could be extracted
-                                    from the source,
                 "frame_rate": The ratio between the expected frame rate and the one extracted
-                             with OpenCv's backend (GStreamer by default),
-                "ocsvm_dist": A float that represents the distance to the decision function of the
-                            One Class Support Vector Machine used for inference. Negative values
-                            indicate a tampering has been detected by this model (see tamper_ul),                           
+                             with OpenCv's backend (GStreamer by default)
                 "pixels": The number of expected total pixels (height x width x number of frames)
                 "pixels_pre_verification": The ratio between the expected number of total pixels and
                                            the one extracted with OpenCv's backend
@@ -97,16 +91,11 @@ def post_route():
                     "width_post_verification":The ratio between the expected height and the one
                                                 computed during the decoding
                 },
-                "ssim_pred": A float representing an estimated measure of the transcoding's SSIM,
-                "tamper_meta": A boolean indicating whether the metamodel detected tampering,
-                "tamper_sl": A boolean indicating whether the Supervised Learning model detected
-                            tampering,
-                "tamper_ul": A boolean indicating whether the Unsupervised Learning model detected
-                            tampering, 
+                "tamper": A float representing a distance to a decision function defined by the
+                          pre-trained model fo verification
                 "uri": The URI of the rendition
      }
     """
-   
     if request.method == 'POST':
 
 
@@ -118,14 +107,12 @@ def post_route():
         verification['source'] = data['source']
 
         model_uri = data['model']
-        # TODO: Uncomment this line for testing of the model using Livepeer's Broadcaster node
-        # Once the broadcaster allows for model selection, remove the line below
-        # model_uri = 'https://storage.googleapis.com/verification-models/verification-metamodel.tar.xz'
-        model_dir, model_name_ul, model_name_sl, model_name_qoe = retrieve_models(model_uri)
+
+        model_file, model_name = retrieve_model(model_uri)
 
         # Inform user that model was succesfully retrieved
-        OPERATIONS_LOGGER.info('Model successfully downloaded: %s', model_uri)
-        CONSOLE_LOGGER.info('Model successfully downloaded: %s', model_uri)
+        OPERATIONS_LOGGER.info('Model successfully donwloaded: %s', model_uri)
+        CONSOLE_LOGGER.info('Model successfully donwloaded: %s', model_uri)
 
         # Define whether profiling is needed for logging
         do_profiling = False
@@ -137,13 +124,11 @@ def post_route():
                              data['renditions'],
                              do_profiling,
                              max_samples,
-                             model_dir,
-                             model_name_ul,
-                             model_name_sl,
-                             model_name_qoe)
+                             model_file,
+                             model_name)
         results = []
         i = 0
-        for _ in data['renditions']:
+        for rendition in data['renditions']:
             results.append(predictions[i])
             i += 1
 
