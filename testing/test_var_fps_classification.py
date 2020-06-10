@@ -31,6 +31,7 @@ class Verifier:
 	def verify(self, in_file, out_file):
 		url = "http://localhost:5000/verify"
 		debug = False
+		profile = True
 		n_samples = 30
 
 		np.random.seed(123)
@@ -38,7 +39,7 @@ class Verifier:
 
 		start = timeit.default_timer()
 		gpu = False
-		res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '../machine_learning/output/models', 'CB_Full_v2.cbm', VideoAssetProcessor, debug, gpu)
+		res = verifier.verify(in_file, [{'uri': out_file}], profile, n_samples, '../machine_learning/output/models', 'CB_Full_v2.cbm', VideoAssetProcessor, debug, gpu)
 		ffmpeg_time = timeit.default_timer() - start
 		tamper_ffmpeg = float(res[0]["tamper"])
 
@@ -81,26 +82,26 @@ def run_test(source_dir, rendition_dirs, files=None):
 
 source_dir = '../../data/renditions_fps/1080p/'
 rendition_dirs = [
-	('../../data/renditions_fps/720p_watermark/', True),
-	('../../data/renditions_fps/720p/', False),
+	# ('../../data/renditions_fps/720p_watermark/', True),
+	# ('../../data/renditions_fps/720p/', False),
 
 	('../../data/renditions_fps/1080p_watermark_30-60fps_cpu_ff/', True),
 	('../../data/renditions_fps/1080p_30-60fps_cpu_ff/', False),
+	# #
+	# ('../../data/renditions_fps/1080p_watermark_60-30fps_cpu_ff/', True),
+	# ('../../data/renditions_fps/1080p_60-30fps_cpu_ff/', False),
 	#
-	('../../data/renditions_fps/1080p_watermark_60-30fps_cpu_ff/', True),
-	('../../data/renditions_fps/1080p_60-30fps_cpu_ff/', False),
-
-	('../../data/renditions_fps/1080p_watermark_60-24fps_cpu_ff/', True),
-	('../../data/renditions_fps/1080p_60-24fps_cpu_ff/', False),
-
-	('../../data/renditions_fps/1080p_watermark_30-24fps_cpu_ff/', True),
-	('../../data/renditions_fps/1080p_30-24fps_cpu_ff/', False),
+	# ('../../data/renditions_fps/1080p_watermark_60-24fps_cpu_ff/', True),
+	# ('../../data/renditions_fps/1080p_60-24fps_cpu_ff/', False),
 	#
-	('../../data/renditions_fps/1080p_watermark_24-30fps_cpu_ff/', True),
-	('../../data/renditions_fps/1080p_24-60fps_cpu_ff/', False),
-	#
-	('../../data/renditions_fps/1080p_watermark_24-60fps_cpu_ff/', True),
-	('../../data/renditions_fps/1080p_24-60fps_cpu_ff/', False),
+	# ('../../data/renditions_fps/1080p_watermark_30-24fps_cpu_ff/', True),
+	# ('../../data/renditions_fps/1080p_30-24fps_cpu_ff/', False),
+	# #
+	# ('../../data/renditions_fps/1080p_watermark_24-30fps_cpu_ff/', True),
+	# ('../../data/renditions_fps/1080p_24-60fps_cpu_ff/', False),
+	# #
+	# ('../../data/renditions_fps/1080p_watermark_24-60fps_cpu_ff/', True),
+	# ('../../data/renditions_fps/1080p_24-60fps_cpu_ff/', False),
 ]
 files = None
 #files = ['076dnF-MT6k.mp4']
