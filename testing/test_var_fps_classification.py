@@ -31,7 +31,7 @@ class Verifier:
 	def verify(self, in_file, out_file):
 		url = "http://localhost:5000/verify"
 		debug = False
-		profile = True
+		profile = False
 		n_samples = 30
 
 		np.random.seed(123)
@@ -124,4 +124,6 @@ import cv2
 
 np.random.seed(123)
 random.seed(123)
+start = timeit.default_timer()
 run_test(source_dir, rendition_dirs, files)
+print(f'Test took: {timeit.default_timer()-start}')

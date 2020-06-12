@@ -5,7 +5,6 @@ import os
 import re
 import time
 from typing import Union, Tuple
-import cv2
 import numpy as np
 import bisect
 import subprocess
@@ -52,7 +51,7 @@ class FfmpegCapture:
 			self.index = index
 			self.timestamp = timestamp
 
-	def __init__(self, filename: str, use_gpu=False, video_reader: str = 'opencv'):
+	def __init__(self, filename: str, use_gpu=True, video_reader: str = 'opencv'):
 		"""
 
 		@param filename:
@@ -63,8 +62,11 @@ class FfmpegCapture:
 		"""
 		if not os.path.exists(filename):
 			raise ValueError(f'File {filename} doesn\'t exist')
-		if video_reader not in ['ffmpeg_bgr', 'ffmpeg_yuv', 'opencv']:
+		if video_reader not in ['ffmpeg_bgr', 'ffmpeg_yuv', 'opencv', 'opencv_pts']:
 			raise ValueError(f'Unknown video reader type {video_reader}')
+		if video_reader == 'opencv_pts':
+			logger.warning('Make sure you are using custom OpenCV build with PTS support, otherwise opencv_pts video reader will not work')
+		logger.info(f'Video reader is: {video_reader}')
 		if video_reader == 'ffmpeg_yuv':
 			global tf
 			import tensorflow as tf
@@ -81,8 +83,15 @@ class FfmpegCapture:
 		self.offset = 0
 		self.opencv_capture = None
 		if use_gpu:
-			logger.warning('Nvcodec sometimes duplicates frames producing more frames than it\'s actually in the video. In tests, it happened only at the end of the video, but potentially it can corrupt timestamps')
+			# Nvcodec sometimes duplicates frames producing more frames than it\'s actually in the video. In tests, it happened only at the end of the video, but potentially it can corrupt timestamps
 			self.ffmpeg_decoder = '-hwaccel nvdec -c:v h264_cuvid'
+			# this enables GPU codec for Ffmpeg libs used by OpenCV
+			if 'opencv' in video_reader:
+				os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'video_codec;h264_cuvid'
+				logger.warning('For OpenCV+Ffmpeg GPU acceleration to work, config environment variable must be set before the first cv2 import')
+		if 'opencv' in video_reader:
+			global cv2
+			import cv2
 		self._read_metadata()
 
 	def _read_metadata(self):
@@ -92,20 +101,16 @@ class FfmpegCapture:
 		"""
 		cap = None
 		try:
-			cap = cv2.VideoCapture(self.filename)
+			cap = cv2.VideoCapture(self.filename, cv2.CAP_FFMPEG)
 			self.fps = cap.get(cv2.CAP_PROP_FPS)
 			self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 			self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 			self.frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-			if not self.width or not self.height:
-				# have to read frame to get dimensions
-				_, frame = cap.read()
-				self.height, self.width = frame.shape[:2]
-			if self.video_reader == 'opencv':
+			if self.video_reader == 'opencv' or self.video_reader == 'opencv_pts':
 				self.opencv_capture = cap
 			logger.info(f'Video file opened {self.filename}, {self.width}x{self.height}, {self.fps} FPS')
 		finally:
-			if cap is not None and self.video_reader != 'opencv':
+			if cap is not None and self.video_reader != 'opencv' and self.video_reader != 'opencv_pts':
 				cap.release()
 
 	def _read_next_frame(self):
@@ -126,7 +131,7 @@ class FfmpegCapture:
 			if len(bytes) == 0:
 				return None
 			return np.frombuffer(bytes, np.uint8).reshape([self.height, self.width, 3])
-		elif self.video_reader == 'opencv':
+		elif self.video_reader == 'opencv' or self.video_reader == 'opencv_pts':
 			return self.opencv_capture.read()[1]
 
 	def read(self) -> Union[FrameData, None]:
@@ -149,32 +154,44 @@ class FfmpegCapture:
 		return FfmpegCapture.FrameData(self.frame_idx, timestamp, frame)
 
 	def _get_timestamp_for_frame(self, frame_idx) -> float:
-		# wait for timestamp record to be available, normally it available before frame is read
-		waits = 0
-		while frame_idx > len(self.timestamps) - 1:
-			time.sleep(FfmpegCapture.TIMESTAMP_POLL_INTERVAL)
-			waits += 1
-			if waits > FfmpegCapture.MAX_TIMESTAMP_WAIT:
-				raise Exception('Error reading video timestamps')
-		if waits > 0:
-			logger.debug(f'Waited for frame timestamp for {FfmpegCapture.TIMESTAMP_POLL_INTERVAL * waits} sec')
+		if self.video_reader == 'opencv_pts':
+			opencv_ts = self.opencv_capture.get(cv2.CAP_PROP_POS_AVI_RATIO) * self.opencv_capture.get(cv2.CAP_PROP_POS_MSEC)
+			if frame_idx == 0:
+				if opencv_ts < 0:
+					logger.warning('Invalid start offset, setting to 0')
+					self.offset = 0
+				else:
+					self.offset = opencv_ts
+				logger.info(f'Video start offset is: {self.offset}')
+			self.timestamps.append(opencv_ts - self.offset)
+		else:
+			# wait for timestamp record to be available, normally it available before frame is read
+			waits = 0
+			while frame_idx > len(self.timestamps) - 1:
+				time.sleep(FfmpegCapture.TIMESTAMP_POLL_INTERVAL)
+				waits += 1
+				if waits > FfmpegCapture.MAX_TIMESTAMP_WAIT:
+					raise Exception('Error reading video timestamps')
+			if waits > 0:
+				logger.debug(f'Waited for frame timestamp for {FfmpegCapture.TIMESTAMP_POLL_INTERVAL * waits} sec')
 		return self.timestamps[frame_idx]
 
 	def start(self):
-		format = 'null'
-		pix_fmt = 'yuv420p' if self.video_reader == 'ffmpeg_yuv' else ('bgr24' if self.video_reader == 'ffmpeg_bgr' else '')
-		if pix_fmt:
-			pix_fmt = f'-pix_fmt {pix_fmt}'
-			format = 'rawvideo'
-		output = 'pipe:' if self.video_reader != 'opencv' else '-'
-		# start ffmpeg process
-		ffmpeg_cmd = f"ffmpeg -y -debug_ts -hide_banner {self.ffmpeg_decoder} -i {self.filename} -copyts -f {format} {pix_fmt} {output}"
-		self.video_capture = subprocess.Popen(ffmpeg_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		# stderr and stdout are not synchronized, read timestamp data in separate thread
-		self.ts_reader_thread = threading.Thread(target=self.stream_reader, args=[self.video_capture.stderr])
-		self.ts_reader_thread.start()
-		# wait for stream reader thread to fill timestamp list
-		time.sleep(0.05)
+		if self.video_reader != 'opencv_pts':
+			format = 'null'
+			pix_fmt = 'yuv420p' if self.video_reader == 'ffmpeg_yuv' else ('bgr24' if self.video_reader == 'ffmpeg_bgr' else '')
+			if pix_fmt:
+				pix_fmt = f'-pix_fmt {pix_fmt}'
+				format = 'rawvideo'
+			output = 'pipe:' if self.video_reader != 'opencv' else '-'
+			# start ffmpeg process
+			ffmpeg_cmd = f"ffmpeg -y -debug_ts -hide_banner {self.ffmpeg_decoder} -i {self.filename} -copyts -f {format} {pix_fmt} {output}"
+			self.video_capture = subprocess.Popen(ffmpeg_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			# stderr and stdout are not synchronized, read timestamp data in separate thread
+			self.ts_reader_thread = threading.Thread(target=self.stream_reader, args=[self.video_capture.stderr])
+			self.ts_reader_thread.start()
+			# wait for stream reader thread to fill timestamp list
+			time.sleep(0.05)
 		self.started = True
 
 	def stream_reader(self, stream):
