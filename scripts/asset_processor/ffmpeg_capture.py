@@ -51,7 +51,7 @@ class FfmpegCapture:
 			self.index = index
 			self.timestamp = timestamp
 
-	def __init__(self, filename: str, use_gpu=True, video_reader: str = 'opencv'):
+	def __init__(self, filename: str, use_gpu=True, video_reader: str = 'opencv_pts'):
 		"""
 
 		@param filename:
