@@ -18,7 +18,7 @@ import math
 from scipy.spatial import distance
 from video_metrics import VideoMetrics
 
-from ffmpeg_capture import FfmpegCapture
+from ffmpeg_capture import VideoCapture
 
 logger = logging.getLogger()
 
@@ -57,7 +57,7 @@ class VideoAssetProcessor:
 		if os.path.exists(original['path']):
 			self.do_process = True
 			self.original_path = original['path']
-			self.master_capture = FfmpegCapture(self.original_path, use_gpu=use_gpu)
+			self.master_capture = VideoCapture(self.original_path, use_gpu=use_gpu)
 			# Frames Per Second of the original asset
 			self.fps = self.master_capture.fps
 			# Obtains number of frames of the original
@@ -589,7 +589,7 @@ class VideoAssetProcessor:
 				capture = None
 				try:
 					if os.path.exists(path):
-						capture = FfmpegCapture(path, use_gpu=self.use_gpu)
+						capture = VideoCapture(path, use_gpu=self.use_gpu)
 						# Turn openCV capture to a list of numpy arrays
 						master_idx_map, frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
 						dimensions = '{}:{}'.format(int(width), int(height))
@@ -638,7 +638,7 @@ class VideoAssetProcessor:
 			path = rendition['path']
 			try:
 				if os.path.exists(path):
-					capture = FfmpegCapture(path, use_gpu=False)
+					capture = VideoCapture(path, use_gpu=False)
 					# Get framerate
 					fps = capture.fps
 					# Validate frame rates, only renditions with same FPS (though not necessarily equal to source video) are currently supported in a single instance
