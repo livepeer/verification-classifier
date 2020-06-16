@@ -33,20 +33,21 @@ codec = 'libx264'
 ver_results = []
 transcode_results = []
 
-# for i in range(n_tests):
-# 	tc_start = timeit.default_timer()
-# 	args = ['ffmpeg', '-y', '-threads', '1', '-i', source_file,
-# 	 '-c:v', codec, '-vf', 'scale=-2:720',
-# 	 '-b:v', '2000' + 'K', '-c:a', 'copy', '/tmp/out.mp4'
-# 	 ]
-# 	p = subprocess.Popen(args)
-# 	out, err = p.communicate()
-# 	assert not err
-# 	transcode_results.append(timeit.default_timer()-tc_start)
+for i in range(n_tests):
+	tc_start = timeit.default_timer()
+	args = ['ffmpeg', '-y', '-threads', '1', '-i', source_file,
+	 '-c:v', codec, '-vf', 'scale=-2:720',
+	 '-b:v', '2000' + 'K', '-c:a', 'copy', '/tmp/out.mp4'
+	 ]
+	p = subprocess.Popen(args)
+	out, err = p.communicate()
+	assert not err
+	transcode_results.append(timeit.default_timer()-tc_start)
 
 for i in range(n_tests):
 	ver_start = timeit.default_timer()
-	res = verifier.verify(source_file, [{"uri": rendition_file}], False, n_samples, "../machine_learning/output/models", "CB_Full_v2.cbm", VideoAssetProcessor, False, False)
+	verifier.retrieve_models('http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz')
+	res = verifier.verify(source_file, [{"uri": rendition_file}], False, n_samples, "/tmp/model", False, False)
 	ver_results.append(timeit.default_timer()-ver_start)
 
 ver_time = np.min(ver_results)
