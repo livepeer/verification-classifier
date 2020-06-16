@@ -18,7 +18,7 @@ import math
 from scipy.spatial import distance
 from video_metrics import VideoMetrics
 
-from ffmpeg_capture import VideoCapture
+from video_capture import VideoCapture
 
 logger = logging.getLogger()
 
