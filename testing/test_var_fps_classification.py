@@ -27,6 +27,7 @@ class Verifier:
 		self.ffmpeg_fails = 0
 		self.opencv_passes = 0
 		self.opencv_fails = 0
+		verifier.retrieve_models('http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz')
 
 	def verify(self, in_file, out_file):
 		url = "http://localhost:5000/verify"
@@ -39,11 +40,10 @@ class Verifier:
 
 		start = timeit.default_timer()
 		gpu = False
-		res = verifier.verify(in_file, [{'uri': out_file}], profile, n_samples, '../machine_learning/output/models', 'CB_Full_v2.cbm', VideoAssetProcessor, debug, gpu)
+		res = verifier.verify(in_file, [{'uri': out_file}], profile, n_samples, '/tmp/model', debug, gpu)
 		ffmpeg_time = timeit.default_timer() - start
-		tamper_ffmpeg = float(res[0]["tamper"])
-
-		return {'score': tamper_ffmpeg, 'time_sec': ffmpeg_time}
+		return {'ocsvm_dist': res[0]['ocsvm_dist'], 'tamper_ul': res[0]['tamper_ul'], 'tamper_sl': res[0]['tamper_sl'],
+				'tamper_sl_proba': res[0]['tamper_sl_proba'], 'tamper_meta': res[0]['tamper_meta']}
 
 	def print_results(self, fails, passes):
 		logger.info("Passes: {}".format(str(passes)))
@@ -76,7 +76,7 @@ def run_test(source_dir, rendition_dirs, files=None):
 	df_res.set_index(['master_filename', 'rendition_type'], inplace=True)
 	df_res.sort_index(inplace=True)
 	df_res.to_csv('test_fps_renditions_nm.csv')
-	df_res['prediction'] = df_res['score'] < 0.9
+	df_res['prediction'] = df_res['tamper_meta']
 	print(df_res)
 
 
