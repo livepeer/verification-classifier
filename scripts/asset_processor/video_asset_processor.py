@@ -18,7 +18,7 @@ import math
 from scipy.spatial import distance
 from video_metrics import VideoMetrics
 
-from ffmpeg_capture import FfmpegCapture
+from video_capture import VideoCapture
 
 logger = logging.getLogger()
 
@@ -57,7 +57,7 @@ class VideoAssetProcessor:
 		if os.path.exists(original['path']):
 			self.do_process = True
 			self.original_path = original['path']
-			self.master_capture = FfmpegCapture(self.original_path, use_gpu=use_gpu)
+			self.master_capture = VideoCapture(self.original_path, use_gpu=use_gpu)
 			# Frames Per Second of the original asset
 			self.fps = self.master_capture.fps
 			# Obtains number of frames of the original
@@ -139,7 +139,6 @@ class VideoAssetProcessor:
 					- total sample pixels count
 					- original sample height
 					- original sample width
-		@param q - quantization parameter to sample frames aligned by timestamp from source video and renditions
 		"""
 		# Create list of random timestamps in video file to calculate metrics at
 		if self.markup_master_frames:
@@ -298,6 +297,13 @@ class VideoAssetProcessor:
 
 	def compute(self, master_sample_idx_map, frame_list, frame_list_hd, path, dimensions, pixels):
 		"""
+		Function to compare lists of numpy arrays extracting their corresponding metrics.
+		It basically takes the global original list of frames and the input frame_list
+		of numpy arrrays to extract the metrics defined in the constructor.
+		frame_pos establishes the index of the frames to be compared.
+		It is optimized by means of the ThreadPoolExecutor of Python's concurrent package
+		for better parallel performance.
+		@param master_sample_idx_map: Mapping from rendition sample index to master sample index. If Nframes is different between master and rendition, the index mapping is not 1:1
 		@param frame_list:
 		@param frame_list_hd:
 		@param path:
@@ -305,15 +311,19 @@ class VideoAssetProcessor:
 		@param pixels:
 		@return:
 		"""
+
 		# Dictionary of metrics
 		rendition_metrics = {}
 		# Position of the frame
 		frame_pos = 0
-		
+		# List of frames to be processed
+		frames_to_process = []
+
 		# Iterate frame by frame and fill a list with their values
 		# to be passed to the ThreadPoolExecutor. Stop when maximum
 		# number of frames has been reached.
-		frames_to_process = range(len(frame_list)-1)
+
+		frames_to_process = range(len(frame_list) - 1)
 
 		# Execute computations in parallel using as many processors as possible
 		# future_list is a dictionary storing all computed values from each thread
@@ -395,7 +405,6 @@ class VideoAssetProcessor:
 												   x_rendition.reshape(1, -1),
 												   metric='cityblock')
 
-
 					rendition_dict['{}-euclidean'.format(metric)] = distance.euclidean(x_original,
 																					   x_rendition)
 					rendition_dict['{}-manhattan'.format(metric)] = manhattan
@@ -419,8 +428,7 @@ class VideoAssetProcessor:
 
 			# Extract the dimensions of the rendition
 			dimensions_df = metrics_df[metrics_df['path'] == rendition['path']]['dimensions']
-			rendition_dict['dimension_x'] = int(dimensions_df.unique()[0].split(':')[1])
-			rendition_dict['dimension_y'] = int(dimensions_df.unique()[0].split(':')[0])
+			rendition_dict['dimension'] = int(dimensions_df.unique()[0].split(':')[1])
 
 			# Extract the pixels for this rendition
 			pixels_df = metrics_df[metrics_df['path'] == rendition['path']]['pixels']
@@ -438,9 +446,11 @@ class VideoAssetProcessor:
 		pixels_df = metrics_df['pixels']
 
 		# Compute a size/dimension ratio column for better accuracy
-		metrics_df['size_dimension_ratio'] = metrics_df['size'] / (metrics_df['dimension_y'] * metrics_df['dimension_x'])
+		metrics_df['size_dimension_ratio'] = metrics_df['size'] / metrics_df['dimension']
 
 		metrics_df = self.cleanup_dataframe(metrics_df, self.features_list)
+
+		metrics_df = metrics_df.drop(['dimension', 'size'], axis=1)
 
 		return metrics_df, pixels_df, dimensions_df
 
@@ -457,23 +467,90 @@ class VideoAssetProcessor:
 				features.remove('attack_ID')
 			# Filter out features from metrics dataframe
 
+			metrics_df = metrics_df[features]
+
 			# Scale measured metrics according to their resolution for better accuracy
 			metrics_df = self.rescale_to_resolution(metrics_df, features)
-			metrics_df = metrics_df[features]
 
 		return metrics_df
 
 	@staticmethod
 	def rescale_to_resolution(data, features):
 		"""
-		Function to rescale features to improve accuracy
+		Function that improves model accuracy by scaling those features that
 		"""
-
+		feat_labels = ['dimension',
+					   'size',
+					   'fps',
+					   'temporal_difference-euclidean',
+					   'temporal_difference-manhattan',
+					   'temporal_difference-max',
+					   'temporal_difference-mean',
+					   'temporal_difference-std',
+					   'temporal_cross_correlation-euclidean',
+					   'temporal_cross_correlation-manhattan',
+					   'temporal_cross_correlation-max',
+					   'temporal_cross_correlation-mean',
+					   'temporal_cross_correlation-std',
+					   'temporal_dct-euclidean',
+					   'temporal_dct-manhattan',
+					   'temporal_dct-max',
+					   'temporal_dct-mean',
+					   'temporal_dct-std',
+					   'temporal_canny-euclidean',
+					   'temporal_canny-manhattan',
+					   'temporal_canny-max',
+					   'temporal_canny-mean',
+					   'temporal_canny-std',
+					   'temporal_gaussian_mse-euclidean',
+					   'temporal_gaussian_mse-manhattan',
+					   'temporal_gaussian_mse-max',
+					   'temporal_gaussian_mse-mean',
+					   'temporal_gaussian_mse-std',
+					   'temporal_gaussian_difference-euclidean',
+					   'temporal_gaussian_difference-manhattan',
+					   'temporal_gaussian_difference-max',
+					   'temporal_gaussian_difference-mean',
+					   'temporal_gaussian_difference-std',
+					   'temporal_threshold_gaussian_difference-euclidean',
+					   'temporal_threshold_gaussian_difference-manhattan',
+					   'temporal_threshold_gaussian_difference-max',
+					   'temporal_threshold_gaussian_difference-mean',
+					   'temporal_threshold_gaussian_difference-std',
+					   'temporal_histogram_distance-euclidean',
+					   'temporal_histogram_distance-manhattan',
+					   'temporal_histogram_distance-max',
+					   'temporal_histogram_distance-mean',
+					   'temporal_histogram_distance-std',
+					   'temporal_ssim-euclidean',
+					   'temporal_ssim-manhattan',
+					   'temporal_ssim-max',
+					   'temporal_ssim-mean',
+					   'temporal_ssim-std',
+					   'temporal_psnr-euclidean',
+					   'temporal_psnr-manhattan',
+					   'temporal_psnr-max',
+					   'temporal_psnr-mean',
+					   'temporal_psnr-std',
+					   'temporal_entropy-euclidean',
+					   'temporal_entropy-manhattan',
+					   'temporal_entropy-max',
+					   'temporal_entropy-mean',
+					   'temporal_entropy-std',
+					   'temporal_lbp-euclidean',
+					   'temporal_lbp-manhattan',
+					   'temporal_lbp-max',
+					   'temporal_lbp-mean',
+					   'temporal_lbp-std',
+					   'temporal_orb-euclidean',
+					   'temporal_orb-manhattan',
+					   'temporal_orb-max',
+					   'temporal_orb-mean',
+					   'temporal_orb-std',
+					   ]
 		df_features = pd.DataFrame(data)
-		downscale_features = ['temporal_psnr',
-							'temporal_ssim',
-							'temporal_cross_correlation'
-							]
+		downscale_features = ['temporal_cross_correlation'
+							  ]
 
 		upscale_features = ['temporal_difference',
 							'temporal_dct',
@@ -482,25 +559,18 @@ class VideoAssetProcessor:
 							'temporal_gaussian_difference',
 							'temporal_histogram_distance',
 							'temporal_entropy',
-							'temporal_lbp',
-							'temporal_texture',
-							'temporal_match',
+							'temporal_lbp'
 							]
 
-		for label in downscale_features:
-			downscale_feature = [feature for feature in features if label in feature]
-			if downscale_feature:
-				for feature in downscale_feature:
-					print('Downscaling', label, feature)
-					df_features[feature] = df_features[feature] / (df_features['dimension_y'] * df_features['dimension_x'])
+		for label in feat_labels:
 
-		for label in upscale_features:
-			upscale_feature = [feature for feature in features if label in feature]
-			if upscale_feature:
-				for feature in upscale_feature:
-					print('Upscaling', label, feature)
-					df_features[feature] = df_features[feature] * df_features['dimension_y'] * df_features['dimension_x']
-
+			if label in features:
+				if label.split('-')[0] in downscale_features:
+					df_features[label] = df_features[label] / df_features['dimension']
+					logger.debug(f'Downscaling {label}')
+				elif label.split('-')[0] in upscale_features:
+					df_features[label] = df_features[label] * df_features['dimension']
+					logger.debug(f'Upscaling {label}')
 		return df_features
 
 	def process(self):
@@ -518,7 +588,7 @@ class VideoAssetProcessor:
 				capture = None
 				try:
 					if os.path.exists(path):
-						capture = FfmpegCapture(path, use_gpu=self.use_gpu)
+						capture = VideoCapture(path, use_gpu=self.use_gpu)
 						# Turn openCV capture to a list of numpy arrays
 						master_idx_map, frame_list, frame_list_hd, pixels, height, width = self.capture_to_array(capture)
 						dimensions = '{}:{}'.format(int(width), int(height))
@@ -567,7 +637,7 @@ class VideoAssetProcessor:
 			path = rendition['path']
 			try:
 				if os.path.exists(path):
-					capture = FfmpegCapture(path, use_gpu=False)
+					capture = VideoCapture(path, use_gpu=False)
 					# Get framerate
 					fps = capture.fps
 					# Validate frame rates, only renditions with same FPS (though not necessarily equal to source video) are currently supported in a single instance

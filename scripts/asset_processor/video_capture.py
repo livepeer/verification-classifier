@@ -36,7 +36,7 @@ class YUV2RGB_GPU():
 		return results.astype(np.uint8)
 
 
-class FfmpegCapture:
+class VideoCapture:
 	# how many times to poll for timestamp availability before generating error
 	MAX_TIMESTAMP_WAIT = 100
 	TIMESTAMP_POLL_INTERVAL = 0.01
@@ -151,7 +151,7 @@ class FfmpegCapture:
 			return None
 		timestamp = self._get_timestamp_for_frame(self.frame_idx)
 		logger.debug(f'Read frame {self.frame_idx} at PTS_TIME {timestamp}')
-		return FfmpegCapture.FrameData(self.frame_idx, timestamp, frame)
+		return VideoCapture.FrameData(self.frame_idx, timestamp, frame)
 
 	def _get_timestamp_for_frame(self, frame_idx) -> float:
 		if self.video_reader == 'opencv_pts':
@@ -168,12 +168,12 @@ class FfmpegCapture:
 			# wait for timestamp record to be available, normally it available before frame is read
 			waits = 0
 			while frame_idx > len(self.timestamps) - 1:
-				time.sleep(FfmpegCapture.TIMESTAMP_POLL_INTERVAL)
+				time.sleep(VideoCapture.TIMESTAMP_POLL_INTERVAL)
 				waits += 1
-				if waits > FfmpegCapture.MAX_TIMESTAMP_WAIT:
+				if waits > VideoCapture.MAX_TIMESTAMP_WAIT:
 					raise Exception('Error reading video timestamps')
 			if waits > 0:
-				logger.debug(f'Waited for frame timestamp for {FfmpegCapture.TIMESTAMP_POLL_INTERVAL * waits} sec')
+				logger.debug(f'Waited for frame timestamp for {VideoCapture.TIMESTAMP_POLL_INTERVAL * waits} sec')
 		return self.timestamps[frame_idx]
 
 	def start(self):
