@@ -428,7 +428,8 @@ class VideoAssetProcessor:
 
 			# Extract the dimensions of the rendition
 			dimensions_df = metrics_df[metrics_df['path'] == rendition['path']]['dimensions']
-			rendition_dict['dimension'] = int(dimensions_df.unique()[0].split(':')[1])
+			rendition_dict['dimension_x'] = int(dimensions_df.unique()[0].split(':')[1])
+			rendition_dict['dimension_y'] = int(dimensions_df.unique()[0].split(':')[0])
 
 			# Extract the pixels for this rendition
 			pixels_df = metrics_df[metrics_df['path'] == rendition['path']]['pixels']
@@ -446,11 +447,9 @@ class VideoAssetProcessor:
 		pixels_df = metrics_df['pixels']
 
 		# Compute a size/dimension ratio column for better accuracy
-		metrics_df['size_dimension_ratio'] = metrics_df['size'] / metrics_df['dimension']
+		metrics_df['size_dimension_ratio'] = metrics_df['size'] / (metrics_df['dimension_y'] * metrics_df['dimension_x'])
 
 		metrics_df = self.cleanup_dataframe(metrics_df, self.features_list)
-
-		metrics_df = metrics_df.drop(['dimension', 'size'], axis=1)
 
 		return metrics_df, pixels_df, dimensions_df
 
@@ -467,89 +466,22 @@ class VideoAssetProcessor:
 				features.remove('attack_ID')
 			# Filter out features from metrics dataframe
 
-			metrics_df = metrics_df[features]
-
 			# Scale measured metrics according to their resolution for better accuracy
 			metrics_df = self.rescale_to_resolution(metrics_df, features)
+			metrics_df = metrics_df[features]
 
 		return metrics_df
 
 	@staticmethod
 	def rescale_to_resolution(data, features):
 		"""
-		Function that improves model accuracy by scaling those features that
-		"""
-		feat_labels = ['dimension',
-					   'size',
-					   'fps',
-					   'temporal_difference-euclidean',
-					   'temporal_difference-manhattan',
-					   'temporal_difference-max',
-					   'temporal_difference-mean',
-					   'temporal_difference-std',
-					   'temporal_cross_correlation-euclidean',
-					   'temporal_cross_correlation-manhattan',
-					   'temporal_cross_correlation-max',
-					   'temporal_cross_correlation-mean',
-					   'temporal_cross_correlation-std',
-					   'temporal_dct-euclidean',
-					   'temporal_dct-manhattan',
-					   'temporal_dct-max',
-					   'temporal_dct-mean',
-					   'temporal_dct-std',
-					   'temporal_canny-euclidean',
-					   'temporal_canny-manhattan',
-					   'temporal_canny-max',
-					   'temporal_canny-mean',
-					   'temporal_canny-std',
-					   'temporal_gaussian_mse-euclidean',
-					   'temporal_gaussian_mse-manhattan',
-					   'temporal_gaussian_mse-max',
-					   'temporal_gaussian_mse-mean',
-					   'temporal_gaussian_mse-std',
-					   'temporal_gaussian_difference-euclidean',
-					   'temporal_gaussian_difference-manhattan',
-					   'temporal_gaussian_difference-max',
-					   'temporal_gaussian_difference-mean',
-					   'temporal_gaussian_difference-std',
-					   'temporal_threshold_gaussian_difference-euclidean',
-					   'temporal_threshold_gaussian_difference-manhattan',
-					   'temporal_threshold_gaussian_difference-max',
-					   'temporal_threshold_gaussian_difference-mean',
-					   'temporal_threshold_gaussian_difference-std',
-					   'temporal_histogram_distance-euclidean',
-					   'temporal_histogram_distance-manhattan',
-					   'temporal_histogram_distance-max',
-					   'temporal_histogram_distance-mean',
-					   'temporal_histogram_distance-std',
-					   'temporal_ssim-euclidean',
-					   'temporal_ssim-manhattan',
-					   'temporal_ssim-max',
-					   'temporal_ssim-mean',
-					   'temporal_ssim-std',
-					   'temporal_psnr-euclidean',
-					   'temporal_psnr-manhattan',
-					   'temporal_psnr-max',
-					   'temporal_psnr-mean',
-					   'temporal_psnr-std',
-					   'temporal_entropy-euclidean',
-					   'temporal_entropy-manhattan',
-					   'temporal_entropy-max',
-					   'temporal_entropy-mean',
-					   'temporal_entropy-std',
-					   'temporal_lbp-euclidean',
-					   'temporal_lbp-manhattan',
-					   'temporal_lbp-max',
-					   'temporal_lbp-mean',
-					   'temporal_lbp-std',
-					   'temporal_orb-euclidean',
-					   'temporal_orb-manhattan',
-					   'temporal_orb-max',
-					   'temporal_orb-mean',
-					   'temporal_orb-std',
-					   ]
+        Function to rescale features to improve accuracy
+        """
+
 		df_features = pd.DataFrame(data)
-		downscale_features = ['temporal_cross_correlation'
+		downscale_features = ['temporal_psnr',
+							  'temporal_ssim',
+							  'temporal_cross_correlation'
 							  ]
 
 		upscale_features = ['temporal_difference',
@@ -559,18 +491,25 @@ class VideoAssetProcessor:
 							'temporal_gaussian_difference',
 							'temporal_histogram_distance',
 							'temporal_entropy',
-							'temporal_lbp'
+							'temporal_lbp',
+							'temporal_texture',
+							'temporal_match',
 							]
 
-		for label in feat_labels:
+		for label in downscale_features:
+			downscale_feature = [feature for feature in features if label in feature]
+			if downscale_feature:
+				for feature in downscale_feature:
+					print('Downscaling', label, feature)
+					df_features[feature] = df_features[feature] / (df_features['dimension_y'] * df_features['dimension_x'])
 
-			if label in features:
-				if label.split('-')[0] in downscale_features:
-					df_features[label] = df_features[label] / df_features['dimension']
-					logger.debug(f'Downscaling {label}')
-				elif label.split('-')[0] in upscale_features:
-					df_features[label] = df_features[label] * df_features['dimension']
-					logger.debug(f'Upscaling {label}')
+		for label in upscale_features:
+			upscale_feature = [feature for feature in features if label in feature]
+			if upscale_feature:
+				for feature in upscale_feature:
+					print('Upscaling', label, feature)
+					df_features[feature] = df_features[feature] * df_features['dimension_y'] * df_features['dimension_x']
+
 		return df_features
 
 	def process(self):
