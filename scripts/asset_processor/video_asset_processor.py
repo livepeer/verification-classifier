@@ -139,7 +139,6 @@ class VideoAssetProcessor:
 					- total sample pixels count
 					- original sample height
 					- original sample width
-		@param q - quantization parameter to sample frames aligned by timestamp from source video and renditions
 		"""
 		# Create list of random timestamps in video file to calculate metrics at
 		if self.markup_master_frames:
