@@ -16,8 +16,6 @@ import pytest
 
 @pytest.fixture()
 def check_dataset():
-    assert os.path.exists('../data/renditions/') and \
-           os.path.exists('../data/yt8m-large-train.csv') and \
-           os.path.exists('../data/yt8m-large-test.csv')
+    assert os.path.exists('../data/renditions/')
     def teardown():
         pass
