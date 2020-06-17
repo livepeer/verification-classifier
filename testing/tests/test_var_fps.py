@@ -8,7 +8,7 @@ import tqdm
 import glob
 from verifier import verifier
 import logging
-from scripts.asset_processor import VideoAssetProcessor
+from scripts.asset_processor import VideoAssetProcessor, VideoCapture
 import timeit
 import pytest
 
@@ -28,6 +28,26 @@ class TestVarFps:
         res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, 'machine_learning/output/models/', '', debug, gpu)
         tamper = float(res[0]["tamper"])
         return {'score': tamper}
+
+    def test_opencv_pts_validity(self):
+        filename = 'testing/tests/data/0fIdY5IAnhY_60.mp4'
+        # read timestamps with opencv
+        cap = VideoCapture(filename, video_reader='opencv')
+        while True:
+            f = cap.read()
+            if f is None:
+                break
+        cap.release()
+        opencv_ts = cap.timestamps
+        # read timestamps with ffmpeg
+        cap = VideoCapture(filename, video_reader='ffmpeg_bgr')
+        while True:
+            f = cap.read()
+            if f is None:
+                break
+        cap.release()
+        ffmpeg_ts = cap.timestamps
+        assert all(np.isclose(ffmpeg_ts, opencv_ts, atol=0.001))
 
     @pytest.mark.usefixtures("check_dataset")
     def test_classification(self):
