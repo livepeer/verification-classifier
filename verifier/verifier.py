@@ -18,9 +18,7 @@ import numpy as np
 import cv2
 from scipy.io import wavfile
 
-sys.path.insert(0, 'scripts/asset_processor')
-
-from video_asset_processor import VideoAssetProcessor
+from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 
 
 def pre_verify(source, rendition):
@@ -81,7 +79,7 @@ def pre_verify(source, rendition):
     return rendition
 
 
-def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name, video_asset_processor=VideoAssetProcessor, debug=False, use_gpu=False):
+def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name, debug=False, use_gpu=False):
     """
     Function that returns the predicted compliance of a list of renditions
     with respect to a given source file using a specified model.
@@ -138,14 +136,14 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         start_user = time.time()
 
         # Instantiate VideoAssetProcessor class
-        asset_processor = video_asset_processor(source,
-                                                pre_verified_renditions,
-                                                metrics_list,
-                                                do_profiling,
-                                                max_samples,
-                                                features,
-                                                debug,
-                                                use_gpu)
+        asset_processor = VideoAssetProcessor(source,
+                                              pre_verified_renditions,
+                                              metrics_list,
+                                              do_profiling,
+                                              max_samples,
+                                              features,
+                                              debug,
+                                              use_gpu)
 
         # Record time for class initialization
         initialize_time = time.clock() - start

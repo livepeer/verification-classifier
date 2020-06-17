@@ -8,7 +8,6 @@ import tqdm
 import glob
 import verifier
 import logging
-from video_asset_processor_opencv import VideoAssetProcessorOpenCV
 from video_asset_processor import VideoAssetProcessor
 import timeit
 pd.options.display.width = 0
@@ -79,28 +78,28 @@ def run_test(source_dir, rendition_dirs, files=None):
 	print(df_res)
 
 
-source_dir = '../../data/renditions/1080p/'
+source_dir = '../../data/renditions_fps/1080p/'
 rendition_dirs = [
 #	('../../data/renditions/720p_watermark/', True),
 #	('../../data/renditions/720p/', False),
 
-	('../../data/renditions/1080p_watermark_30-60fps_gpu_ff/', True),
-	('../../data/renditions/1080p_30-60fps_gpu_ff/', False),
+	('../../data/renditions_fps/1080p_watermark_30-60fps_gpu_ff/', True),
+	('../../data/renditions_fps/1080p_30-60fps_gpu_ff/', False),
 
-	('../../data/renditions/1080p_watermark_60-30fps_gpu_ff/', True),
-	('../../data/renditions/1080p_60-30fps_gpu_ff/', False),
+	# ('../../data/renditions/1080p_watermark_60-30fps_gpu_ff/', True),
+	# ('../../data/renditions/1080p_60-30fps_gpu_ff/', False),
+	# #
+	# ('../../data/renditions/1080p_watermark_60-24fps_gpu_ff/', True),
+	# ('../../data/renditions/1080p_60-24fps_gpu_ff/', False),
 	#
-	('../../data/renditions/1080p_watermark_60-24fps_gpu_ff/', True),
-	('../../data/renditions/1080p_60-24fps_gpu_ff/', False),
-
-	('../../data/renditions/1080p_watermark_30-24fps_gpu_ff/', True),
-	('../../data/renditions/1080p_30-24fps_gpu_ff/', False),
-
-	('../../data/renditions/1080p_watermark_24-30fps_gpu_ff/', True),
-	('../../data/renditions/1080p_24-30fps_gpu_ff/', False),
-
-	('../../data/renditions/1080p_watermark_24-60fps_gpu_ff/', True),
-	('../../data/renditions/1080p_24-60fps_gpu_ff/', False),
+	# ('../../data/renditions/1080p_watermark_30-24fps_gpu_ff/', True),
+	# ('../../data/renditions/1080p_30-24fps_gpu_ff/', False),
+	#
+	# ('../../data/renditions/1080p_watermark_24-30fps_gpu_ff/', True),
+	# ('../../data/renditions/1080p_24-30fps_gpu_ff/', False),
+	#
+	# ('../../data/renditions/1080p_watermark_24-60fps_gpu_ff/', True),
+	# ('../../data/renditions/1080p_24-60fps_gpu_ff/', False),
 ]
 files = None
 #files = ['0fIdY5IAnhY.mp4']

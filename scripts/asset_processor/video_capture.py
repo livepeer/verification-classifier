@@ -51,7 +51,7 @@ class VideoCapture:
 			self.index = index
 			self.timestamp = timestamp
 
-	def __init__(self, filename: str, use_gpu=True, video_reader: str = 'opencv_pts'):
+	def __init__(self, filename: str, use_gpu=True, video_reader: str = 'opencv'):
 		"""
 
 		@param filename:
@@ -62,10 +62,8 @@ class VideoCapture:
 		"""
 		if not os.path.exists(filename):
 			raise ValueError(f'File {filename} doesn\'t exist')
-		if video_reader not in ['ffmpeg_bgr', 'ffmpeg_yuv', 'opencv', 'opencv_pts']:
+		if video_reader not in ['ffmpeg_bgr', 'ffmpeg_yuv', 'opencv']:
 			raise ValueError(f'Unknown video reader type {video_reader}')
-		if video_reader == 'opencv_pts':
-			logger.warning('Make sure you are using custom OpenCV build with PTS support, otherwise opencv_pts video reader will not work')
 		logger.info(f'Video reader is: {video_reader}')
 		if video_reader == 'ffmpeg_yuv':
 			global tf
@@ -92,6 +90,9 @@ class VideoCapture:
 		if 'opencv' in video_reader:
 			global cv2
 			import cv2
+			if not (cv2.getVersionMajor() >= 4 and cv2.getVersionMinor() >= 2):
+				raise Exception('Can\'t use OpenCV to read video - minimum required version of opencv-python is 4.2')
+
 		self._read_metadata()
 
 	def _read_metadata(self):
@@ -106,11 +107,11 @@ class VideoCapture:
 			self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 			self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 			self.frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-			if self.video_reader == 'opencv' or self.video_reader == 'opencv_pts':
+			if self.video_reader == 'opencv':
 				self.opencv_capture = cap
 			logger.info(f'Video file opened {self.filename}, {self.width}x{self.height}, {self.fps} FPS')
 		finally:
-			if cap is not None and self.video_reader != 'opencv' and self.video_reader != 'opencv_pts':
+			if cap is not None and self.video_reader != 'opencv':
 				cap.release()
 
 	def _read_next_frame(self):
@@ -131,7 +132,7 @@ class VideoCapture:
 			if len(bytes) == 0:
 				return None
 			return np.frombuffer(bytes, np.uint8).reshape([self.height, self.width, 3])
-		elif self.video_reader == 'opencv' or self.video_reader == 'opencv_pts':
+		elif self.video_reader == 'opencv':
 			return self.opencv_capture.read()[1]
 
 	def read(self) -> Union[FrameData, None]:
@@ -154,16 +155,10 @@ class VideoCapture:
 		return VideoCapture.FrameData(self.frame_idx, timestamp, frame)
 
 	def _get_timestamp_for_frame(self, frame_idx) -> float:
-		if self.video_reader == 'opencv_pts':
-			opencv_ts = self.opencv_capture.get(cv2.CAP_PROP_POS_AVI_RATIO) * self.opencv_capture.get(cv2.CAP_PROP_POS_MSEC)
-			if frame_idx == 0:
-				if opencv_ts < 0:
-					logger.warning('Invalid start offset, setting to 0')
-					self.offset = 0
-				else:
-					self.offset = opencv_ts
-				logger.info(f'Video start offset is: {self.offset}')
-			self.timestamps.append(opencv_ts - self.offset)
+		if self.video_reader == 'opencv':
+			# opencv handles offset internally
+			opencv_ts = self.opencv_capture.get(cv2.CAP_PROP_POS_MSEC) / 1000
+			self.timestamps.append(opencv_ts)
 		else:
 			# wait for timestamp record to be available, normally it available before frame is read
 			waits = 0
@@ -177,7 +172,7 @@ class VideoCapture:
 		return self.timestamps[frame_idx]
 
 	def start(self):
-		if self.video_reader != 'opencv_pts':
+		if self.video_reader != 'opencv':
 			format = 'null'
 			pix_fmt = 'yuv420p' if self.video_reader == 'ffmpeg_yuv' else ('bgr24' if self.video_reader == 'ffmpeg_bgr' else '')
 			if pix_fmt:

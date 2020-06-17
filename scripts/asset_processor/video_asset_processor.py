@@ -16,9 +16,8 @@ import pandas as pd
 import logging
 import math
 from scipy.spatial import distance
-from video_metrics import VideoMetrics
-
-from video_capture import VideoCapture
+from .video_metrics import VideoMetrics
+from .video_capture import VideoCapture
 
 logger = logging.getLogger()
 
