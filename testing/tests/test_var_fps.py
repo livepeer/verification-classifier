@@ -54,32 +54,9 @@ class TestVarFps:
         source_dir = '../data/renditions/1080p/'
         rendition_dirs = [
             ('../data/renditions/720p_watermark/', True),
-            ('../data/renditions/720p/', False),
-
-            #('../data/renditions/1080p_watermark_30-60fps/', True),
-            #('../data/renditions/1080p_30-60fps/', False),
-
-            # ('../../data/renditions/1080p_watermark_60-30fps_gpu_ff/', True),
-            # ('../../data/renditions/1080p_60-30fps_gpu_ff/', False),
-            # #
-            # ('../../data/renditions/1080p_watermark_60-24fps_gpu_ff/', True),
-            # ('../../data/renditions/1080p_60-24fps_gpu_ff/', False),
-            #
-            # ('../../data/renditions/1080p_watermark_30-24fps_gpu_ff/', True),
-            # ('../../data/renditions/1080p_30-24fps_gpu_ff/', False),
-            #
-            # ('../../data/renditions/1080p_watermark_24-30fps_gpu_ff/', True),
-            # ('../../data/renditions/1080p_24-30fps_gpu_ff/', False),
-            #
-            # ('../../data/renditions/1080p_watermark_24-60fps_gpu_ff/', True),
-            # ('../../data/renditions/1080p_24-60fps_gpu_ff/', False),
+            ('../data/renditions/720p_60-24fps/', False),
         ]
         files = None
-        # files = ['-IX0tszQF7c.mp4']
-        # files = ['076dnF-MT6k.mp4']
-        # files = ['0fIdY5IAnhY.mp4']
-        # files = ['Aq50GEAJ5NQ.mp4']
-
         src_videos = sorted(glob.glob(source_dir + '/*'))
         results = []
         for src in tqdm.tqdm(src_videos):
