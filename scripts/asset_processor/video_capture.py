@@ -80,6 +80,7 @@ class VideoCapture:
 		self.ffmpeg_decoder = ''
 		self.offset = 0
 		self.opencv_capture = None
+		self.last_frame_data = None
 		if use_gpu:
 			# Nvcodec sometimes duplicates frames producing more frames than it\'s actually in the video. In tests, it happened only at the end of the video, but potentially it can corrupt timestamps
 			self.ffmpeg_decoder = '-hwaccel nvdec -c:v h264_cuvid'
@@ -114,7 +115,7 @@ class VideoCapture:
 			if cap is not None and self.video_reader != 'opencv':
 				cap.release()
 
-	def _read_next_frame(self):
+	def _read_next_frame(self, grab=False):
 		if self.video_reader == 'ffmpeg_yuv':
 			# get raw frame from stdout and convert it to numpy array
 			bytes = self.video_capture.stdout.read(int(self.height * self.width * 6 // 4))
@@ -133,17 +134,22 @@ class VideoCapture:
 				return None
 			return np.frombuffer(bytes, np.uint8).reshape([self.height, self.width, 3])
 		elif self.video_reader == 'opencv':
-			return self.opencv_capture.read()[1]
+			if not grab:
+				return self.opencv_capture.read()[1]
+			else:
+				return self.opencv_capture.grab()
 
-	def read(self) -> Union[FrameData, None]:
+	def read(self, grab=False) -> Union[FrameData, None]:
 		"""
 		Reads next frame from video.
+		@param grab: Works for OpenCV reader only. If true, doesn't decode the frame, it will be empty in FrameData object. Use retrieve() to get frame data.
+		@return:
 		@return: Tuple[frame_index, frame_timestamp, frame] or [None, None, None] if end of video
 		"""
 		if not self.started:
 			self.start()
-		frame = self._read_next_frame()
-		if frame is None:
+		frame = self._read_next_frame(grab)
+		if frame is None or (grab and frame == False):
 			return None
 		self.frame_idx += 1
 		if 0 < self.frame_count == self.frame_idx:
@@ -152,7 +158,13 @@ class VideoCapture:
 			return None
 		timestamp = self._get_timestamp_for_frame(self.frame_idx)
 		logger.debug(f'Read frame {self.frame_idx} at PTS_TIME {timestamp}')
-		return VideoCapture.FrameData(self.frame_idx, timestamp, frame)
+		self.last_frame_data = VideoCapture.FrameData(self.frame_idx, timestamp, frame)
+		return self.last_frame_data
+
+	def retrieve(self):
+		if self.video_reader == 'opencv':
+			self.last_frame_data.frame = self.opencv_capture.retrieve()[1]
+		return self.last_frame_data
 
 	def _get_timestamp_for_frame(self, frame_idx) -> float:
 		if self.video_reader == 'opencv':

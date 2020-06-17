@@ -161,7 +161,7 @@ class VideoAssetProcessor:
 		# Iterate through each frame in the video
 		while True:
 			# Read the frame from the capture
-			frame_data = capture.read()
+			frame_data = capture.read(grab=True)
 			if frame_data is not None:
 				frames_read += 1
 				if self.markup_master_frames:
@@ -177,6 +177,7 @@ class VideoAssetProcessor:
 				# don't consider frames that are too far, otherwise the algorithm will be linear on memory vs video length
 				if best_match < 1 / (2 * capture.fps) and master_timestamp_diffs[best_match_idx] > best_match:
 					master_timestamp_diffs[best_match_idx] = best_match
+					frame_data = capture.retrieve()
 					candidate_frames[best_match_idx] = frame_data
 			# Break the loop when frames cannot be taken from original
 			else:
