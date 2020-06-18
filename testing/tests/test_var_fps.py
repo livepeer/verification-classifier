@@ -28,7 +28,9 @@ class TestVarFps:
         verifier.retrieve_models('http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz')
         res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '/tmp/model', debug, gpu)
         tamper = float(res[0]["tamper"])
-        return {'score': tamper}
+        score_ul = float(res[0]["tamper_ul"])
+        score_sl = float(res[0]["tamper_sl"])
+        return {'score': tamper, 'score_ul': score_ul, 'score_sl': score_sl }
 
     def test_opencv_pts_validity(self):
         filename = 'testing/tests/data/0fIdY5IAnhY_60.mp4'

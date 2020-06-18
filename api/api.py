@@ -75,7 +75,7 @@ def post_route():
                              with OpenCv's backend (GStreamer by default),
                 "ocsvm_dist": A float that represents the distance to the decision function of the
                             One Class Support Vector Machine used for inference. Negative values
-                            indicate a tampering has been detected by this model (see tamper_ul),                           
+                            indicate a tampering has been detected by this model (see tamper_ul),
                 "pixels": The number of expected total pixels (height x width x number of frames)
                 "pixels_pre_verification": The ratio between the expected number of total pixels and
                                            the one extracted with OpenCv's backend
@@ -102,11 +102,11 @@ def post_route():
                 "tamper_sl": A boolean indicating whether the Supervised Learning model detected
                             tampering,
                 "tamper_ul": A boolean indicating whether the Unsupervised Learning model detected
-                            tampering, 
+                            tampering,
                 "uri": The URI of the rendition
      }
     """
-   
+
     if request.method == 'POST':
 
 
