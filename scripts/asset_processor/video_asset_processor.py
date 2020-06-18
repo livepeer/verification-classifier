@@ -451,7 +451,6 @@ class VideoAssetProcessor:
         metrics_df['size_dimension_ratio'] = metrics_df['size'] / (metrics_df['dimension_y'] * metrics_df['dimension_x'])
 
         metrics_df = self.cleanup_dataframe(metrics_df, self.features_list)
-        metrics_df = metrics_df.drop(['dimension', 'size'], axis=1)
 
         return metrics_df, pixels_df, dimensions_df
 

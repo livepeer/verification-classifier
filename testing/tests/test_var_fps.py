@@ -25,7 +25,8 @@ class TestVarFps:
         random.seed(123)
         start = timeit.default_timer()
         gpu = False
-        res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, 'machine_learning/output/models/', '', debug, gpu)
+        verifier.retrieve_models('http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz')
+        res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '/tmp/model', debug, gpu)
         tamper = float(res[0]["tamper"])
         return {'score': tamper}
 
@@ -77,7 +78,7 @@ class TestVarFps:
         df_res: pd.DataFrame = pd.DataFrame(results)
         df_res.set_index(['master_filename', 'rendition_type'], inplace=True)
         df_res.sort_index(inplace=True)
-        df_res['prediction'] = df_res['score'] > 0
+        df_res['prediction'] = df_res['score'] <= 0
         print(df_res)
         # assert accuracy
-        assert np.sum(df_res.prediction == df_res.is_correct)/len(df_res) > 0.8
+        assert np.sum(df_res.prediction == df_res.is_correct)/len(df_res) >= 0.8

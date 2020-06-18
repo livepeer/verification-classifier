@@ -21,9 +21,7 @@ from scipy.io import wavfile
 from catboost import CatBoostClassifier
 from catboost import CatBoostRegressor
 
-sys.path.insert(0, 'scripts/asset_processor')
-
-from video_asset_processor import VideoAssetProcessor
+from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 
 
 def pre_verify(source, rendition):
@@ -98,7 +96,7 @@ def meta_model(row):
         return row['ul_pred_tamper']
     return row['sl_pred_tamper']
 
-def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name_ul, model_name_sl, model_name_qoe):
+def verify(source_uri, renditions, do_profiling, max_samples, model_dir, debug, use_gpu):
     """
     Function that returns the predicted compliance of a list of renditions
     with respect to a given source file using a specified model.
@@ -176,7 +174,9 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
                                               metrics_list,
                                               do_profiling,
                                               max_samples,
-                                              features)
+                                              features,
+                                              debug,
+                                              use_gpu)
 
         # Record time for class initialization
         initialize_time = time.clock() - start
@@ -222,7 +222,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
                 rendition['ocsvm_dist'] = float(predictions_df['ocsvm_dist'].iloc[i])
                 rendition['tamper_ul'] = int(predictions_df['ul_pred_tamper'].iloc[i])
                 rendition['tamper_sl'] = int(predictions_df['sl_pred_tamper'].iloc[i])
-                rendition['tamper_meta'] = int(predictions_df['meta_pred_tamper'].iloc[i])
+                rendition['tamper'] = int(predictions_df['meta_pred_tamper'].iloc[i])
                 # Append the post-verification of resolution and pixel count
                 if 'pixels' in rendition:
                     rendition['pixels_post_verification'] = float(rendition['pixels']) / pixels_df[i]
