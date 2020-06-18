@@ -18,9 +18,7 @@ import numpy as np
 import cv2
 from scipy.io import wavfile
 
-sys.path.insert(0, 'scripts/asset_processor')
-
-from video_asset_processor import VideoAssetProcessor
+from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 
 
 def pre_verify(source, rendition):
@@ -42,7 +40,7 @@ def pre_verify(source, rendition):
 
             try:
                 # Compute the Euclidean distance between source's and rendition's signals
-                rendition['audio_dist'] = np.linalg.norm(source_file_series-rendition_file_series)
+                rendition['audio_dist'] = np.linalg.norm(source_file_series - rendition_file_series)
             except:
                 # Set to negative to indicate an error during audio comparison
                 # (matching floating-point datatype of Euclidean distance)
@@ -63,7 +61,6 @@ def pre_verify(source, rendition):
 
         for key in rendition_copy:
             if key == 'resolution':
-
                 rendition['resolution']['height_pre_verification'] = height / float(rendition['resolution']['height'])
                 rendition['resolution']['width_pre_verification'] = width / float(rendition['resolution']['width'])
 
@@ -72,7 +69,7 @@ def pre_verify(source, rendition):
 
             if key == 'bitrate':
                 # Compute bitrate
-                duration = float(frame_count) / float(fps) # in seconds
+                duration = float(frame_count) / float(fps)  # in seconds
                 bitrate = os.path.getsize(video_file) / duration
                 rendition['bitrate'] = bitrate == rendition['bitrate']
 
@@ -82,7 +79,7 @@ def pre_verify(source, rendition):
     return rendition
 
 
-def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name):
+def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_name, debug=False, use_gpu=False):
     """
     Function that returns the predicted compliance of a list of renditions
     with respect to a given source file using a specified model.
@@ -94,9 +91,9 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
     source_video, source_audio, video_available, audio_available = retrieve_video_file(source_uri)
 
     if video_available:
-    # Prepare source and renditions for verification
+        # Prepare source and renditions for verification
         source = {'path': source_video,
-                  'audio_path' : source_audio,
+                  'audio_path': source_audio,
                   'video_available': video_available,
                   'audio_available': audio_available,
                   'uri': source_uri}
@@ -144,7 +141,9 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
                                               metrics_list,
                                               do_profiling,
                                               max_samples,
-                                              features)
+                                              features,
+                                              debug,
+                                              use_gpu)
 
         # Record time for class initialization
         initialize_time = time.clock() - start
@@ -164,7 +163,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, model_n
         # Normalize input data using the associated scaler
         x_renditions = np.asarray(metrics_df)
         x_renditions = loaded_scaler.transform(x_renditions)
-       
+
         # Make predictions for given data
         start = time.clock()
         y_pred = loaded_model.decision_function(x_renditions)
@@ -257,12 +256,14 @@ def retrieve_video_file(uri):
         try:
             audio_file = '{}_audio.wav'.format(video_file)
             subprocess.call(['ffmpeg',
-                         '-i',
-                         video_file,
-                         '-vn',
-                         '-acodec',
-                         'pcm_s16le',
-                         audio_file])
+                             '-y',
+                             '-hide_banner',
+                             '-i',
+                             video_file,
+                             '-vn',
+                             '-acodec',
+                             'pcm_s16le',
+                             audio_file], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         except:
             print('Could not extract audio from video file {}'.format(video_file))
             audio_available = False

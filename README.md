@@ -55,3 +55,20 @@ The bash scripts launch_cli.sh and launch_api.sh can be run from the root folder
 # 4. Common usage scripts: scripts
 
 Several utility scripts are hosted in this folder for convenience. They are needed at different stages of the process and for different Docker instances.
+
+# 5. Unit Tests
+
+Unit tests are located in testing/tests folder. Some tests are using data included in repository (under testing/tests/data, machine_learning/output/models, etc.), while other require the following assets to be downloaded and extracted into ../data directory:
+1. [Dataset CSV](https://storage.cloud.google.com/feature_dataset/yt8m-large.tar.gz)
+2. [YT8M renditions mini dataset](https://storage.cloud.google.com/feature_dataset/renditions-mini.tar)  
+
+To run tests:
+- Install prerequisites
+```
+sudo apt install ffmpeg
+pip install -r requirements.txt
+```
+- Run tests
+```
+python -m pytest testing/tests
+``` 
