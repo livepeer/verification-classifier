@@ -1,4 +1,4 @@
-FROM verifier:v1
+FROM livepeer/verifier:latest
 RUN echo "'Copying CLI\n'"
 COPY /cli /scripts
 CMD /bin/bash

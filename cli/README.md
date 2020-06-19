@@ -34,7 +34,7 @@ It is possible to do profiling of the processes involved in the computation of t
 The profiling tool [py-spy](https://github.com/benfred/py-spy) has been included in the requirements.txt file and installed within the docker container. Access to the SYS_PTRACE variable needs to be granted when running it, though:
 
 ```
-docker run --rm -f Dockerfile-cli -it --volume="$(pwd)/stream":/stream --ipc=host --cap-add SYS_PTRACE verifier-cli:v1
+docker run --rm -f Dockerfile-cli -it --volume="$(pwd)/stream":/stream --ipc=host --cap-add SYS_PTRACE livepeer/verifier-cli:latest
 ```
 
 Then, simply add the py-spy command to run over the python script:
