@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import pandas as pd
 import subprocess
-from verifier import verifier
+from verifier import Verifier
 import timeit
 
 pd.options.display.width = 0
@@ -12,7 +12,7 @@ pd.set_option('display.max_columns', None)
 
 class TestPerformance:
 
-    def get_verification_and_transcoding_speed(self, source_file, rendition_file, n_samples, n_tests, codec):
+    def get_verification_and_transcoding_speed(self, verifier, source_file, rendition_file, n_tests, codec):
         ver_results = []
         transcode_results = []
 
@@ -27,10 +27,9 @@ class TestPerformance:
             assert not err
             transcode_results.append(timeit.default_timer() - tc_start)
 
-        verifier.retrieve_models('http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz')
         for i in range(n_tests):
             ver_start = timeit.default_timer()
-            res = verifier.verify(source_file, [{"uri": rendition_file}], False, n_samples, '/tmp/model', False, False)
+            res = verifier.verify(source_file, [{"uri": rendition_file}])
             ver_results.append(timeit.default_timer() - ver_start)
 
         ver_time = np.min(ver_results)
@@ -50,8 +49,9 @@ class TestPerformance:
         n_tests = 3
         codec = 'libx264'
 
-        res_2s = self.get_verification_and_transcoding_speed('testing/tests/data/master_2s.mp4', 'testing/tests/data/rend_2s.mp4', n_samples, n_tests, codec)
-        res_4s = self.get_verification_and_transcoding_speed('testing/tests/data/master_4s.mp4', 'testing/tests/data/rend_4s.mp4', n_samples, n_tests, codec)
+        v = Verifier(n_samples, 'http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz', False, False, False)
+        res_2s = self.get_verification_and_transcoding_speed(v, 'testing/tests/data/master_2s.mp4', 'testing/tests/data/rend_2s.mp4', n_tests, codec)
+        res_4s = self.get_verification_and_transcoding_speed(v, 'testing/tests/data/master_4s.mp4', 'testing/tests/data/rend_4s.mp4', n_tests, codec)
 
         print(f'Verification vs transcoding for 2s video (1080 to 720):')
         print(res_2s)

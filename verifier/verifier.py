@@ -1,7 +1,5 @@
 """
-Module wrapping up VideoAssetProcessor class in order to serve as interface for
-CLI and API.
-It manages pre-verification and tamper verfication of assets
+Class to perform video verification process
 """
 
 import uuid
@@ -25,293 +23,313 @@ from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 
 logger = logging.getLogger()
 
-def pre_verify(source, rendition):
-    """
-    Function to verify that rendition conditions and specifications
-    are met as prescribed by the Broadcaster
-    """
-    # Extract data from video capture
-    video_file, audio_file, video_available, audio_available = retrieve_video_file(rendition['uri'])
-    rendition['video_available'] = video_available
-    rendition['audio_available'] = audio_available
 
-    if video_available:
-        # Check that the audio exists
-        if audio_available and source['audio_available']:
+class Verifier:
+    def __init__(self, max_samples, model, use_gpu, do_profiling, debug):
+        """
+        Initialize verifier instance
+        @param max_samples: Max number of samples to take for a video
+        @param model: Either URI of the archive with model files, or local folder path
+        @param use_gpu: Use GPU for video decoding and computations
+        @param do_profiling: Output execution times to logs
+        @param debug: Enable debug image output, greatly reduces performance
+        """
+        self.use_gpu = use_gpu
+        self.debug = debug
+        self.model_dir = '/tmp/model'
+        if os.path.isdir(model):
+            self.model_dir = model
+        else:
+            self.retrieve_models(model, self.model_dir)
+        self.max_samples = max_samples
+        self.do_profiling = do_profiling
+        self.tmp_files = []
+        self.load_models()
 
-            _, source_file_series = wavfile.read(source['audio_path'])
-            _, rendition_file_series = wavfile.read(audio_file)
+    def pre_verify(self, source, rendition):
+        """
+        Function to verify that rendition conditions and specifications
+        are met as prescribed by the Broadcaster
+        """
+        # Extract data from video capture
+        video_file, audio_file = self.get_video_audio(rendition['uri'])
+        rendition['video_available'] = video_file is not None
+        rendition['audio_available'] = audio_file is not None
 
+        if video_file:
+            # Check that the audio exists
+            if audio_file:
+                _, source_file_series = wavfile.read(source['audio_path'])
+                _, rendition_file_series = wavfile.read(audio_file)
+
+                try:
+                    # Compute the Euclidean distance between source's and rendition's signals
+                    rendition['audio_dist'] = np.linalg.norm(source_file_series - rendition_file_series)
+                except:
+                    # Set to negative to indicate an error during audio comparison
+                    # (matching floating-point datatype of Euclidean distance)
+                    rendition['audio_dist'] = -1.0
+                finally:
+                    # Cleanup the audio file generated to avoid cluttering
+                    os.remove(audio_file)
+
+            rendition_capture = cv2.VideoCapture(video_file)
+            fps = int(rendition_capture.get(cv2.CAP_PROP_FPS))
+            frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+            rendition_copy = rendition.copy()
+            rendition['path'] = video_file
+
+            # Create dictionary with passed / failed verification parameters
+
+            for key in rendition_copy:
+                if key == 'resolution':
+                    rendition['resolution']['height_pre_verification'] = height / float(rendition['resolution']['height'])
+                    rendition['resolution']['width_pre_verification'] = width / float(rendition['resolution']['width'])
+
+                if key == 'frame_rate':
+                    rendition['frame_rate'] = 0.99 <= fps / float(rendition['frame_rate']) <= 1.01
+
+                if key == 'bitrate':
+                    # Compute bitrate
+                    duration = float(frame_count) / float(fps)  # in seconds
+                    bitrate = os.path.getsize(video_file) / duration
+                    rendition['bitrate'] = bitrate == rendition['bitrate']
+
+                if key == 'pixels':
+                    rendition['pixels_pre_verification'] = float(rendition['pixels']) / frame_count * height * width
+
+        return rendition
+
+    def meta_model(self, row):
+        """
+        Inputs the metamodel AND operator as condition
+        Retrieves the tamper value of the UL model only when both models agree in classifying
+        as non tampered. Otherwise retrieves the SL classification
+        UL classifier has a higher TPR but lower TNR, meaning it is less restrictive towards
+        tampered assets. SL classifier has higher TNR but is too punitive, which is undesirable,
+        plus it requires labeled data.
+        """
+        meta_condition = row['ul_pred_tamper'] == 1 and row['sl_pred_tamper'] == 1
+        if meta_condition:
+            return row['ul_pred_tamper']
+        return row['sl_pred_tamper']
+
+    def verify(self, source_uri, renditions):
+        """
+        Function that returns the predicted compliance of a list of renditions
+        with respect to a given source file using a specified model.
+        """
+        total_start = timeit.default_timer()
+        source_video, source_audio = self.get_video_audio(source_uri)
+        if not source_video and not source_audio:
+            raise ValueError('Couldn\'t retrieve source files')
+        try:
+            if source_video:
+                # Prepare source and renditions for verification
+                source = {'path': source_video,
+                          'audio_path': source_audio,
+                          'video_available': True,
+                          'audio_available': source_audio is not None,
+                          'uri': source_uri}
+
+                # Create a list of preverified renditions
+                pre_verified_renditions = []
+                for rendition in renditions:
+                    pre_verification = self.pre_verify(source, rendition)
+                    if rendition['video_available']:
+                        pre_verified_renditions.append(pre_verification)
+
+                # Remove non numeric features from feature list
+                non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size', 'size_dimension_ratio']
+                metrics_list = []
+                features = list(np.unique(self.features_ul + self.features_sl + self.features_qoe))
+
+                for metric in features:
+                    if metric not in non_temporal_features:
+                        metrics_list.append(metric.split('-')[0])
+
+                # Initialize times for assets processing profiling
+                start = timeit.default_timer()
+
+                # Instantiate VideoAssetProcessor class
+                asset_processor = VideoAssetProcessor(source,
+                                                      pre_verified_renditions,
+                                                      metrics_list,
+                                                      self.do_profiling,
+                                                      self.max_samples,
+                                                      features,
+                                                      self.debug,
+                                                      self.use_gpu)
+
+                # Record time for class initialization
+                initialize_time = timeit.default_timer() - start
+
+                # Register times for asset processing
+                start = timeit.default_timer() - start
+
+                # Assemble output dataframe with processed metrics
+                metrics_df, pixels_df, dimensions_df = asset_processor.process()
+
+                # Record time for processing of assets metrics
+                process_time = timeit.default_timer() - start
+
+                x_renditions_sl = np.asarray(metrics_df[self.features_sl])
+                x_renditions_ul = np.asarray(metrics_df[self.features_ul])
+                x_renditions_ul = self.loaded_scaler.transform(x_renditions_ul)
+                x_renditions_qoe = np.asarray(metrics_df[self.features_qoe])
+
+                np.set_printoptions(precision=6, suppress=True)
+                logger.debug('INPUT SL ARRAY:', x_renditions_sl, flush=True)
+                logger.debug('Unscaled INPUT UL ARRAY:', np.asarray(metrics_df[self.features_ul]), flush=True)
+                logger.debug('SCALED INPUT UL ARRAY:', x_renditions_ul, flush=True)
+                logger.debug('INPUT QOE ARRAY:', x_renditions_qoe, flush=True)
+                # Make predictions for given data
+                start = timeit.default_timer()
+                predictions_df = pd.DataFrame()
+                predictions_df['sl_pred_tamper'] = self.loaded_model_sl.predict(x_renditions_sl)
+                predictions_df['ssim_pred'] = self.loaded_model_qoe.predict(x_renditions_qoe)
+                predictions_df['ocsvm_dist'] = self.loaded_model_ul.decision_function(x_renditions_ul)
+                predictions_df['ul_pred_tamper'] = self.loaded_model_ul.predict(x_renditions_ul)
+                predictions_df['meta_pred_tamper'] = predictions_df.apply(self.meta_model, axis=1)
+                prediction_time = timeit.default_timer() - start
+
+                # Add predictions to rendition dictionary
+                i = 0
+                for _, rendition in enumerate(renditions):
+                    if rendition['video_available']:
+                        rendition.pop('path', None)
+                        rendition['ssim_pred'] = float(predictions_df['ssim_pred'].iloc[i])
+                        rendition['ocsvm_dist'] = float(predictions_df['ocsvm_dist'].iloc[i])
+                        rendition['tamper_ul'] = int(predictions_df['ul_pred_tamper'].iloc[i])
+                        rendition['tamper_sl'] = int(predictions_df['sl_pred_tamper'].iloc[i])
+                        rendition['tamper'] = int(predictions_df['meta_pred_tamper'].iloc[i])
+                        # Append the post-verification of resolution and pixel count
+                        if 'pixels' in rendition:
+                            rendition['pixels_post_verification'] = float(rendition['pixels']) / pixels_df[i]
+                        if 'resolution' in rendition:
+                            rendition['resolution']['height_post_verification'] = float(rendition['resolution']['height']) / int(dimensions_df[i].split(':')[0])
+                            rendition['resolution']['width_post_verification'] = float(rendition['resolution']['width']) / int(dimensions_df[i].split(':')[1])
+                        i += 1
+
+                if self.do_profiling:
+                    logger.info('Features used:', features)
+                    logger.info('Total time:', timeit.default_timer() - total_start)
+                    logger.info('Initialization time:', initialize_time)
+                    logger.info('Process time:', process_time)
+                    logger.info('Prediction time:', prediction_time)
+
+            return renditions
+        finally:
+            for f in self.tmp_files:
+                if os.path.exists(f):
+                    os.remove(f)
+            self.tmp_files.clear()
+
+    def retrieve_models(self, uri, model_dir):
+        """
+        Function to obtain pre-trained model for verification predictions
+        """
+
+        model_file = uri.split('/')[-1]
+        model_file_sl = f'{model_file}_cb_sl'
+        model_file_qoe = f'{model_file}_cb_qoe'
+        # Create target Directory if don't exist
+        if not os.path.exists(model_dir):
+            os.mkdir(model_dir)
+            logger.info(f'Directory created: {model_dir}')
+            logger.info('Model download started')
+            filename, _ = urllib.request.urlretrieve(uri,
+                                                     filename='{}/{}'.format(model_dir, model_file))
+            logger.info(f'Model {filename} downloaded')
             try:
-                # Compute the Euclidean distance between source's and rendition's signals
-                rendition['audio_dist'] = np.linalg.norm(source_file_series-rendition_file_series)
-            except:
-                # Set to negative to indicate an error during audio comparison
-                # (matching floating-point datatype of Euclidean distance)
-                rendition['audio_dist'] = -1.0
-            # Cleanup the audio file generated to avoid cluttering
-            os.remove(audio_file)
+                with tarfile.open(filename) as tar_f:
+                    tar_f.extractall(model_dir)
 
-        rendition_capture = cv2.VideoCapture(video_file)
-        fps = int(rendition_capture.get(cv2.CAP_PROP_FPS))
-        frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+                return model_dir, model_file, model_file_sl, model_file_qoe
+            except Exception:
+                return 'Unable to untar model'
+        else:
+            logger.debug(f'Directory {model_dir} already exists, skipping download')
 
-        rendition_copy = rendition.copy()
-        rendition['path'] = video_file
+    def get_video_audio(self, uri):
+        """
+        Function to obtain a path to a video and audio files from url or local path
+        """
+        video_file = None
+        audio_file = None
+        if uri.lower().startswith('http'):
+            try:
+                file_name = '/tmp/{}'.format(uuid.uuid4())
+                logger.info(f'File download started: {file_name}')
+                video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
+                self.tmp_files.append(video_file)
+                logger.info(f'File {file_name} downloaded to {video_file}')
+            except Exception as e:
+                logger.exception('Unable to download HTTP video file')
+        else:
+            if os.path.isfile(uri):
+                video_file = uri
+                logger.info(f'Video file {video_file} available in file system')
+            else:
+                logger.info(f'Video file {video_file} NOT available in file system')
 
-        # Create dictionary with passed / failed verification parameters
+        if video_file:
+            audio_file = '{}_audio.wav'.format(video_file)
+            logger.info('Extracting audio track')
+            ffmpeg = subprocess.Popen(' '.join(['ffmpeg',
+                             '-i',
+                             video_file,
+                             '-vn',
+                             '-acodec',
+                             'pcm_s16le',
+                             '-loglevel',
+                             'quiet',
+                             audio_file]), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+            stdout, stderr = ffmpeg.communicate()
+            if ffmpeg.returncode:
+                logger.error(f'Could not extract audio from video file {stderr}')
+            if os.path.isfile(audio_file):
+                logger.info(f'Audio file {audio_file} available in file system')
+                self.tmp_files.append(audio_file)
+            else:
+                logger.info(f'Audio file {audio_file} NOT available in file system')
+                audio_file = None
+        return video_file, audio_file
 
-        for key in rendition_copy:
-            if key == 'resolution':
-
-                rendition['resolution']['height_pre_verification'] = height / float(rendition['resolution']['height'])
-                rendition['resolution']['width_pre_verification'] = width / float(rendition['resolution']['width'])
-
-            if key == 'frame_rate':
-                rendition['frame_rate'] = 0.99 <= fps / float(rendition['frame_rate']) <= 1.01
-
-            if key == 'bitrate':
-                # Compute bitrate
-                duration = float(frame_count) / float(fps) # in seconds
-                bitrate = os.path.getsize(video_file) / duration
-                rendition['bitrate'] = bitrate == rendition['bitrate']
-
-            if key == 'pixels':
-                rendition['pixels_pre_verification'] = float(rendition['pixels']) / frame_count * height * width
-
-    return rendition
-
-def meta_model(row):
-    """
-    Inputs the metamodel AND operator as condition
-    Retrieves the tamper value of the UL model only when both models agree in classifying
-    as non tampered. Otherwise retrieves the SL classification
-    UL classifier has a higher TPR but lower TNR, meaning it is less restrictive towards
-    tampered assets. SL classifier has higher TNR but is too punitive, which is undesirable,
-    plus it requires labeled data.
-    """
-    meta_condition = row['ul_pred_tamper'] == 1 and row['sl_pred_tamper'] == 1
-    if meta_condition:
-        return row['ul_pred_tamper']
-    return row['sl_pred_tamper']
-
-def verify(source_uri, renditions, do_profiling, max_samples, model_dir, debug, use_gpu):
-    """
-    Function that returns the predicted compliance of a list of renditions
-    with respect to a given source file using a specified model.
-    """
-
-    total_start = timeit.default_timer()
-
-    source_video, source_audio, video_available, audio_available = retrieve_video_file(source_uri)
-
-    if video_available:
-    # Prepare source and renditions for verification
-        source = {'path': source_video,
-                  'audio_path' : source_audio,
-                  'video_available': video_available,
-                  'audio_available': audio_available,
-                  'uri': source_uri}
-
-        # Create a list of preverified renditions
-        pre_verified_renditions = []
-        for rendition in renditions:
-            pre_verification = pre_verify(source, rendition)
-            if rendition['video_available']:
-                pre_verified_renditions.append(pre_verification)
-
-        # Cleanup the audio file generated to avoid cluttering
-        if os.path.exists(source['audio_path']):
-            os.remove(source['audio_path'])
-
+    def load_models(self):
+        """
+        Cache models to memory
+        @return:
+        """
         # Configure UL model for inference
         model_name_ul = 'OCSVM'
         scaler_type = 'StandardScaler'
         learning_type = 'UL'
-        loaded_model_ul = load(open('{}/{}.joblib'.format(model_dir,
-                                                          model_name_ul), 'rb'))
+        self.loaded_model_ul = load(open('{}/{}.joblib'.format(self.model_dir,
+                                                               model_name_ul), 'rb'))
 
-        loaded_scaler = load(open('{}/{}_{}.joblib'.format(model_dir,
-                                                           learning_type,
-                                                           scaler_type), 'rb'))
+        self.loaded_scaler = load(open('{}/{}_{}.joblib'.format(self.model_dir,
+                                                                learning_type,
+                                                                scaler_type), 'rb'))
         # Configure SL model for inference
         model_name_sl = 'CB_Binary'
-        loaded_model_sl = CatBoostClassifier().load_model('{}/{}.cbm'.format(model_dir,
-                                                                             model_name_sl))
+        self.loaded_model_sl = CatBoostClassifier().load_model('{}/{}.cbm'.format(self.model_dir,
+                                                                                  model_name_sl))
 
         # Configure SL model for inference
         model_name_qoe = 'CB_Regressor'
-        loaded_model_qoe = CatBoostRegressor().load_model('{}/{}.cbm'.format(model_dir,
-                                                                             model_name_qoe))
+        self.loaded_model_qoe = CatBoostRegressor().load_model('{}/{}.cbm'.format(self.model_dir,
+                                                                                  model_name_qoe))
         # Open model configuration files
-        with open('{}/param_{}.json'.format(model_dir, model_name_ul)) as json_file:
+        with open('{}/param_{}.json'.format(self.model_dir, model_name_ul)) as json_file:
             params = json.load(json_file)
-            features_ul = params['features']
-        with open('{}/param_{}.json'.format(model_dir, model_name_sl)) as json_file:
+            self.features_ul = params['features']
+        with open('{}/param_{}.json'.format(self.model_dir, model_name_sl)) as json_file:
             params = json.load(json_file)
-            features_sl = params['features']
-        with open('{}/param_{}.json'.format(model_dir, model_name_qoe)) as json_file:
+            self.features_sl = params['features']
+        with open('{}/param_{}.json'.format(self.model_dir, model_name_qoe)) as json_file:
             params = json.load(json_file)
-            features_qoe = params['features']
-        # Remove non numeric features from feature list
-        non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size', 'size_dimension_ratio']
-        metrics_list = []
-        features = list(np.unique(features_ul + features_sl + features_qoe))
-      
-        for metric in features:
-            if metric not in non_temporal_features:
-                metrics_list.append(metric.split('-')[0])
-
-        # Initialize times for assets processing profiling
-        start = timeit.default_timer()
-
-        # Instantiate VideoAssetProcessor class
-        asset_processor = VideoAssetProcessor(source,
-                                              pre_verified_renditions,
-                                              metrics_list,
-                                              do_profiling,
-                                              max_samples,
-                                              features,
-                                              debug,
-                                              use_gpu)
-
-        # Record time for class initialization
-        initialize_time = timeit.default_timer() - start
-
-        # Register times for asset processing
-        start = timeit.default_timer() - start
-
-        # Assemble output dataframe with processed metrics
-        metrics_df, pixels_df, dimensions_df = asset_processor.process()
-
-        # Record time for processing of assets metrics
-        process_time = timeit.default_timer() - start
-
-        x_renditions_sl = np.asarray(metrics_df[features_sl])
-        x_renditions_ul = np.asarray(metrics_df[features_ul])
-        x_renditions_ul = loaded_scaler.transform(x_renditions_ul)
-        x_renditions_qoe = np.asarray(metrics_df[features_qoe])
-
-        np.set_printoptions(precision=6, suppress=True)
-        logger.debug('INPUT SL ARRAY:', x_renditions_sl, flush=True)
-        logger.debug('Unscaled INPUT UL ARRAY:', np.asarray(metrics_df[features_ul]), flush=True)
-        logger.debug('SCALED INPUT UL ARRAY:', x_renditions_ul, flush=True)
-        logger.debug('INPUT QOE ARRAY:', x_renditions_qoe, flush=True)
-        # Make predictions for given data
-        start = timeit.default_timer()
-        predictions_df = pd.DataFrame()
-        predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(x_renditions_sl)
-        predictions_df['ssim_pred'] = loaded_model_qoe.predict(x_renditions_qoe)
-        predictions_df['ocsvm_dist'] = loaded_model_ul.decision_function(x_renditions_ul)
-        predictions_df['ul_pred_tamper'] = loaded_model_ul.predict(x_renditions_ul)
-        predictions_df['meta_pred_tamper'] = predictions_df.apply(meta_model, axis=1)
-        prediction_time = timeit.default_timer() - start
-
-        # Add predictions to rendition dictionary
-        i = 0
-        for _, rendition in enumerate(renditions):
-            if rendition['video_available']:
-                rendition.pop('path', None)
-                rendition['ssim_pred'] = float(predictions_df['ssim_pred'].iloc[i])
-                rendition['ocsvm_dist'] = float(predictions_df['ocsvm_dist'].iloc[i])
-                rendition['tamper_ul'] = int(predictions_df['ul_pred_tamper'].iloc[i])
-                rendition['tamper_sl'] = int(predictions_df['sl_pred_tamper'].iloc[i])
-                rendition['tamper'] = int(predictions_df['meta_pred_tamper'].iloc[i])
-                # Append the post-verification of resolution and pixel count
-                if 'pixels' in rendition:
-                    rendition['pixels_post_verification'] = float(rendition['pixels']) / pixels_df[i]
-                if 'resolution' in rendition:
-                    rendition['resolution']['height_post_verification'] = float(rendition['resolution']['height']) / int(dimensions_df[i].split(':')[0])
-                    rendition['resolution']['width_post_verification'] = float(rendition['resolution']['width']) / int(dimensions_df[i].split(':')[1])
-                i += 1
-
-        if do_profiling:
-            logger.info('Features used:', features)
-            logger.info('Total time:', timeit.default_timer() - total_start)
-            logger.info('Initialization time:', initialize_time)
-            logger.info('Process time:', process_time)
-            logger.info('Prediction time:', prediction_time)
-
-    return renditions
-
-
-def retrieve_models(uri):
-    """
-    Function to obtain pre-trained model for verification predictions
-    """
-
-    model_dir = '/tmp/model'
-    model_file = uri.split('/')[-1]
-    model_file_sl = f'{model_file}_cb_sl'
-    model_file_qoe = f'{model_file}_cb_qoe'
-    # Create target Directory if don't exist
-    if not os.path.exists(model_dir):
-        os.mkdir(model_dir)
-        logger.info(f'Directory created: {model_dir}')
-        logger.info('Model download started')
-        filename, _ = urllib.request.urlretrieve(uri,
-                                                 filename='{}/{}'.format(model_dir, model_file))
-        logger.info(f'Model {filename} downloaded')
-        try:
-            with tarfile.open(filename) as tar_f:
-                tar_f.extractall(model_dir)
-           
-            return model_dir, model_file, model_file_sl, model_file_qoe
-        except Exception:
-            return 'Unable to untar model'
-    else:
-        logger.debug(f'Directory {model_dir} already exists, skipping download')
-        return model_dir, model_file, model_file_sl, model_file_qoe
-
-
-def retrieve_video_file(uri):
-    """
-    Function to obtain a path to a video file from url or local path
-    """
-    video_file = ''
-    audio_file = ''
-    video_available = True
-    audio_available = True
-
-    if uri.lower().startswith('http'):
-        try:
-            file_name = '/tmp/{}'.format(uuid.uuid4())
-            logger.info(f'File download started: {file_name}')
-            video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
-            logger.info(f'File {file_name} downloaded to {video_file}')
-        except Exception as e:
-            logger.exception('Unable to download HTTP video file')
-            video_available = False
-    else:
-        if os.path.isfile(uri):
-            video_file = uri
-            logger.info(f'Video file {video_file} available in file system')
-        else:
-            video_available = False
-            logger.info(f'Video file {video_file} NOT available in file system')
-
-    if video_available:
-        try:
-            audio_file = '{}_audio.wav'.format(video_file)
-            logger.info('Extracting audio track')
-            subprocess.call(['ffmpeg',
-                         '-i',
-                         video_file,
-                         '-vn',
-                         '-acodec',
-                         'pcm_s16le',
-                         '-loglevel',
-                         'quiet',
-                         audio_file])
-        except:
-            logger.exception(f'Could not extract audio from video file {video_file}')
-            audio_available = False
-        if os.path.isfile(audio_file):
-            logger.info(f'Audio file {audio_file} available in file system')
-        else:
-            logger.info(f'Audio file {audio_file} NOT available in file system')
-            audio_available = False
-
-    return video_file, audio_file, video_available, audio_available
+            self.features_qoe = params['features']

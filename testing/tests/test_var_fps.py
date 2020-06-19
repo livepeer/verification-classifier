@@ -6,7 +6,7 @@ import pandas as pd
 import os
 import tqdm
 import glob
-from verifier import verifier
+from verifier import Verifier
 import logging
 from scripts.asset_processor import VideoAssetProcessor, VideoCapture
 import timeit
@@ -17,20 +17,6 @@ pd.set_option('display.max_columns', None)
 
 
 class TestVarFps:
-
-    def verify_file(self, in_file, out_file):
-        debug = False
-        n_samples = 10
-        np.random.seed(123)
-        random.seed(123)
-        start = timeit.default_timer()
-        gpu = False
-        verifier.retrieve_models('http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz')
-        res = verifier.verify(in_file, [{'uri': out_file}], False, n_samples, '/tmp/model', debug, gpu)
-        tamper = float(res[0]["tamper"])
-        score_ul = float(res[0]["tamper_ul"])
-        score_sl = float(res[0]["tamper_sl"])
-        return {'score': tamper, 'score_ul': score_ul, 'score_sl': score_sl }
 
     def test_opencv_pts_validity(self):
         filename = 'testing/tests/data/0fIdY5IAnhY_60.mp4'
@@ -60,8 +46,12 @@ class TestVarFps:
             ('../data/renditions/720p_60-24fps/', False),
         ]
         files = None
+        debug = False
+        n_samples = 10
+        gpu = False
         src_videos = sorted(glob.glob(source_dir + '/*'))
         results = []
+        verifier = Verifier(n_samples, 'http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz', gpu, False, debug)
         for src in tqdm.tqdm(src_videos):
             filename = src.split(os.path.sep)[-1]
             if files is not None and not filename in files:
@@ -72,7 +62,14 @@ class TestVarFps:
                 rend_path = rendition_dir + os.path.sep + filename
                 if not os.path.exists(rend_path):
                     continue
-                res = self.verify_file(src, rend_path)
+                np.random.seed(123)
+                random.seed(123)
+                start = timeit.default_timer()
+                verification_result = verifier.verify(src, [{'uri': rend_path}])
+                tamper = float(verification_result[0]["tamper"])
+                score_ul = float(verification_result[0]["tamper_ul"])
+                score_sl = float(verification_result[0]["tamper_sl"])
+                res = {'score': tamper, 'score_ul': score_ul, 'score_sl': score_sl}
                 res['master_filename'] = filename
                 res['rendition_type'] = rendition_name
                 res['is_correct'] = not tamper
