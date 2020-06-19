@@ -1,4 +1,5 @@
 import random
+import cv2
 import numpy as np
 import pandas as pd
 import subprocess
@@ -60,3 +61,6 @@ class TestPerformance:
 
         assert res_2s['best_verification_time'] < res_2s['best_transcoding_time']
         assert res_4s['best_verification_time'] < res_4s['best_transcoding_time']
+
+
+
