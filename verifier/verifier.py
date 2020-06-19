@@ -5,14 +5,14 @@ It manages pre-verification and tamper verfication of assets
 """
 
 import uuid
-import time
+import timeit
 import json
 import tarfile
 import os
 import sys
 import urllib
 import subprocess
-
+import logging
 from joblib import load
 import numpy as np
 import pandas as pd
@@ -23,6 +23,7 @@ from catboost import CatBoostRegressor
 
 from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 
+logger = logging.getLogger()
 
 def pre_verify(source, rendition):
     """
@@ -102,8 +103,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, debug, 
     with respect to a given source file using a specified model.
     """
 
-    total_start = time.clock()
-    total_start_user = time.time()
+    total_start = timeit.default_timer()
 
     source_video, source_audio, video_available, audio_available = retrieve_video_file(source_uri)
 
@@ -165,8 +165,7 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, debug, 
                 metrics_list.append(metric.split('-')[0])
 
         # Initialize times for assets processing profiling
-        start = time.clock()
-        start_user = time.time()
+        start = timeit.default_timer()
 
         # Instantiate VideoAssetProcessor class
         asset_processor = VideoAssetProcessor(source,
@@ -179,19 +178,16 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, debug, 
                                               use_gpu)
 
         # Record time for class initialization
-        initialize_time = time.clock() - start
-        initialize_time_user = time.time() - start_user
+        initialize_time = timeit.default_timer() - start
 
         # Register times for asset processing
-        start = time.clock()
-        start_user = time.time()
+        start = timeit.default_timer() - start
 
         # Assemble output dataframe with processed metrics
         metrics_df, pixels_df, dimensions_df = asset_processor.process()
 
         # Record time for processing of assets metrics
-        process_time = time.clock() - start
-        process_time_user = time.time() - start_user
+        process_time = timeit.default_timer() - start
 
         x_renditions_sl = np.asarray(metrics_df[features_sl])
         x_renditions_ul = np.asarray(metrics_df[features_ul])
@@ -199,19 +195,19 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, debug, 
         x_renditions_qoe = np.asarray(metrics_df[features_qoe])
 
         np.set_printoptions(precision=6, suppress=True)
-        print('INPUT SL ARRAY:', x_renditions_sl, flush=True)
-        print('Unscaled INPUT UL ARRAY:', np.asarray(metrics_df[features_ul]), flush=True)
-        print('SCALED INPUT UL ARRAY:', x_renditions_ul, flush=True)
-        print('INPUT QOE ARRAY:', x_renditions_qoe, flush=True)
+        logger.debug('INPUT SL ARRAY:', x_renditions_sl, flush=True)
+        logger.debug('Unscaled INPUT UL ARRAY:', np.asarray(metrics_df[features_ul]), flush=True)
+        logger.debug('SCALED INPUT UL ARRAY:', x_renditions_ul, flush=True)
+        logger.debug('INPUT QOE ARRAY:', x_renditions_qoe, flush=True)
         # Make predictions for given data
-        start = time.clock()
+        start = timeit.default_timer()
         predictions_df = pd.DataFrame()
         predictions_df['sl_pred_tamper'] = loaded_model_sl.predict(x_renditions_sl)
         predictions_df['ssim_pred'] = loaded_model_qoe.predict(x_renditions_qoe)
         predictions_df['ocsvm_dist'] = loaded_model_ul.decision_function(x_renditions_ul)
         predictions_df['ul_pred_tamper'] = loaded_model_ul.predict(x_renditions_ul)
         predictions_df['meta_pred_tamper'] = predictions_df.apply(meta_model, axis=1)
-        prediction_time = time.clock() - start
+        prediction_time = timeit.default_timer() - start
 
         # Add predictions to rendition dictionary
         i = 0
@@ -232,15 +228,11 @@ def verify(source_uri, renditions, do_profiling, max_samples, model_dir, debug, 
                 i += 1
 
         if do_profiling:
-            print('Features used:', features)
-            print('Total CPU time:', time.clock() - total_start)
-            print('Total user time:', time.time() - total_start_user)
-            print('Initialization CPU time:', initialize_time)
-            print('Initialization user time:', initialize_time_user)
-
-            print('Process CPU time:', process_time)
-            print('Process user time:', process_time_user)
-            print('Prediction CPU time:', prediction_time)
+            logger.info('Features used:', features)
+            logger.info('Total time:', timeit.default_timer() - total_start)
+            logger.info('Initialization time:', initialize_time)
+            logger.info('Process time:', process_time)
+            logger.info('Prediction time:', prediction_time)
 
     return renditions
 
@@ -257,11 +249,11 @@ def retrieve_models(uri):
     # Create target Directory if don't exist
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
-        print('Directory ', model_dir, ' Created ')
-        print('Model download started!')
+        logger.info(f'Directory created: {model_dir}')
+        logger.info('Model download started')
         filename, _ = urllib.request.urlretrieve(uri,
                                                  filename='{}/{}'.format(model_dir, model_file))
-        print(f'Model {filename} downloaded')
+        logger.info(f'Model {filename} downloaded')
         try:
             with tarfile.open(filename) as tar_f:
                 tar_f.extractall(model_dir)
@@ -270,7 +262,7 @@ def retrieve_models(uri):
         except Exception:
             return 'Unable to untar model'
     else:
-        print('Directory ', model_dir, ' already exists, skipping download')
+        logger.debug(f'Directory {model_dir} already exists, skipping download')
         return model_dir, model_file, model_file_sl, model_file_qoe
 
 
@@ -286,27 +278,24 @@ def retrieve_video_file(uri):
     if uri.lower().startswith('http'):
         try:
             file_name = '/tmp/{}'.format(uuid.uuid4())
-
-            print('File download started!', file_name, flush=True)
+            logger.info(f'File download started: {file_name}')
             video_file, _ = urllib.request.urlretrieve(uri, filename=file_name)
-
-            print('File {} downloaded to {}'.format(file_name, video_file), flush=True)
+            logger.info(f'File {file_name} downloaded to {video_file}')
         except Exception as e:
-            print('Unable to download HTTP video file:', e, flush=True)
+            logger.exception('Unable to download HTTP video file')
             video_available = False
     else:
         if os.path.isfile(uri):
             video_file = uri
-
-            print('Video file {} available in file system'.format(video_file), flush=True)
+            logger.info(f'Video file {video_file} available in file system')
         else:
             video_available = False
-            print('File {} NOT available in file system'.format(uri), flush=True)
+            logger.info(f'Video file {video_file} NOT available in file system')
 
     if video_available:
         try:
             audio_file = '{}_audio.wav'.format(video_file)
-            print('Extracting audio track')
+            logger.info('Extracting audio track')
             subprocess.call(['ffmpeg',
                          '-i',
                          video_file,
@@ -317,12 +306,12 @@ def retrieve_video_file(uri):
                          'quiet',
                          audio_file])
         except:
-            print('Could not extract audio from video file {}'.format(video_file))
+            logger.exception(f'Could not extract audio from video file {video_file}')
             audio_available = False
         if os.path.isfile(audio_file):
-            print('Audio file {} available in file system'.format(audio_file), flush=True)
+            logger.info(f'Audio file {audio_file} available in file system')
         else:
-            print('Audio file {} NOT available in file system'.format(audio_file), flush=True)
+            logger.info(f'Audio file {audio_file} NOT available in file system')
             audio_available = False
 
     return video_file, audio_file, video_available, audio_available
