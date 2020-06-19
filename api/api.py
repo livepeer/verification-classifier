@@ -4,15 +4,18 @@ Minimal app for serving Livepeer verification
 
 import logging
 # create formatter to add it to the logging handlers
+import os
+
 FORMATTER = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s',
                               datefmt='%Y-%m-%d %H:%M:%S')
 
 import bjoern
 from flask import Flask, request, jsonify
 
-from verifier import verify, retrieve_models
+from verifier import Verifier
 
 APP = Flask(__name__)
+
 
 def setup_logger(name, log_file, level=logging.INFO):
     """Function setup as many loggers as you want"""
@@ -28,15 +31,18 @@ def setup_logger(name, log_file, level=logging.INFO):
 
     return logger
 
+
 # Setup console logger
 CONSOLE_LOGGER = setup_logger('console_logger', '')
 CONSOLE_LOGGER = logging.getLogger('console_logger')
 # Setup operations logger
-OPERATIONS_LOGGER = setup_logger('operations_logger', 'logs/ops.log')
+OPERATIONS_LOGGER = setup_logger('operations_logger', os.path.join(os.path.dirname(os.path.realpath(__file__)), 'logs/ops.log'))
 OPERATIONS_LOGGER = logging.getLogger('operations_logger')
 # Setup operations logger
-VERIFICATIONS_LOGGER = setup_logger('verifications_logger', 'logs/verifications.log')
+VERIFICATIONS_LOGGER = setup_logger('verifications_logger', os.path.join(os.path.dirname(os.path.realpath(__file__)), 'logs/verifications.log'))
 VERIFICATIONS_LOGGER = logging.getLogger('verifications_logger')
+
+verifier = None
 
 
 @APP.route('/verify', methods=['POST'])
@@ -109,7 +115,6 @@ def post_route():
 
     if request.method == 'POST':
 
-
         data = request.get_json()
 
         verification = {}
@@ -118,29 +123,18 @@ def post_route():
         verification['source'] = data['source']
 
         model_uri = data['model']
-        # TODO: Uncomment this line for testing of the model using Livepeer's Broadcaster node
-        # Once the broadcaster allows for model selection, remove the line below
-        # model_uri = 'https://storage.googleapis.com/verification-models/verification-metamodel.tar.xz'
-        model_dir, model_name_ul, model_name_sl, model_name_qoe = retrieve_models(model_uri)
-
-        # Inform user that model was succesfully retrieved
-        OPERATIONS_LOGGER.info('Model successfully downloaded: %s', model_uri)
-        CONSOLE_LOGGER.info('Model successfully downloaded: %s', model_uri)
 
         # Define whether profiling is needed for logging
         do_profiling = False
         # Define the maximum number of frames to sample
         max_samples = 10
 
+        global verifier
+        if verifier is None:
+            verifier = Verifier(max_samples, model_uri, False, False, False)
+
         # Execute the verification
-        predictions = verify(verification['source'],
-                             data['renditions'],
-                             do_profiling,
-                             max_samples,
-                             model_dir,
-                             model_name_ul,
-                             model_name_sl,
-                             model_name_qoe)
+        predictions = verifier.verify(verification['source'], data['renditions'])
         results = []
         i = 0
         for _ in data['renditions']:
@@ -155,6 +149,7 @@ def post_route():
         CONSOLE_LOGGER.info('Verification results: %s', results)
 
         return jsonify(verification)
+
 
 if __name__ == '__main__':
     HOST = '0.0.0.0'

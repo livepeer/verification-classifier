@@ -50,8 +50,8 @@ class TestPerformance:
         codec = 'libx264'
 
         v = Verifier(n_samples, 'http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz', False, False, False)
-        res_2s = self.get_verification_and_transcoding_speed(v, 'testing/tests/data/master_2s.mp4', 'testing/tests/data/rend_2s.mp4', n_tests, codec)
-        res_4s = self.get_verification_and_transcoding_speed(v, 'testing/tests/data/master_4s.mp4', 'testing/tests/data/rend_4s.mp4', n_tests, codec)
+        res_2s = self.get_verification_and_transcoding_speed(v, 'testing/tests/data/master_2s_1080.mp4', 'testing/tests/data/rend_2s_720_bw.mp4', n_tests, codec)
+        res_4s = self.get_verification_and_transcoding_speed(v, 'testing/tests/data/master_4s_1080.mp4', 'testing/tests/data/rend_4s_720_bw.mp4', n_tests, codec)
 
         print(f'Verification vs transcoding for 2s video (1080 to 720):')
         print(res_2s)
