@@ -283,7 +283,7 @@ def retrieve_video_file(uri):
     video_available = True
     audio_available = True
 
-    if 'http' in uri:
+    if uri.lower().startswith('http'):
         try:
             file_name = '/tmp/{}'.format(uuid.uuid4())
 
