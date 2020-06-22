@@ -20,6 +20,7 @@ machine_learning/output/models/*.*
 *.out
 out.log
 *.log
+*.lock
 *settings.json
 *secrets
 *.csv
