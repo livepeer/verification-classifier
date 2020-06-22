@@ -8,8 +8,6 @@ import os
 
 FORMATTER = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s',
                               datefmt='%Y-%m-%d %H:%M:%S')
-
-import bjoern
 from flask import Flask, request, jsonify
 
 from verifier import Verifier
@@ -158,5 +156,4 @@ if __name__ == '__main__':
     CONSOLE_LOGGER.info('Verifier server listening in port %s', PORT)
     OPERATIONS_LOGGER.info('Verifier server listening in port %s', PORT)
 
-    bjoern.listen(APP, HOST, PORT)
-    bjoern.run()
+    APP.run(host=HOST, port=PORT)
