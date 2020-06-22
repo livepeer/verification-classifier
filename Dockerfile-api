@@ -1,4 +1,5 @@
-FROM livepeer/verifier:latest
-COPY /api ./scripts
-ENTRYPOINT ["python"]
-CMD ["scripts/api.py"]
+FROM livepeer/verifier:9.9.9
+RUN pip3 install gunicorn[gevent]
+ADD . /verifier
+WORKDIR /verifier
+CMD gunicorn --worker-class gevent --workers 8 --bind 0.0.0.0:5000 api.api:APP --max-requests 10000 --timeout 30 --keep-alive 2 --log-level info

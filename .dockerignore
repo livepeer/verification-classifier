@@ -8,6 +8,8 @@ feature_engineering
 YT8M_downloader
 machine_learning
 stream
+articles/
+testing/
 # To prevent storing dev/temporary container data
 *.csv
 tmp
