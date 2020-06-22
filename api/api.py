@@ -5,14 +5,23 @@ Minimal app for serving Livepeer verification
 import logging
 # create formatter to add it to the logging handlers
 import os
+import config
 
 FORMATTER = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s',
                               datefmt='%Y-%m-%d %H:%M:%S')
 from flask import Flask, request, jsonify
-
+from flask_cors import CORS
 from verifier import Verifier
 
-APP = Flask(__name__)
+
+def create_app():
+    app = Flask(__name__)
+    CORS(app)
+    app.config.from_object('config')
+    return app
+
+
+APP = create_app()
 
 
 def setup_logger(name, log_file, level=logging.INFO):
@@ -30,6 +39,14 @@ def setup_logger(name, log_file, level=logging.INFO):
     return logger
 
 
+logging.basicConfig(level=logging.DEBUG,
+                    format='[%(asctime)s]: {} %(levelname)s %(message)s'.format(os.getpid()),
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    handlers=[logging.StreamHandler()])
+logger = logging.getLogger()
+from flask.logging import default_handler
+
+logger.addHandler(default_handler)
 # Setup console logger
 CONSOLE_LOGGER = setup_logger('console_logger', '')
 CONSOLE_LOGGER = logging.getLogger('console_logger')
@@ -40,7 +57,13 @@ OPERATIONS_LOGGER = logging.getLogger('operations_logger')
 VERIFICATIONS_LOGGER = setup_logger('verifications_logger', os.path.join(os.path.dirname(os.path.realpath(__file__)), 'logs/verifications.log'))
 VERIFICATIONS_LOGGER = logging.getLogger('verifications_logger')
 
-verifier = None
+
+def create_verifier():
+    verifier = Verifier(config.VERIFICATION_MAX_SAMPLES, config.VERIFICATION_MODEL_URI, False, False, False)
+    return verifier
+
+
+verifier = create_verifier()
 
 
 @APP.route('/verify', methods=['POST'])
@@ -120,16 +143,10 @@ def post_route():
         verification['orchestrator_id'] = data['orchestratorID']
         verification['source'] = data['source']
 
-        model_uri = data['model']
-
         # Define whether profiling is needed for logging
         do_profiling = False
         # Define the maximum number of frames to sample
         max_samples = 10
-
-        global verifier
-        if verifier is None:
-            verifier = Verifier(max_samples, model_uri, False, False, False)
 
         # Execute the verification
         predictions = verifier.verify(verification['source'], data['renditions'])
@@ -141,7 +158,7 @@ def post_route():
 
         # Append the results to the verification object
         verification['results'] = results
-        verification['model'] = model_uri
+        verification['model'] = config.VERIFICATION_MODEL_URI
 
         VERIFICATIONS_LOGGER.info(verification)
         CONSOLE_LOGGER.info('Verification results: %s', results)

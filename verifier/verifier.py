@@ -242,10 +242,10 @@ class Verifier:
             try:
                 with tarfile.open(filename) as tar_f:
                     tar_f.extractall(model_dir)
-
                 return model_dir, model_file, model_file_sl
-            except Exception:
-                return 'Unable to untar model'
+            except Exception as e:
+                logger.exception('Error unpacking model')
+                raise e
         else:
             logger.debug(f'Directory {model_dir} already exists, skipping download')
 
