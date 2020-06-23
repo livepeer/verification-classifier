@@ -71,12 +71,12 @@ class TestVarFps:
                 res = {'score': score_meta, 'score_ul': score_ul, 'score_sl': score_sl}
                 res['master_filename'] = filename
                 res['rendition_type'] = rendition_name
-                res['is_correct'] = not tamper
+                res['is_tamper'] = tamper
                 results.append(res)
         df_res: pd.DataFrame = pd.DataFrame(results)
         df_res.set_index(['master_filename', 'rendition_type'], inplace=True)
         df_res.sort_index(inplace=True)
-        df_res['prediction'] = df_res['score'] <= 0
+        df_res['prediction'] = df_res['score'] > 0
         print(df_res)
         # assert accuracy
-        assert np.sum(df_res.prediction == df_res.is_correct)/len(df_res) >= 0.8
+        assert np.sum(df_res.prediction == df_res.is_tamper)/len(df_res) >= 0.8
