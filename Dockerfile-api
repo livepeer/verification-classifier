@@ -3,4 +3,5 @@ RUN pip3 install gunicorn[gevent]
 ADD . /verifier
 WORKDIR /verifier
 ENV ENV=Prod
+ENV VERIFICATION_MODEL_URI=http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz
 CMD gunicorn --worker-class gevent --workers 8 --bind 0.0.0.0:5000 api.api:APP --max-requests 10000 --timeout 30 --keep-alive 2 --log-level info
