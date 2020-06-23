@@ -45,7 +45,7 @@ class TestPerformance:
         np.random.seed(123)
         random.seed(123)
 
-        n_samples = 30
+        n_samples = 10
         n_tests = 10
         codec = 'libx264'
 
