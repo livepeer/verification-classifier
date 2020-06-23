@@ -3,6 +3,12 @@ Common test configuration logic
 """
 import os
 import logging
+import subprocess
+import sys
+import time
+import timeit
+
+import requests
 
 logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s]: {} %(levelname)s %(name)s %(message)s'.format(os.getpid()),
@@ -34,3 +40,13 @@ def testapp(request):
 
     request.addfinalizer(teardown)
     return client
+
+
+@pytest.fixture()
+def realapp(request):
+    api = subprocess.Popen([sys.executable, '-c', 'import api; api.start_dev_server()'])
+    requests.get('http://localhost:5000/status')
+    def teardown():
+        api.terminate()
+    request.addfinalizer(teardown)
+    return None

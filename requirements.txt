@@ -14,5 +14,6 @@ flask-cors==3.0.8
 bjoern==3.0.1
 catboost==0.22
 pytest==5.4.3
+gunicorn[gevent]
 requests
 tqdm

@@ -6,6 +6,7 @@ import os
 class BaseConfig():
     VERIFICATION_MODEL_URI = ''
     VERIFICATION_MAX_SAMPLES = 10
+    TEMP_PATH = '/tmp'
 
 class DevConfig(BaseConfig):
     pass

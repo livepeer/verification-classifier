@@ -182,9 +182,9 @@ class Verifier:
                 x_renditions_ul = self.loaded_scaler.transform(x_renditions_ul)
 
                 np.set_printoptions(precision=6, suppress=True)
-                logger.debug('INPUT SL ARRAY:', x_renditions_sl, flush=True)
-                logger.debug('Unscaled INPUT UL ARRAY:', np.asarray(metrics_df[self.features_ul]), flush=True)
-                logger.debug('SCALED INPUT UL ARRAY:', x_renditions_ul, flush=True)
+                logger.debug(f'INPUT SL ARRAY: {x_renditions_sl}')
+                logger.debug(f'Unscaled INPUT UL ARRAY: {np.asarray(metrics_df[self.features_ul])}')
+                logger.debug(f'SCALED INPUT UL ARRAY: {x_renditions_ul}')
                 # Make predictions for given data
                 start = timeit.default_timer()
                 predictions_df = pd.DataFrame()
@@ -249,6 +249,7 @@ class Verifier:
                     raise e
             else:
                 logger.debug(f'Directory {model_dir} already exists, skipping download')
+
     def get_video_audio(self, uri):
         """
         Function to obtain a path to a video and audio files from url or local path
