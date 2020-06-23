@@ -64,12 +64,11 @@ class TestVarFps:
                     continue
                 np.random.seed(123)
                 random.seed(123)
-                start = timeit.default_timer()
                 verification_result = verifier.verify(src, [{'uri': rend_path}])
-                tamper = float(verification_result[0]["tamper"])
+                score_meta = float(verification_result[0]["tamper"])
                 score_ul = float(verification_result[0]["tamper_ul"])
                 score_sl = float(verification_result[0]["tamper_sl"])
-                res = {'score': tamper, 'score_ul': score_ul, 'score_sl': score_sl}
+                res = {'score': score_meta, 'score_ul': score_ul, 'score_sl': score_sl}
                 res['master_filename'] = filename
                 res['rendition_type'] = rendition_name
                 res['is_correct'] = not tamper
