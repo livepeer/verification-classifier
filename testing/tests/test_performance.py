@@ -18,7 +18,7 @@ class TestPerformance:
 
         for i in range(n_tests):
             tc_start = timeit.default_timer()
-            args = ['ffmpeg', '-y', '-threads', '1', '-i', source_file,
+            args = ['ffmpeg', '-y', '-i', source_file,
                     '-c:v', codec, '-vf', 'scale=-2:720',
                     '-b:v', '2000' + 'K', '-c:a', 'copy', '/tmp/out.mp4'
                     ]
@@ -46,7 +46,7 @@ class TestPerformance:
         random.seed(123)
 
         n_samples = 30
-        n_tests = 3
+        n_tests = 10
         codec = 'libx264'
 
         v = Verifier(n_samples, 'http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz', False, False, False)
