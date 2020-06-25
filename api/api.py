@@ -200,10 +200,8 @@ def post_route():
 
 
 def start_dev_server():
-    HOST = '0.0.0.0'
-    PORT = 5000
-    logger.info(f'Verifier server listening on port {PORT}')
-    APP.run(host=HOST, port=PORT, threaded=True)
+    logger.info(f'Starting verifier API server on {config.API_HOST}:{config.API_PORT}')
+    APP.run(host=config.API_HOST, port=config.API_PORT, threaded=True)
 
 
 if __name__ == '__main__':
