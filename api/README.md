@@ -40,7 +40,7 @@ params: [{
 
 An object that indicates whether each rendition passed/failed verification.
 
-### Example
+### Example (URI or shared volume path)
 
 A sample call to the API is provided below:
 
@@ -63,14 +63,7 @@ A sample call to the API is provided below:
                                                     "pixels":"1034500"
                                                 }
                                             ],
-
-                                "orchestratorID": "foo",
-
-                                "model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}'
-
-                                -H 'Content-Type: application/json'
-
-
+                                "orchestratorID": "foo"}' -H 'Content-Type: application/json'
 ```
 
 *Response (remote assets)*
@@ -126,9 +119,7 @@ curl localhost:5000/verify -d '{
             "pixels":"1034500"
         }
         ],
-        "orchestratorID": "foo",
-        "model": "https://storage.googleapis.com/verification-models/verification.tar.xz"}'
-        -H 'Content-Type: application/json'
+        "orchestratorID": "foo"}' -H 'Content-Type: application/json'
 
 ```
 
@@ -175,4 +166,25 @@ curl localhost:5000/verify -d '{
 ],
 "source":"stream/sources/1HWSFYQXa1Q.mp4"}
 
+```
+
+### Example (upload files in the query)
+#### Request
+Note: 
+- filename parameters set explicitly to values used in URIs
+- JSON parameters are passed in `json` form field
+- file form fields have unique names (file1, file2) 
+```
+curl localhost:5000/verify -F 'file1=@../data/renditions/1080p/0fIdY5IAnhY_60.mp4;filename=1080_0fIdY5IAnhY_60.mp4' -F 'file2=@../data/renditions/720p/0fIdY5IAnhY_60.mp4;filename=720_0fIdY5IAnhY_60.mp4' -F 'json={"source": "1080_0fIdY5IAnhY_60.mp4",
+
+                                "renditions": [
+                                                {
+                                                    "uri": "720_0fIdY5IAnhY_60.mp4"
+                                                }
+                                            ],
+                                "orchestratorID": "foo"}'
+```
+#### Response
+```
+{"model":"http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz","orchestrator_id":"foo","results":[{"audio_available":false,"fps":60.0,"height":720,"ocsvm_dist":0.028662416537303254,"ssim_pred":0.9728838728836663,"tamper":0,"tamper_sl":0,"tamper_ul":1,"uri":"/tmp/d0424e5c79c9401d893d6f2b8e87dfc2/720_0fIdY5IAnhY_60.mp4","video_available":true,"width":1280}],"source":"/tmp/d0424e5c79c9401d893d6f2b8e87dfc2/1080_0fIdY5IAnhY_60.mp4"}
 ```
