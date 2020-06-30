@@ -169,7 +169,7 @@ class Verifier:
                 initialize_time = timeit.default_timer() - start
 
                 # Register times for asset processing
-                start = timeit.default_timer() - start
+                start = timeit.default_timer()
 
                 # Assemble output dataframe with processed metrics
                 metrics_df, pixels_df, dimensions_df = asset_processor.process()
@@ -212,11 +212,11 @@ class Verifier:
                         i += 1
 
                 if self.do_profiling:
-                    logger.info('Features used:', features)
-                    logger.info('Total time:', timeit.default_timer() - total_start)
-                    logger.info('Initialization time:', initialize_time)
-                    logger.info('Process time:', process_time)
-                    logger.info('Prediction time:', prediction_time)
+                    logger.info(f'Features used: {features}')
+                    logger.info(f'Total time: {timeit.default_timer() - total_start}')
+                    logger.info(f'Initialization time: {initialize_time}')
+                    logger.info(f'Process time: {process_time}')
+                    logger.info(f'Prediction time: {prediction_time}')
 
             return renditions
         finally:

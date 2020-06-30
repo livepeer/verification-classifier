@@ -89,9 +89,9 @@ class VideoCapture:
 			if 'opencv' in video_reader:
 				os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'video_codec;h264_cuvid'
 				logger.warning('For OpenCV+Ffmpeg GPU acceleration to work, config environment variable must be set before the first cv2 import')
-		# if 'opencv' in video_reader:
-			# if not (cv2.getVersionMajor() >= 4 and cv2.getVersionMinor() >= 2):
-			# 	raise Exception('Can\'t use OpenCV to read video - minimum required version of opencv-python is 4.2')
+		if 'opencv' in video_reader:
+			if not (cv2.getVersionMajor() >= 4 and cv2.getVersionMinor() >= 2):
+				raise Exception('Can\'t use OpenCV to read video - minimum required version of opencv-python is 4.2')
 
 		self._read_metadata()
 
