@@ -97,7 +97,7 @@ def update_dataset(args):
 	for f in rend_files:
 		rendition_id = os.sep.join(str(f).split(os.sep)[-2:])
 		master_id = f'1080p{os.sep}{str(f).split(os.sep)[-1]}'
-		master_path = args.input + os.sep + master_id
+		master_path = args.originals + os.sep + master_id
 		# skip if it's source video or source doesn't exist
 		if master_id == rendition_id:
 			continue
@@ -115,7 +115,7 @@ def update_dataset(args):
 	for f in tqdm.tqdm(rend_files_filtered):
 		rendition_id = os.sep.join(str(f).split(os.sep)[-2:])
 		master_id = f'1080p{os.sep}{str(f).split(os.sep)[-1]}'
-		master_path = args.input + os.sep + master_id
+		master_path = args.originals + os.sep + master_id
 		is_tamper = re.match('^[0-9]{3,4}p(_[0-9]+-[0-9]+fps)?(_gpu)?$', rendition_id.split(os.sep)[-2]) is None
 		try:
 			metrics = compute_metrics(dict(path=master_path), [dict(path=str(f))], is_tamper, args)
@@ -156,9 +156,12 @@ def update_dataset(args):
 if __name__ == '__main__':
 	ap = argparse.ArgumentParser()
 	ap.add_argument('-i', '--input', help='Input folder with renditions. Metrics will be estimated only for files missing from the dataset.')
+	ap.add_argument('-o', '--originals', help='Custom originals path')
 	ap.add_argument('-d', '--dataset', help='Dataset CSV to update. A backup will be created at the same location.')
 	ap.add_argument('-f', '--filter', help='Filter for video files. All files without the filter substring in file or folder name will be excluded.')
 	ap.add_argument('-p', '--pairs', help='Path to image pairs dataset folder')
 	ap.add_argument('-a', '--noarrays', help='Don\'t output arrays', action='store_true', default=False)
 	args = ap.parse_args()
+	if not args.originals:
+		args.originals = args.input
 	update_dataset(args)
