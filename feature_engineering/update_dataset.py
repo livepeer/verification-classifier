@@ -11,7 +11,7 @@ import time
 import numpy as np
 import pandas as pd
 import tqdm
-
+import json
 from machine_learning.cnn.image_dataset_generator import PairWriter
 
 pd.options.display.width = 0
@@ -93,34 +93,38 @@ def update_dataset(args):
 	df.drop(axis=1, labels=['id'], inplace=True)
 	i = 0
 	# filter files
-	rend_files_filtered = []
-	for f in rend_files:
-		rendition_id = os.sep.join(str(f).split(os.sep)[-2:])
-		master_id = f'1080p{os.sep}{str(f).split(os.sep)[-1]}'
-		master_path = args.originals + os.sep + master_id
-		# skip if it's source video or source doesn't exist
-		if master_id == rendition_id:
-			continue
-		if not os.path.exists(master_path):
-			logger.warning(f'Source video doesn\'t exist: {master_path}')
-			continue
-		if rendition_id in df.index:
-			continue
-		if args.filter and args.filter not in rendition_id:
-			continue
-		rend_files_filtered.append(f)
+	if os.path.exists('~/.filelist-cache.json'):
+		rend_files_filtered = json.load(open('~/.filelist-cache.json', mode='r'))
+	else:
+		rend_files_filtered = []
+		for f in tqdm.tqdm(rend_files, 'Generating video list'):
+			rendition_id = os.sep.join(str(f).split(os.sep)[-2:])
+			master_id = f'1080p{os.sep}{str(f).split(os.sep)[-1]}'
+			master_path = args.originals + os.sep + master_id
+			# skip if it's source video or source doesn't exist
+			if master_id == rendition_id:
+				continue
+			if not os.path.exists(master_path):
+				logger.warning(f'Source video doesn\'t exist: {master_path}')
+				continue
+			if rendition_id in df.index:
+				continue
+			if args.filter and args.filter not in rendition_id:
+				continue
+			rend_files_filtered.append(str(f))
+		random.shuffle(rend_files_filtered)
+		json.dump(rend_files_filtered, open('~/.filelist-cache.json', mode='w'))
 	logger.info(f'Total master-renditions pairs to estimate metrics for: {len(rend_files_filtered)}')
-	random.shuffle(rend_files_filtered)
 	# compute metrics
-	for f in tqdm.tqdm(rend_files_filtered):
-		rendition_id = os.sep.join(str(f).split(os.sep)[-2:])
-		master_id = f'1080p{os.sep}{str(f).split(os.sep)[-1]}'
+	for f in tqdm.tqdm(rend_files_filtered, 'Processing video files'):
+		rendition_id = os.sep.join(f.split(os.sep)[-2:])
+		master_id = f'1080p{os.sep}{f.split(os.sep)[-1]}'
 		master_path = args.originals + os.sep + master_id
 		is_tamper = re.match('^[0-9]{3,4}p(_[0-9]+-[0-9]+fps)?(_gpu)?$', rendition_id.split(os.sep)[-2]) is None
 		try:
-			metrics = compute_metrics(dict(path=master_path), [dict(path=str(f))], is_tamper, args)
+			metrics = compute_metrics(dict(path=master_path), [dict(path=f)], is_tamper, args)
 		except:
-			logger.exception(f'Error processing file {str(f)}, skipping...')
+			logger.exception(f'Error processing file {f}, skipping...')
 			continue
 		metrics['attack'] = os.sep.join(metrics['attack'].split(os.sep)[-2:])
 		metrics['title'] = os.sep.join(metrics['title'].split(os.sep)[-2:])
