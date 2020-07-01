@@ -13,14 +13,10 @@ def load_data(data_uri, nrows=None):
     data_df.index = data_df.id
     lowercase = lambda x: str(x).lower()
     data_df.rename(lowercase, axis='columns', inplace=True)
-    data_df.drop(['dimension_x'], axis=1, inplace=True)
     data_df.rename(columns={'attack':'rendition',
-                            'title':'source',
-                            'dimension': 'dimension_x'},
+                            'title':'source'},
                    inplace=True)
     data_df['rendition'] = data_df['rendition'].apply(lambda x: set_rendition_name(x))
-    data_df['dimension_y'] = data_df['rendition'].apply(lambda x: int(x.replace('p','').split('_')[0]))
-    data_df['size_dimension_ratio'] = data_df['size'] / (data_df['dimension_y'] * data_df['dimension_x'])
     data_df['target'] = np.logical_not(data_df['rendition'].str.contains('^[0-9]+p(_[0-9][0-9]?-[0-9][0-9]?fps(_gpu)?)?$')).astype(np.int32)
     data_df['master_id'] = data_df.id.str.extract('/(.+)')
     return data_df

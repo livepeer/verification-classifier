@@ -17,9 +17,6 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S',
                     handlers=[logging.StreamHandler()])
 
-# switch work dir to project root in case tests are run directly
-os.chdir(os.path.dirname(os.path.realpath(__file__)) + '/../..')
-
 class PairWriter():
     def __init__(self, out_path, is_tamper, img_size):
         self.out_path = out_path
@@ -36,6 +33,8 @@ class PairWriter():
 
 
 def main():
+    # switch work dir to project root in case tests are run directly
+    os.chdir(os.path.dirname(os.path.realpath(__file__)) + '/../..')
     source_dir = '../data/renditions/1080p/'
     out_dir = '../data/cnn/'
     img_size = (160, 160)
@@ -77,5 +76,3 @@ def main():
             pv = PairWriter(out_dir, tamper, img_size)
             vap = VideoAssetProcessor({'path': src}, [{'path': rend_path}], [], False, n_samples, [], debug, False, image_pair_callback=pv.pair_callback)
             vap.process()
-
-main()

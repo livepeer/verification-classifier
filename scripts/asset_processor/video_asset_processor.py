@@ -209,8 +209,7 @@ class VideoAssetProcessor:
                 self.image_pair_callback(self.master_samples_hd[i], frame_data.frame, len(frame_list), ts_diff, self.original_path, capture.filename)
             frame_list_hd.append(frame_data.frame)
             # Change color space to have only luminance
-            frame = cv2.cvtColor(frame_data.frame, cv2.COLOR_BGR2HSV)
-            frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
+            frame = cv2.resize(frame_data.frame, (480, 270), interpolation=cv2.INTER_LINEAR)
             frame_list.append(frame)
 
         # Clean up memory
@@ -223,7 +222,7 @@ class VideoAssetProcessor:
     def _convert_debug_frame(frame):
         return cv2.resize(frame, (1920, 1080), cv2.INTER_CUBIC)
 
-    def compare_renditions_instant(self, rendition_sample_idx, master_sample_idx_map, frame_list, frame_list_hd, channel, dimensions, pixels, path):
+    def compare_renditions_instant(self, rendition_sample_idx, master_sample_idx_map, frame_list, frame_list_hd, dimensions, pixels, path):
         """
         Function to compare pairs of numpy arrays extracting their corresponding metrics.
         It basically takes the global original frame at frame_pos and its subsequent to
@@ -243,13 +242,13 @@ class VideoAssetProcessor:
         # Dictionary of metrics
         frame_metrics = {}
         # Original frame to compare against (downscaled for performance)
-        reference_frame = self.master_samples[master_sample_idx_map[rendition_sample_idx]][..., channel]
+        reference_frame = self.master_samples[master_sample_idx_map[rendition_sample_idx]]
         # Original's subsequent frame (downscaled for performance)
-        next_reference_frame = self.master_samples[master_sample_idx_map[rendition_sample_idx + 1]][..., channel]
+        next_reference_frame = self.master_samples[master_sample_idx_map[rendition_sample_idx + 1]]
         # Rendition frame (downscaled for performance)
-        rendition_frame = frame_list[rendition_sample_idx][..., channel]
+        rendition_frame = frame_list[rendition_sample_idx]
         # Rendition's subsequent frame (downscaled for performance)
-        next_rendition_frame = frame_list[rendition_sample_idx + 1][..., channel]
+        next_rendition_frame = frame_list[rendition_sample_idx + 1]
         if self.debug_frames:
             cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_ref.png', self._convert_debug_frame(reference_frame))
             cv2.imwrite(f'{self.frame_dir_name}/CRI_{rendition_sample_idx:04}_next_ref.png', self._convert_debug_frame(next_reference_frame))
@@ -320,19 +319,17 @@ class VideoAssetProcessor:
         # future_list is a dictionary storing all computed values from each thread
         with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
             # Compare the original asset against its renditions
-            for i in range(len(frame_list)-1):
-                for ch in self.channel:
-                    key = f'{i}_{ch}'
-                    future = executor.submit(self.compare_renditions_instant,
-                                             i,
-                                             master_sample_idx_map,
-                                             frame_list,
-                                             frame_list_hd,
-                                             ch,
-                                             dimensions,
-                                             pixels,
-                                             path)
-                    future_list.append((key, future))
+            for i in range(len(frame_list) - 1):
+                key = f'{i}'
+                future = executor.submit(self.compare_renditions_instant,
+                                         i,
+                                         master_sample_idx_map,
+                                         frame_list,
+                                         frame_list_hd,
+                                         dimensions,
+                                         pixels,
+                                         path)
+                future_list.append((key, future))
 
         # Once all frames in frame_list have been iterated, we can retrieve their values
         for key, future in future_list:
