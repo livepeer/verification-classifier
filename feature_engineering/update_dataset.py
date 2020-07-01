@@ -113,7 +113,8 @@ def update_dataset(args):
 			if args.filter and args.filter not in rendition_id:
 				continue
 			rend_files_filtered.append(str(f))
-		random.shuffle(rend_files_filtered)
+	rend_files_filtered = list([f for f in rend_files_filtered if os.sep.join(f.split(os.sep)[-2:]) not in df.index])
+	random.shuffle(rend_files_filtered)
 	logger.info(f'Total master-renditions pairs to estimate metrics for: {len(rend_files_filtered)}')
 	# compute metrics
 	for f in tqdm.tqdm(rend_files_filtered, 'Processing video files'):

@@ -26,10 +26,13 @@ class PairWriter():
     def pair_callback(self, master, rend, idx, ts_diff, master_path, rend_path):
         name_base = f'{master_path.split(os.sep)[-1].split(".")[0]}__{master.shape[1]}__{rend_path.split(os.sep)[-2]}__{ts_diff:.2f}__{idx}'
         full_name = os.path.join(self.out_path, 'tamper' if self.is_tamper else 'correct', name_base)
-        master = cv2.resize(master, self.img_size)
-        rend = cv2.resize(rend, self.img_size)
-        cv2.imwrite(full_name+'__m.png', master)
-        cv2.imwrite(full_name+'__r.png', rend)
+        master_name = full_name+'__m.png'
+        rendition_name = full_name+'__r.png'
+        if not os.path.exists(master_name) or not os.path.exists(rendition_name):
+            master = cv2.resize(master, self.img_size)
+            rend = cv2.resize(rend, self.img_size)
+            cv2.imwrite(master_name, master)
+            cv2.imwrite(rendition_name, rend)
 
 
 def main():
