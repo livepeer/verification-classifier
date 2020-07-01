@@ -93,8 +93,9 @@ def update_dataset(args):
 	df.drop(axis=1, labels=['id'], inplace=True)
 	i = 0
 	# filter files
-	if os.path.exists('~/.filelist-cache.json'):
-		rend_files_filtered = json.load(open('~/.filelist-cache.json', mode='r'))
+	if args.filelist and os.path.exists(args.filelist):
+		rend_files_filtered = pd.read_csv(args.filelist, header=None)[0].tolist()
+		rend_files_filtered = list([r for r in rend_files_filtered if ':' not in r and r!=''])
 	else:
 		rend_files_filtered = []
 		for f in tqdm.tqdm(rend_files, 'Generating video list'):
@@ -113,7 +114,6 @@ def update_dataset(args):
 				continue
 			rend_files_filtered.append(str(f))
 		random.shuffle(rend_files_filtered)
-		json.dump(rend_files_filtered, open('~/.filelist-cache.json', mode='w'))
 	logger.info(f'Total master-renditions pairs to estimate metrics for: {len(rend_files_filtered)}')
 	# compute metrics
 	for f in tqdm.tqdm(rend_files_filtered, 'Processing video files'):
@@ -165,6 +165,7 @@ if __name__ == '__main__':
 	ap.add_argument('-f', '--filter', help='Filter for video files. All files without the filter substring in file or folder name will be excluded.')
 	ap.add_argument('-p', '--pairs', help='Path to image pairs dataset folder')
 	ap.add_argument('-a', '--noarrays', help='Don\'t output arrays', action='store_true', default=False)
+	ap.add_argument('-l', '--filelist', help='List of renditions files. Greatly speeds up process when using mounted storage bucket.')
 	args = ap.parse_args()
 	if not args.originals:
 		args.originals = args.input
