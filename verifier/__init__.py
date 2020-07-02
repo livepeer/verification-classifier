@@ -1,1 +1,1 @@
-from verifier import verifier
+from .verifier import Verifier
