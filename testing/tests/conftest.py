@@ -46,6 +46,7 @@ def testapp(request):
 def realapp(request):
     api = subprocess.Popen([sys.executable, '-c', 'import api; api.start_dev_server()'])
     requests.get('http://localhost:5000/status')
+    time.sleep(3)
     def teardown():
         api.terminate()
     request.addfinalizer(teardown)
