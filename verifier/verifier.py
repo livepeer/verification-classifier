@@ -145,7 +145,7 @@ class Verifier:
                 # Remove non numeric features from feature list
                 non_temporal_features = ['attack_ID', 'title', 'attack', 'dimension', 'size', 'size_dimension_ratio']
                 metrics_list = []
-                features = list(np.unique(self.features_ul + self.features_sl + self.features_qoe))
+                features = list(np.unique(self.features_ul + self.features_sl))
 
                 for metric in features:
                     if metric not in non_temporal_features:
@@ -179,18 +179,15 @@ class Verifier:
                 x_renditions_sl = np.asarray(metrics_df[self.features_sl])
                 x_renditions_ul = np.asarray(metrics_df[self.features_ul])
                 x_renditions_ul = self.loaded_scaler.transform(x_renditions_ul)
-                x_renditions_qoe = np.asarray(metrics_df[self.features_qoe])
 
                 np.set_printoptions(precision=6, suppress=True)
                 logger.debug('INPUT SL ARRAY:', x_renditions_sl, flush=True)
                 logger.debug('Unscaled INPUT UL ARRAY:', np.asarray(metrics_df[self.features_ul]), flush=True)
                 logger.debug('SCALED INPUT UL ARRAY:', x_renditions_ul, flush=True)
-                logger.debug('INPUT QOE ARRAY:', x_renditions_qoe, flush=True)
                 # Make predictions for given data
                 start = timeit.default_timer()
                 predictions_df = pd.DataFrame()
                 predictions_df['sl_pred_tamper'] = self.loaded_model_sl.predict(x_renditions_sl)
-                predictions_df['ssim_pred'] = self.loaded_model_qoe.predict(x_renditions_qoe)
                 predictions_df['ocsvm_dist'] = self.loaded_model_ul.decision_function(x_renditions_ul)
                 predictions_df['ul_pred_tamper'] = self.loaded_model_ul.predict(x_renditions_ul)
                 predictions_df['meta_pred_tamper'] = predictions_df.apply(self.meta_model, axis=1)
@@ -201,7 +198,6 @@ class Verifier:
                 for _, rendition in enumerate(renditions):
                     if rendition['video_available']:
                         rendition.pop('path', None)
-                        rendition['ssim_pred'] = float(predictions_df['ssim_pred'].iloc[i])
                         rendition['ocsvm_dist'] = float(predictions_df['ocsvm_dist'].iloc[i])
                         rendition['tamper_ul'] = int(predictions_df['ul_pred_tamper'].iloc[i])
                         rendition['tamper_sl'] = int(predictions_df['sl_pred_tamper'].iloc[i])
@@ -235,7 +231,6 @@ class Verifier:
 
         model_file = uri.split('/')[-1]
         model_file_sl = f'{model_file}_cb_sl'
-        model_file_qoe = f'{model_file}_cb_qoe'
         # Create target Directory if don't exist
         if not os.path.exists(model_dir):
             os.mkdir(model_dir)
@@ -248,7 +243,7 @@ class Verifier:
                 with tarfile.open(filename) as tar_f:
                     tar_f.extractall(model_dir)
 
-                return model_dir, model_file, model_file_sl, model_file_qoe
+                return model_dir, model_file, model_file_sl
             except Exception:
                 return 'Unable to untar model'
         else:
@@ -319,10 +314,6 @@ class Verifier:
         self.loaded_model_sl = CatBoostClassifier().load_model('{}/{}.cbm'.format(self.model_dir,
                                                                                   model_name_sl))
 
-        # Configure SL model for inference
-        model_name_qoe = 'CB_Regressor'
-        self.loaded_model_qoe = CatBoostRegressor().load_model('{}/{}.cbm'.format(self.model_dir,
-                                                                                  model_name_qoe))
         # Open model configuration files
         with open('{}/param_{}.json'.format(self.model_dir, model_name_ul)) as json_file:
             params = json.load(json_file)
@@ -330,6 +321,3 @@ class Verifier:
         with open('{}/param_{}.json'.format(self.model_dir, model_name_sl)) as json_file:
             params = json.load(json_file)
             self.features_sl = params['features']
-        with open('{}/param_{}.json'.format(self.model_dir, model_name_qoe)) as json_file:
-            params = json.load(json_file)
-            self.features_qoe = params['features']
