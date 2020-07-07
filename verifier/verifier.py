@@ -18,6 +18,7 @@ import cv2
 from scipy.io import wavfile
 from catboost import CatBoostClassifier
 from catboost import CatBoostRegressor
+from verifier import file_locker
 
 from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 
@@ -181,9 +182,9 @@ class Verifier:
                 x_renditions_ul = self.loaded_scaler.transform(x_renditions_ul)
 
                 np.set_printoptions(precision=6, suppress=True)
-                logger.debug('INPUT SL ARRAY:', x_renditions_sl, flush=True)
-                logger.debug('Unscaled INPUT UL ARRAY:', np.asarray(metrics_df[self.features_ul]), flush=True)
-                logger.debug('SCALED INPUT UL ARRAY:', x_renditions_ul, flush=True)
+                logger.debug(f'INPUT SL ARRAY: {x_renditions_sl}')
+                logger.debug(f'Unscaled INPUT UL ARRAY: {np.asarray(metrics_df[self.features_ul])}')
+                logger.debug(f'SCALED INPUT UL ARRAY: {x_renditions_ul}')
                 # Make predictions for given data
                 start = timeit.default_timer()
                 predictions_df = pd.DataFrame()
@@ -228,26 +229,26 @@ class Verifier:
         """
         Function to obtain pre-trained model for verification predictions
         """
-
-        model_file = uri.split('/')[-1]
-        model_file_sl = f'{model_file}_cb_sl'
-        # Create target Directory if don't exist
-        if not os.path.exists(model_dir):
-            os.mkdir(model_dir)
-            logger.info(f'Directory created: {model_dir}')
-            logger.info('Model download started')
-            filename, _ = urllib.request.urlretrieve(uri,
-                                                     filename='{}/{}'.format(model_dir, model_file))
-            logger.info(f'Model {filename} downloaded')
-            try:
-                with tarfile.open(filename) as tar_f:
-                    tar_f.extractall(model_dir)
-
-                return model_dir, model_file, model_file_sl
-            except Exception:
-                return 'Unable to untar model'
-        else:
-            logger.debug(f'Directory {model_dir} already exists, skipping download')
+        with file_locker.FileLocker('model_op.lock'):
+            model_file = uri.split('/')[-1]
+            model_file_sl = f'{model_file}_cb_sl'
+            # Create target Directory if don't exist
+            if not os.path.exists(model_dir):
+                os.mkdir(model_dir)
+                logger.info(f'Directory created: {model_dir}')
+                logger.info('Model download started')
+                filename, _ = urllib.request.urlretrieve(uri,
+                                                         filename='{}/{}'.format(model_dir, model_file))
+                logger.info(f'Model {filename} downloaded')
+                try:
+                    with tarfile.open(filename) as tar_f:
+                        tar_f.extractall(model_dir)
+                    return model_dir, model_file, model_file_sl
+                except Exception as e:
+                    logger.exception('Error unpacking model')
+                    raise e
+            else:
+                logger.debug(f'Directory {model_dir} already exists, skipping download')
 
     def get_video_audio(self, uri):
         """

@@ -4,6 +4,7 @@ Ffmpeg-based video file reader with timestamp support and optional GPU decoding
 import os
 import re
 import time
+import cv2
 from typing import Union, Tuple
 import numpy as np
 import bisect
@@ -89,8 +90,6 @@ class VideoCapture:
 				os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'video_codec;h264_cuvid'
 				logger.warning('For OpenCV+Ffmpeg GPU acceleration to work, config environment variable must be set before the first cv2 import')
 		if 'opencv' in video_reader:
-			global cv2
-			import cv2
 			if not (cv2.getVersionMajor() >= 4 and cv2.getVersionMinor() >= 2):
 				raise Exception('Can\'t use OpenCV to read video - minimum required version of opencv-python is 4.2')
 
@@ -149,7 +148,7 @@ class VideoCapture:
 		if not self.started:
 			self.start()
 		frame = self._read_next_frame(grab)
-		if frame is None or (grab and frame == False):
+		if frame is None or (grab and isinstance(frame, bool) and frame == False):
 			return None
 		self.frame_idx += 1
 		if 0 < self.frame_count == self.frame_idx:
