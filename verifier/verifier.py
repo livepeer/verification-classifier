@@ -18,7 +18,6 @@ import cv2
 from scipy.io import wavfile
 from catboost import CatBoostClassifier
 from catboost import CatBoostRegressor
-from verifier import file_locker
 
 from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 
@@ -106,16 +105,11 @@ class Verifier:
 
     def meta_model(self, row):
         """
-        Inputs the metamodel AND operator as condition
-        Retrieves the tamper value of the UL model only when both models agree in classifying
-        as non tampered. Otherwise retrieves the SL classification
-        UL classifier has a higher TPR but lower TNR, meaning it is less restrictive towards
-        tampered assets. SL classifier has higher TNR but is too punitive, which is undesirable,
-        plus it requires labeled data.
+        The goal is to reduce the number of False Positives (tamper) to prevent wrongfully penalizing transcoder nodes. OCSVM model is expected to have higher precision (low FP) on novel data.
+        If OCSVM predicts the observation is an inlier (not tampered), we'll go with it, otherwise we'll use supervised model output.
         """
-        meta_condition = row['ul_pred_tamper'] == 1 and row['sl_pred_tamper'] == 1
-        if meta_condition:
-            return row['ul_pred_tamper']
+        if row['ul_pred_tamper'] == 0:
+            return 0
         return row['sl_pred_tamper']
 
     def verify(self, source_uri, renditions):
@@ -190,7 +184,7 @@ class Verifier:
                 predictions_df = pd.DataFrame()
                 predictions_df['sl_pred_tamper'] = self.loaded_model_sl.predict(x_renditions_sl)
                 predictions_df['ocsvm_dist'] = self.loaded_model_ul.decision_function(x_renditions_ul)
-                predictions_df['ul_pred_tamper'] = self.loaded_model_ul.predict(x_renditions_ul)
+                predictions_df['ul_pred_tamper'] = (-self.loaded_model_ul.predict(x_renditions_ul)+1)/2
                 predictions_df['meta_pred_tamper'] = predictions_df.apply(self.meta_model, axis=1)
                 prediction_time = timeit.default_timer() - start
 
@@ -229,26 +223,29 @@ class Verifier:
         """
         Function to obtain pre-trained model for verification predictions
         """
-        with file_locker.FileLocker('model_op.lock'):
-            model_file = uri.split('/')[-1]
-            model_file_sl = f'{model_file}_cb_sl'
-            # Create target Directory if don't exist
-            if not os.path.exists(model_dir):
+
+        model_file = uri.split('/')[-1]
+        model_file_sl = f'{model_file}_cb_sl'
+        # Create target Directory if don't exist
+        if not os.path.exists(model_dir):
+            try:
                 os.mkdir(model_dir)
                 logger.info(f'Directory created: {model_dir}')
                 logger.info('Model download started')
                 filename, _ = urllib.request.urlretrieve(uri,
                                                          filename='{}/{}'.format(model_dir, model_file))
                 logger.info(f'Model {filename} downloaded')
-                try:
-                    with tarfile.open(filename) as tar_f:
-                        tar_f.extractall(model_dir)
-                    return model_dir, model_file, model_file_sl
-                except Exception as e:
-                    logger.exception('Error unpacking model')
-                    raise e
-            else:
-                logger.debug(f'Directory {model_dir} already exists, skipping download')
+                with tarfile.open(filename) as tar_f:
+                    tar_f.extractall(model_dir)
+
+                return model_dir, model_file, model_file_sl
+            except Exception as exc:
+                if os.path.exists(model_dir):
+                    os.rmdir(model_dir)
+                logger.exception('Unable to untar model')
+                raise exc
+        else:
+            logger.debug(f'Directory {model_dir} already exists, skipping download')
 
     def get_video_audio(self, uri):
         """
