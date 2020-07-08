@@ -44,7 +44,6 @@ class TestVarFps:
         rendition_dirs = [
             ('../data/renditions/720p_watermark/', True),
             ('../data/renditions/720p_60-24fps/', False),
-            #('../data/renditions/720p/', False),
         ]
         files = None
         debug = False
