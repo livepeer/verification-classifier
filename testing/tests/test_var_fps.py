@@ -47,7 +47,7 @@ class TestVarFps:
             #('../data/renditions/720p/', False),
         ]
         files = None
-        debug = True
+        debug = False
         n_samples = 10
         gpu = False
         src_videos = sorted(glob.glob(source_dir + '/*'))
