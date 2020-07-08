@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import tqdm
 import json
-from machine_learning.cnn.image_dataset_generator import PairWriter
+import cv2
 
 pd.options.display.width = 0
 pd.set_option('display.max_columns', None)
@@ -26,6 +26,24 @@ logging.basicConfig(level=logging.INFO,
 					datefmt='%Y-%m-%d %H:%M:%S',
 					handlers=[logging.StreamHandler()])
 logger = logging.getLogger()
+
+
+class PairWriter():
+    def __init__(self, out_path, is_tamper, img_size):
+        self.out_path = out_path
+        self.is_tamper = is_tamper
+        self.img_size = img_size
+
+    def pair_callback(self, master, rend, idx, ts_diff, master_path, rend_path):
+        name_base = f'{master_path.split(os.sep)[-1].split(".")[0]}__{master.shape[1]}__{rend_path.split(os.sep)[-2]}__{ts_diff:.2f}__{idx}'
+        full_name = os.path.join(self.out_path, 'tamper' if self.is_tamper else 'correct', name_base)
+        master_name = full_name+'__m.png'
+        rendition_name = full_name+'__r.png'
+        if not os.path.exists(master_name) or not os.path.exists(rendition_name):
+            master = cv2.resize(master, self.img_size)
+            rend = cv2.resize(rend, self.img_size)
+            cv2.imwrite(master_name, master)
+            cv2.imwrite(rendition_name, rend)
 
 
 # print('Downloaded {} to {}'.format(origin_blob_name, local_path))
