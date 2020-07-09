@@ -1,4 +1,4 @@
-FROM livepeer/verifier:9.9.9
+FROM livepeer/verifier:latest
 RUN pip3 install gunicorn[gevent]
 ADD . /verifier
 WORKDIR /verifier
