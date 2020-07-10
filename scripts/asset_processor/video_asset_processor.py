@@ -4,6 +4,7 @@ Module for management and parallelization of verification jobs.
 
 import os
 import shutil
+import timeit
 from concurrent.futures.thread import ThreadPoolExecutor
 from collections import deque
 import multiprocessing
@@ -30,7 +31,7 @@ class VideoAssetProcessor:
     """
 
     def __init__(self, original, renditions, metrics_list,
-                 do_profiling=False, max_samples=-1, features_list=None, debug_frames=False, use_gpu=False):
+                 do_profiling=False, max_samples=-1, features_list=None, debug_frames=False, use_gpu=False, channel=-1, image_pair_callback=None):
         """
 
         @param use_gpu:
@@ -41,11 +42,15 @@ class VideoAssetProcessor:
         @param max_samples: Max number of matched master-rendition frames to calculate metrics against. -1 = all
         @param features_list:
         @param debug_frames: dump frames selected for metric extraction on disk, decreases performance
+        @param channel: which HSV channel (0-3) to use for metric computation, -1 = all
+        @param image_pair_callback: function to call when image pair is created
         """
         # ************************************************************************
         # Initialize global variables
         # ************************************************************************
 
+        self.image_pair_callback = image_pair_callback
+        self.channel = [channel] if channel > -1 else [0, 1, 2]
         self.debug_frames = debug_frames
         self.use_gpu = use_gpu
         # init debug dirs
@@ -200,19 +205,13 @@ class VideoAssetProcessor:
             width = frame_data.frame.shape[0]
             pixels += height * width
 
+            if not self.markup_master_frames and self.image_pair_callback is not None:
+                self.image_pair_callback(self.master_samples_hd[i], frame_data.frame, len(frame_list), ts_diff, self.original_path, capture.filename)
+            frame_list_hd.append(frame_data.frame)
             # Change color space to have only luminance
-            frame = cv2.cvtColor(frame_data.frame, cv2.COLOR_BGR2HSV)[:, :, 2]
-            frame = cv2.resize(frame, (480, 270), interpolation=cv2.INTER_LINEAR)
+            frame = cv2.resize(frame_data.frame, (480, 270), interpolation=cv2.INTER_LINEAR)
             frame_list.append(frame)
 
-            if self.make_hd_list:
-                # Resize the frame
-                if frame.shape[0] != 1920:
-                    frame_hd = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_LINEAR)
-                else:
-                    frame_hd = frame
-
-                frame_list_hd.append(frame_hd)
         # Clean up memory
         capture.release()
         logger.info(f'Mean master-rendition timestamp diff, sec: {np.mean(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))} SD: {np.std(list(filter(lambda x: not np.isinf(x), master_timestamp_diffs)))}')
@@ -311,40 +310,36 @@ class VideoAssetProcessor:
         @param pixels:
         @return:
         """
+        start = timeit.default_timer()
 
         # Dictionary of metrics
         rendition_metrics = {}
-        # Position of the frame
-        frame_pos = 0
-        # List of frames to be processed
-        frames_to_process = []
-
-        # Iterate frame by frame and fill a list with their values
-        # to be passed to the ThreadPoolExecutor. Stop when maximum
-        # number of frames has been reached.
-
-        frames_to_process = range(len(frame_list)-1)
-
+        future_list = []
         # Execute computations in parallel using as many processors as possible
         # future_list is a dictionary storing all computed values from each thread
         with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
             # Compare the original asset against its renditions
-            future_list = {executor.submit(self.compare_renditions_instant,
-                                           i,
-                                           master_sample_idx_map,
-                                           frame_list,
-                                           frame_list_hd,
-                                           dimensions,
-                                           pixels,
-                                           path): i for i in frames_to_process}
+            for i in range(len(frame_list) - 1):
+                key = f'{i}'
+                future = executor.submit(self.compare_renditions_instant,
+                                         i,
+                                         master_sample_idx_map,
+                                         frame_list,
+                                         frame_list_hd,
+                                         dimensions,
+                                         pixels,
+                                         path)
+                future_list.append((key, future))
 
         # Once all frames in frame_list have been iterated, we can retrieve their values
-        for future in future_list:
+        for key, future in future_list:
             # Values are retrieved in a dict, as a result of the executor's process
             result_rendition_metrics, frame_pos = future.result()
             # The computed values at a given frame
+            rendition_metrics[key] = result_rendition_metrics
 
-            rendition_metrics[frame_pos] = result_rendition_metrics
+        time_spent = timeit.default_timer() - start
+        logger.info(f'Metrics compute took: {time_spent}')
 
         # Return the metrics for the currently processed rendition
         return rendition_metrics
@@ -404,7 +399,6 @@ class VideoAssetProcessor:
                     [[manhattan]] = distance.cdist(x_original.reshape(1, -1),
                                                    x_rendition.reshape(1, -1),
                                                    metric='cityblock')
-
 
                     rendition_dict['{}-euclidean'.format(metric)] = distance.euclidean(x_original,
                                                                                        x_rendition)

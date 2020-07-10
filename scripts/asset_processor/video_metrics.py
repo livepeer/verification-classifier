@@ -21,6 +21,7 @@ class VideoMetrics:
     It wraps up different machine learning and Computer Vision techniques that serve
     to evaluate and extract characteristics of frames of two videos.
     """
+
     def __init__(self, metrics_list, hash_size, dimension, cpu_profiler, do_profiling):
         self.hash_size = hash_size
         self.metrics_list = metrics_list
@@ -105,7 +106,6 @@ class VideoMetrics:
         # create Brute Force Matcher object
         bf_matcher = cv2.BFMatcher(normType=cv2.NORM_HAMMING, crossCheck=False)
 
-
         # Match descriptors.
         matches = bf_matcher.knnMatch(descriptor_current, descriptor_next, k=2)
 
@@ -122,7 +122,7 @@ class VideoMetrics:
         return len(good)
 
     @staticmethod
-    def dtw_distance(ts_a, ts_b, d = lambda x,y: abs(x-y)):
+    def dtw_distance(ts_a, ts_b, d=lambda x, y: abs(x - y)):
         """Returns the DTW similarity distance between two 2-D
         timeseries numpy arrays.
 
@@ -150,16 +150,16 @@ class VideoMetrics:
         # Initialize the first row and column
         cost[0, 0] = d(ts_a[0], ts_b[0])
         for i in range(1, M):
-            cost[i, 0] = cost[i-1, 0] + d(ts_a[i], ts_b[0])
+            cost[i, 0] = cost[i - 1, 0] + d(ts_a[i], ts_b[0])
 
         for j in range(1, N):
-            cost[0, j] = cost[0, j-1] + d(ts_a[0], ts_b[j])
+            cost[0, j] = cost[0, j - 1] + d(ts_a[0], ts_b[j])
 
         # Populate rest of cost matrix within window
         for i in range(1, M):
             for j in range(max(1, i - max_warping_window),
                            min(N, i + max_warping_window)):
-                choices = cost[i - 1, j - 1], cost[i, j-1], cost[i-1, j]
+                choices = cost[i - 1, j - 1], cost[i, j - 1], cost[i - 1, j]
                 cost[i, j] = min(choices) + d(ts_a[i], ts_b[j])
 
         # Return DTW distance given window
@@ -217,7 +217,7 @@ class VideoMetrics:
         sobel_x = cv2.Sobel(current_frame, cv2.CV_64F, 0, 1)
         sobel_y = cv2.Sobel(current_frame, cv2.CV_64F, 1, 0)
 
-        return np.mean(np.sqrt(sobel_x**2 + sobel_y**2))
+        return np.mean(np.sqrt(sobel_x ** 2 + sobel_y ** 2))
 
     @staticmethod
     def dct(reference_frame, rendition_frame):
@@ -227,11 +227,11 @@ class VideoMetrics:
         # Maximum value
         """
 
-        reference_frame_float = np.float32(reference_frame)/255.0  # float conversion/scale
-        reference_dct = cv2.dct(reference_frame_float)           # the dct
+        reference_frame_float = np.float32(reference_frame) / 255.0  # float conversion/scale
+        reference_dct = cv2.dct(reference_frame_float)  # the dct
 
-        rendition_frame_float = np.float32(rendition_frame)/255.0  # float conversion/scale
-        rendition_dct = cv2.dct(rendition_frame_float)           # the dct
+        rendition_frame_float = np.float32(rendition_frame) / 255.0  # float conversion/scale
+        rendition_dct = cv2.dct(rendition_frame_float)  # the dct
 
         _, max_val, _, _ = cv2.minMaxLoc(reference_dct - rendition_dct)
 
@@ -370,19 +370,19 @@ class VideoMetrics:
         http://kampta.github.io/Performance-Shootout-mahotas-vs-skimage-vs-opencv-part2/
         """
         # 1.- Compute co-occurence matrix from the reference image
-        reference_frame = greycomatrix(reference_frame, 
+        reference_frame = greycomatrix(reference_frame,
                                        range(4),
-                                       np.pi/4*np.arange(4),
+                                       np.pi / 4 * np.arange(4),
                                        levels=256,
                                        symmetric=True,
                                        normed=True)
         # 2.- Compute co-occurence matrix from the rendition image
-        rendition_frame = greycomatrix(rendition_frame, 
+        rendition_frame = greycomatrix(rendition_frame,
                                        range(4),
-                                       np.pi/4*np.arange(4),
+                                       np.pi / 4 * np.arange(4),
                                        levels=256,
                                        symmetric=True,
-                                       normed=True)                                                       
+                                       normed=True)
         # 3.- Compute statistics of the matrix like contrast, correlation, variation
         reference_texture = greycoprops(reference_frame)
         rendition_texture = greycoprops(rendition_frame)
@@ -390,7 +390,7 @@ class VideoMetrics:
         return mean_squared_error(reference_texture, rendition_texture)
 
     @staticmethod
-    def image_match_instant(pixelsA, pixelsB, v):  
+    def image_match_instant(pixelsA, pixelsB, v):
         """
         Original go implementation:
         https://github.com/mkrufky/coersion/
@@ -414,9 +414,8 @@ class VideoMetrics:
         }
         """
 
-
         pass_count = np.sum(np.abs(np.float64(pixelsA - pixelsB)) < v)
-        
+
         return pass_count / np.size(pixelsA)
 
     @staticmethod
@@ -432,8 +431,8 @@ class VideoMetrics:
         of ‘naturalness’ in the image due to the presence of distortions,
         thereby leading to a holistic measure of quality.
         """
-        features = np.empty([36,])
-        
+        features = np.empty([36, ])
+
         features = cv2.quality.QualityBRISQUE_computeFeatures(reference_frame, features)
 
         return features
@@ -468,14 +467,14 @@ class VideoMetrics:
 
         rendition_metrics = {}
         # Some metrics only need the luminance channel
-        reference_frame_gray = reference_frame
-        rendition_frame_gray = rendition_frame
-        next_reference_frame_gray = next_reference_frame
-        next_rendition_frame_gray = next_rendition_frame
+        reference_frame_v = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2HSV)[..., -1]
+        rendition_frame_v = cv2.cvtColor(rendition_frame, cv2.COLOR_BGR2HSV)[..., -1]
+        next_reference_frame_v = cv2.cvtColor(next_reference_frame, cv2.COLOR_BGR2HSV)[..., -1]
+        next_rendition_frame_v = cv2.cvtColor(next_rendition_frame, cv2.COLOR_BGR2HSV)[..., -1]
 
         sigma = 4
-        gauss_reference_frame = gaussian(reference_frame_gray, sigma=sigma)
-        gauss_rendition_frame = gaussian(rendition_frame_gray, sigma=sigma)
+        gauss_reference_frame = gaussian(reference_frame_v, sigma=sigma)
+        gauss_rendition_frame = gaussian(rendition_frame_v, sigma=sigma)
 
         for metric in self.metrics_list:
             if metric == 'temporal_brisque':
@@ -486,12 +485,12 @@ class VideoMetrics:
                                                                     rendition_frame)
 
             if metric == 'temporal_difference':
-                rendition_metrics[metric] = self.difference(rendition_frame_gray,
-                                                            next_rendition_frame_gray)
+                rendition_metrics[metric] = self.difference(rendition_frame_v,
+                                                            next_rendition_frame_v)
 
             if metric == 'temporal_orb':
-                rendition_metrics[metric] = self.orb(reference_frame_gray,
-                                                     rendition_frame_gray)
+                rendition_metrics[metric] = self.orb(reference_frame_v,
+                                                     rendition_frame_v)
 
             if metric == 'temporal_psnr':
                 rendition_metrics[metric] = self.psnr(reference_frame_HD,
@@ -502,20 +501,20 @@ class VideoMetrics:
                                                       rendition_frame_HD)
 
             if metric == 'temporal_mse':
-                rendition_metrics[metric] = self.mse(reference_frame_gray,
-                                                     rendition_frame_gray)
+                rendition_metrics[metric] = self.mse(reference_frame_v,
+                                                     rendition_frame_v)
 
             if metric == 'temporal_canny':
-                rendition_metrics[metric] = self.difference_canny(reference_frame_gray,
-                                                                  rendition_frame_gray)
+                rendition_metrics[metric] = self.difference_canny(reference_frame_v,
+                                                                  rendition_frame_v)
 
             if metric == 'temporal_cross_correlation':
-                rendition_metrics[metric] = self.cross_correlation(reference_frame_gray,
-                                                                   rendition_frame_gray)
+                rendition_metrics[metric] = self.cross_correlation(reference_frame_v,
+                                                                   rendition_frame_v)
 
             if metric == 'temporal_dct':
-                rendition_metrics[metric] = self.dct(reference_frame_gray,
-                                                     rendition_frame_gray)
+                rendition_metrics[metric] = self.dct(reference_frame_v,
+                                                     rendition_frame_v)
 
             if metric == 'temporal_gaussian_mse':
                 rendition_metrics[metric] = self.gaussian_mse(gauss_reference_frame,
@@ -528,25 +527,25 @@ class VideoMetrics:
             if metric == 'temporal_threshold_gaussian_difference':
                 rendition_metrics[metric] = self.gaussian_difference_threshold(gauss_reference_frame,
                                                                                gauss_rendition_frame,
-                                                                               rendition_frame_gray,
-                                                                               next_reference_frame_gray)
+                                                                               rendition_frame_v,
+                                                                               next_reference_frame_v)
             if metric == 'temporal_spatial_complexity':
-                rendition_metrics[metric] = self.spatial_complexity(reference_frame_gray)
+                rendition_metrics[metric] = self.spatial_complexity(reference_frame_v)
 
             if metric == 'temporal_texture':
-                rendition_metrics[metric] = self.texture_instant(reference_frame_gray, rendition_frame_gray)
+                rendition_metrics[metric] = self.texture_instant(reference_frame_v, rendition_frame_v)
 
             if metric == 'temporal_match':
                 match_threshold = 10
-                rendition_metrics[metric] = self.image_match_instant(reference_frame_gray, rendition_frame_gray, match_threshold)
+                rendition_metrics[metric] = self.image_match_instant(reference_frame_v, rendition_frame_v, match_threshold)
 
             if metric == 'temporal_entropy':
-                rendition_metrics[metric] = self.entropy(reference_frame_gray,
-                                                         rendition_frame_gray)
+                rendition_metrics[metric] = self.entropy(reference_frame_v,
+                                                         rendition_frame_v)
 
             if metric == 'temporal_lbp':
-                rendition_metrics[metric] = self.lbp(reference_frame_gray,
-                                                     rendition_frame_gray)
+                rendition_metrics[metric] = self.lbp(reference_frame_v,
+                                                     rendition_frame_v)
 
             # Compute the hash of the target frame
             rendition_hash = self.dhash(rendition_frame)

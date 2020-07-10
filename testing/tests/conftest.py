@@ -45,6 +45,7 @@ def testapp(request):
 @pytest.fixture()
 def realapp(request):
     api = subprocess.Popen([sys.executable, '-c', 'import api; api.start_dev_server()'])
+    time.sleep(3)
     requests.get('http://localhost:5000/status')
     time.sleep(3)
     def teardown():
