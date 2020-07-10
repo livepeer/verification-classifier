@@ -51,7 +51,7 @@ class TestVarFps:
         gpu = False
         src_videos = sorted(glob.glob(source_dir + '/*'))
         results = []
-        verifier = Verifier(n_samples, 'http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz', gpu, False, debug)
+        verifier = Verifier(n_samples, 'http://storage.googleapis.com/verification-models/verification-metamodel-2020-07-06.tar.xz', gpu, False, debug)
         for src in tqdm.tqdm(src_videos):
             filename = src.split(os.path.sep)[-1]
             if files is not None and not filename in files:
