@@ -18,6 +18,7 @@ import cv2
 from scipy.io import wavfile
 from catboost import CatBoostClassifier
 from catboost import CatBoostRegressor
+from verifier import file_locker
 
 from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 
@@ -223,29 +224,29 @@ class Verifier:
         """
         Function to obtain pre-trained model for verification predictions
         """
+        with file_locker.FileLocker('model_op.lock'):
+            model_file = uri.split('/')[-1]
+            model_file_sl = f'{model_file}_cb_sl'
+            # Create target Directory if don't exist
+            if not os.path.exists(model_dir):
+                try:
+                    os.mkdir(model_dir)
+                    logger.info(f'Directory created: {model_dir}')
+                    logger.info('Model download started')
+                    filename, _ = urllib.request.urlretrieve(uri,
+                                                             filename='{}/{}'.format(model_dir, model_file))
+                    logger.info(f'Model {filename} downloaded')
+                    with tarfile.open(filename) as tar_f:
+                        tar_f.extractall(model_dir)
 
-        model_file = uri.split('/')[-1]
-        model_file_sl = f'{model_file}_cb_sl'
-        # Create target Directory if don't exist
-        if not os.path.exists(model_dir):
-            try:
-                os.mkdir(model_dir)
-                logger.info(f'Directory created: {model_dir}')
-                logger.info('Model download started')
-                filename, _ = urllib.request.urlretrieve(uri,
-                                                         filename='{}/{}'.format(model_dir, model_file))
-                logger.info(f'Model {filename} downloaded')
-                with tarfile.open(filename) as tar_f:
-                    tar_f.extractall(model_dir)
-
-                return model_dir, model_file, model_file_sl
-            except Exception as exc:
-                if os.path.exists(model_dir):
-                    os.rmdir(model_dir)
-                logger.exception('Unable to untar model')
-                raise exc
-        else:
-            logger.debug(f'Directory {model_dir} already exists, skipping download')
+                    return model_dir, model_file, model_file_sl
+                except Exception as exc:
+                    if os.path.exists(model_dir):
+                        os.rmdir(model_dir)
+                    logger.exception('Unable to untar model')
+                    raise exc
+            else:
+                logger.debug(f'Directory {model_dir} already exists, skipping download')
 
     def get_video_audio(self, uri):
         """
