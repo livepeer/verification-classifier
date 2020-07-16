@@ -75,32 +75,29 @@ class Verifier:
                     os.remove(audio_file)
 
             rendition_capture = cv2.VideoCapture(video_file)
-            fps = int(rendition_capture.get(cv2.CAP_PROP_FPS))
+            fps = rendition_capture.get(cv2.CAP_PROP_FPS)
             frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
             height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
             width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
 
-            rendition_copy = rendition.copy()
             rendition['path'] = video_file
 
             # Create dictionary with passed / failed verification parameters
+            if rendition.get('resolution'):
+                rendition['resolution']['height_pre_verification'] = height / float(rendition['resolution']['height'])
+                rendition['resolution']['width_pre_verification'] = width / float(rendition['resolution']['width'])
 
-            for key in rendition_copy:
-                if key == 'resolution':
-                    rendition['resolution']['height_pre_verification'] = height / float(rendition['resolution']['height'])
-                    rendition['resolution']['width_pre_verification'] = width / float(rendition['resolution']['width'])
+            if rendition.get('frame_rate'):
+                rendition['frame_rate'] = bool(np.isclose(float(rendition['frame_rate']), fps, atol=0.1))
 
-                if key == 'frame_rate':
-                    rendition['frame_rate'] = 0.99 <= fps / float(rendition['frame_rate']) <= 1.01
+            if rendition.get('bitrate'):
+                # Compute bitrate
+                duration = float(frame_count) / float(fps)  # in seconds
+                bitrate = os.path.getsize(video_file) / duration
+                rendition['bitrate'] = bitrate == rendition['bitrate']
 
-                if key == 'bitrate':
-                    # Compute bitrate
-                    duration = float(frame_count) / float(fps)  # in seconds
-                    bitrate = os.path.getsize(video_file) / duration
-                    rendition['bitrate'] = bitrate == rendition['bitrate']
-
-                if key == 'pixels':
-                    rendition['pixels_pre_verification'] = float(rendition['pixels']) / frame_count * height * width
+            if rendition.get('pixels'):
+                rendition['pixels_pre_verification'] = float(rendition['pixels']) / frame_count * height * width
 
         return rendition
 
