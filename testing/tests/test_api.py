@@ -46,4 +46,4 @@ class TestAPI:
         data = dict(orchestratorID='1', source='master_4s_1080.mp4', renditions=[{'uri': 'rend_4s_720_bw.mp4'}])
         ver_res = requests.post(f'http://{config.API_HOST}:{config.API_PORT}/verify', data={'json': json.dumps(data)}, files=master_file + rendition_files)
         assert 200 == ver_res.status_code
-        assert ver_res.json()['results'][0]['tamper'] > 0.5
+        assert ver_res.json()['results'][0]['tamper'] == 1
