@@ -22,13 +22,13 @@ class TestAPI:
                                                     renditions=[{'uri': 'testing/tests/data/master_4s_1080.mp4',
                                                                  'frame_rate': 0}]))
         assert 200 == ver_res.status_code
-        assert ver_res.json['results'][0]['tamper'] < 0.5
+        assert ver_res.json['results'][0]['tamper'] == 0
         # test verification with fractional fps - should pass, master is 60.0 fps
         ver_res = testapp.post('/verify', json=dict(source='testing/tests/data/master_4s_1080.mp4', orchestratorID='1',
                                                     renditions=[{'uri': 'testing/tests/data/rend_4s_720_bw.mp4',
                                                                  'frame_rate': 60000/1001}]))
         assert 200 == ver_res.status_code
-        assert ver_res.json['results'][0]['tamper'] > 0.5
+        assert ver_res.json['results'][0]['tamper'] == 1
         assert ver_res.json['results'][0]['frame_rate']
 
         # test verification with fractional fps - should fail
@@ -36,7 +36,7 @@ class TestAPI:
                                                     renditions=[{'uri': 'testing/tests/data/rend_4s_720_bw.mp4',
                                                                  'frame_rate': 59}]))
         assert 200 == ver_res.status_code
-        assert ver_res.json['results'][0]['tamper'] > 0.5
+        assert ver_res.json['results'][0]['tamper'] == 1
         assert not ver_res.json['results'][0]['frame_rate']
 
     @pytest.mark.usefixtures("realapp")
