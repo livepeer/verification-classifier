@@ -47,6 +47,24 @@ class Verifier:
         self.tmp_files = []
         self.load_models()
 
+    @staticmethod
+    def read_video_metadata(filename):
+        try:
+            res = {}
+            cap = cv2.VideoCapture(filename)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            height = float(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            width = float(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            res['frame_rate'] = fps
+            res['resolution'] = {'width': width, 'height': height}
+            res['pixels'] = width * height * frame_count
+            res['duration'] = frame_count / fps
+            res['bitrate'] = os.path.getsize(filename) / res['duration']
+        finally:
+            cap.release()
+        return res
+
     def pre_verify(self, source, rendition):
         """
         Function to verify that rendition conditions and specifications
@@ -74,30 +92,24 @@ class Verifier:
                     # Cleanup the audio file generated to avoid cluttering
                     os.remove(audio_file)
 
-            rendition_capture = cv2.VideoCapture(video_file)
-            fps = rendition_capture.get(cv2.CAP_PROP_FPS)
-            frame_count = int(rendition_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-            height = float(rendition_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            width = float(rendition_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+            metadata = self.read_video_metadata(video_file)
 
             rendition['path'] = video_file
 
             # Create dictionary with passed / failed verification parameters
             if rendition.get('resolution'):
-                rendition['resolution']['height_pre_verification'] = height / float(rendition['resolution']['height'])
-                rendition['resolution']['width_pre_verification'] = width / float(rendition['resolution']['width'])
+                rendition['resolution']['height_pre_verification'] = metadata['height'] / float(rendition['resolution']['height'])
+                rendition['resolution']['width_pre_verification'] = metadata['width'] / float(rendition['resolution']['width'])
 
-            if rendition.get('frame_rate'):
-                rendition['frame_rate'] = bool(np.isclose(float(rendition['frame_rate']), fps, atol=0.1))
+            if 'frame_rate' in rendition:
+                rend_exp_fps = float(rendition['frame_rate']) or source['frame_rate']
+                rendition['frame_rate'] = bool(np.isclose(rend_exp_fps, metadata['frame_rate'], atol=0.1))
 
             if rendition.get('bitrate'):
-                # Compute bitrate
-                duration = float(frame_count) / float(fps)  # in seconds
-                bitrate = os.path.getsize(video_file) / duration
-                rendition['bitrate'] = bitrate == rendition['bitrate']
+                rendition['bitrate'] = metadata['bitrate'] == rendition['bitrate']
 
             if rendition.get('pixels'):
-                rendition['pixels_pre_verification'] = float(rendition['pixels']) / frame_count * height * width
+                rendition['pixels_pre_verification'] = float(rendition['pixels']) / metadata['pixels']
 
         return rendition
 
@@ -127,6 +139,10 @@ class Verifier:
                           'video_available': True,
                           'audio_available': source_audio is not None,
                           'uri': source_uri}
+
+                # read source metadata
+                metadata = self.read_video_metadata(source_video)
+                source.update(metadata)
 
                 # Create a list of preverified renditions
                 pre_verified_renditions = []
@@ -182,7 +198,7 @@ class Verifier:
                 predictions_df = pd.DataFrame()
                 predictions_df['sl_pred_tamper'] = self.loaded_model_sl.predict(x_renditions_sl)
                 predictions_df['ocsvm_dist'] = self.loaded_model_ul.decision_function(x_renditions_ul)
-                predictions_df['ul_pred_tamper'] = (-self.loaded_model_ul.predict(x_renditions_ul)+1)/2
+                predictions_df['ul_pred_tamper'] = (-self.loaded_model_ul.predict(x_renditions_ul) + 1) / 2
                 predictions_df['meta_pred_tamper'] = predictions_df.apply(self.meta_model, axis=1)
                 prediction_time = timeit.default_timer() - start
 
@@ -271,14 +287,14 @@ class Verifier:
             audio_file = '{}_audio.wav'.format(video_file)
             logger.info('Extracting audio track')
             ffmpeg = subprocess.Popen(' '.join(['ffmpeg',
-                             '-i',
-                             video_file,
-                             '-vn',
-                             '-acodec',
-                             'pcm_s16le',
-                             '-loglevel',
-                             'quiet',
-                             audio_file]), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+                                                '-i',
+                                                video_file,
+                                                '-vn',
+                                                '-acodec',
+                                                'pcm_s16le',
+                                                '-loglevel',
+                                                'quiet',
+                                                audio_file]), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
             stdout, stderr = ffmpeg.communicate()
             if ffmpeg.returncode:
                 logger.error(f'Could not extract audio from video file {stderr}')
