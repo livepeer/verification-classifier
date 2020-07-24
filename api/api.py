@@ -40,6 +40,12 @@ def setup_logger(name, log_file, level=logging.INFO):
     if log_file == '':
         handler = logging.StreamHandler()
     else:
+        dir_name = os.path.dirname(log_file)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name, exist_ok=True)
+        if not os.path.exists(log_file):
+            with open(log_file, mode='w+'):
+                pass
         handler = logging.FileHandler(log_file)
         handler.setFormatter(FORMATTER)
 
