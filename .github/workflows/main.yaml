@@ -12,7 +12,7 @@ jobs:
     - name: Run tests
       run: docker run tests bash -c "mkdir -p ../data/ && wget -c http://storage.googleapis.com/feature_dataset/renditions-nano.tar.gz -O - | tar -xz -C ../data/ && python -m pytest testing/tests"
     - name: Login to docker
-      run: docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }}
+      run: DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} DOCKER_PASSWORD=${{ secrets.DOCKER_PASSWORD }} docker login
     - name: Tag latest verifier image
       run: docker tag verifier livepeer/verifier:latest
     - name: Push latest verifier image
