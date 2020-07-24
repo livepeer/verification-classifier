@@ -12,7 +12,7 @@ jobs:
     - name: Login to docker
       run: docker login --username ${{ secrets.DOCKER_USERNAME }} --password ${{ secrets.DOCKER_PASSWORD }}
     - name: Tag latest verifier image
-    - run: docker tag verifier livepeer/verifier:latest
+      run: docker tag verifier livepeer/verifier:latest
     - name: Push latest verifier image
       run: docker push livepeer/verifier:latest
     - name: Build and push verifier-api Docker image
