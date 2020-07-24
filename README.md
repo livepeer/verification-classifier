@@ -60,7 +60,8 @@ Several utility scripts are hosted in this folder for convenience. They are need
 
 Unit tests are located in testing/tests folder. Some tests are using data included in repository (under testing/tests/data, machine_learning/output/models, etc.), while other require the following assets to be downloaded and extracted into ../data directory:
 1. [Dataset CSV](https://storage.cloud.google.com/feature_dataset/yt8m-large.tar.gz)
-2. [YT8M renditions mini dataset](https://storage.cloud.google.com/feature_dataset/renditions-mini.tar)  
+2. [YT8M renditions mini dataset](https://storage.cloud.google.com/feature_dataset/renditions-mini.tar) 
+3. [Small dataset for CI/CD](https://storage.cloud.google.com/feature_dataset/renditions-nano.tar.gz)
 
 To run tests:
 - Install prerequisites
