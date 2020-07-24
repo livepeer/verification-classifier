@@ -5,8 +5,12 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-    - name: Install PyEnv and required Python version
-      run: curl https://pyenv.run | bash && pyenv init && pyenv install -v 3.6.7
+    - name: Install PyEnv
+      run: curl https://pyenv.run | bash
+    - name: Restart shell
+      run: exec $SHELL
+    - name: Install required Python version
+      run: pyenv init && pyenv install -v 3.6.7
     - name: Install dependencies
       run: pip install -r requirements.txt
     - name: Download and extract nano dataset for tests
