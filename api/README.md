@@ -1,44 +1,73 @@
-# REST HTTP API INSTRUCTIONS
+# Verification API
 
-Description of this functionality can be found in [this](https://github.com/livepeer/verification-classifier/issues/40) github issue.
+The verifier API exposes video verification capabilities through HTTP REST endpoints. 
 
-## 1.- Build the image and create a container
+## API endpoints
+### /verify
 
-To build the image and create a container, we have to run the following bash script located in the root of the project:
+#### 
+**Method:** `POST`  
+**Content-type:** `application/json` or `multipart/form-data`  
+**Description:**  
+This function performs verification of renditions of source video. There are two use cases:  
+1. video files are accessible to the server
+            - content-type of the request should be application/json
+2. video files are passed in request body (like a browser)
+            - content-type of the request should be multipart/form-data
+            - parameters should be passed as JSON in form's single 'json' field
+            - files should be passed as multipart data, there should be correspondence between 'source, 'uri' fields in parameters and file names. Name fields of files should be unique.  
+            
+**Parameters:**  
+``` {
+"orchestrator_id": The ID of the orchestrator responsible of transcoding  
+"source": a URI or name of the source video    
+"renditions": a list of renditions with the following structure:  
+    [{
+         "uri": a name or URI of rendition,
+         "resolution":{
+            "height": integer, vertical dimension, in pixels
+            "width": integer, horizontal dimension, in pixels
+         },
+         "frame_rate": float, expected FPS, with a special value of 0, which means 'same as source video' 
+         "pixels": integer, The number of expected total pixels
+                   (height x width x number of frames)
+    }] 
+}
+```
+**Returns:**
+```
+{
+  "orchestrator_id": The ID of the orchestrator responsible of transcoding ,
+   "results":[      {
+         "audio_available": boolean, whether file contained audio stream,
+         "fps": actual rendition framerate,
+         "width": rendition frame width,         
+         "height": rendition frame height,
+         "ocsvm_dist": distance to separating plane of OCSVM classifier for this rendition, negative value represents an outlier (tampered rendition),
+         "tamper": binary classification result, 1 if rendition predicted to be tampered, 0 otherwise
+         "tamper_sl": binary classification result from supervised CatBoost model,
+         "tamper_ul": binary classification result from unsupervised OCSVM anomaly detector,
+         "uri": rendition URI,
+         "video_available": boolean, whether file contained a video stream,
+         
+      
+}
+    ],
+       "source": source video URI 
+    }
+``` 
+
+## Running a docker image
+
+To build the image and create a container, run the following bash script located in the root of the project:
 
 ```
 ./launch_api.sh
 ```
 
-This will create a Docker image based on `python3` and adds the needed python dependencies.
-This image basically wraps a Flask http server around the verifier.py script.
+This will create and run a Docker image with API exposed on the port 5000.
 
-## 2.- Usage
-
-Once the Docker container is running, a Flask HTTP server will made available in the port 5000.
-
-### Parameters
-
-*Object* - The verification request object
-
-    *source*: string - The URI that can be used to download the input segment. The verifier can infer how to download the segment based on the schema of the URI (i.e. download via HTTPS if the URI has a https:// prefix). If the verifier does not support the schema of the URI or if it is missing, the verifier will look for the data locally
-
-    *renditions*: array Rendition - An array of rendition objects that contain rendition URIs that can be used to download the rendition segment data. The rendition URIs are nested in a object to allow for future addition of fields that can indicate expected values for pre-verification checks (i.e. expected bitrate, framerate, resolution, etc.)
-
-### Example Parameters
-
-params: [{
-    "source": "http://127.0.0.1/stream/abcd/5.ts",
-    "renditions": [
-        {"uri": "http://127.0.0.1/stream/abcd/P720p30fps4x3/5.ts"},
-        {"uri": "http://127.0.0.1/stream/abcd/P720p60fps16x9/5.ts"}
-    ],
-    "model": "http://127.0.0.1/model/verification.tar.gz"
-}]
-
-### Returns
-
-An object that indicates whether each rendition passed/failed verification.
+## Examples
 
 ### Example (URI or shared volume path)
 
@@ -186,5 +215,26 @@ curl localhost:5000/verify -F 'file1=@../data/renditions/1080p/0fIdY5IAnhY_60.mp
 ```
 #### Response
 ```
-{"model":"http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz","orchestrator_id":"foo","results":[{"audio_available":false,"fps":60.0,"height":720,"ocsvm_dist":0.028662416537303254,"ssim_pred":0.9728838728836663,"tamper":0,"tamper_sl":0,"tamper_ul":1,"uri":"/tmp/d0424e5c79c9401d893d6f2b8e87dfc2/720_0fIdY5IAnhY_60.mp4","video_available":true,"width":1280}],"source":"/tmp/d0424e5c79c9401d893d6f2b8e87dfc2/1080_0fIdY5IAnhY_60.mp4"}
+{
+   "model":"http://storage.googleapis.com/verification-models/verification-metamodel-fps2.tar.xz",
+   "orchestrator_id":"foo",
+   "results":[
+      {
+         "audio_available":false,
+         "fps":60.0,
+         "height":720,
+         "ocsvm_dist":0.028662416537303254,
+         "ssim_pred":0.9728838728836663,
+         "tamper":0,
+         "tamper_sl":0,
+         "tamper_ul":1,
+         "uri":"/tmp/d0424e5c79c9401d893d6f2b8e87dfc2/720_0fIdY5IAnhY_60.mp4",
+         "video_available":true,
+         "width":1280
+      
+}
+   
+],
+   "source":"/tmp/d0424e5c79c9401d893d6f2b8e87dfc2/1080_0fIdY5IAnhY_60.mp4"
+}
 ```

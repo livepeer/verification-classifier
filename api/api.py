@@ -89,7 +89,7 @@ def post_route():
         2. video files are passed in request body (like a browser)
             - content-type of the request should be multipart/form-data
             - parameters should be passed as JSON in form's single 'json' field
-            - files should be passed as multipart data, there should be correspondence between 'source, 'uri' fields in parameters and file names. Name fields of fields should be unique.
+            - files should be passed as multipart data, there should be correspondence between 'source, 'uri' fields in parameters and file names. Name fields of files should be unique.
     Input parameters:
 
     "orchestrator_id": The ID of the orchestrator responsible of transcoding
@@ -104,8 +104,7 @@ def post_route():
          "frame_rate": A value of the expected frames per seconds
          "pixels": The number of expected total pixels
                    (height x width x number of frames)
-    },
-   "model": The URL to the location of the trained model for verification
+    }
 
     Returns:
 
