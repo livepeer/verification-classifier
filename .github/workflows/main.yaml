@@ -6,9 +6,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Install PyEnv
-      run: curl https://pyenv.run | bash
-    - name: Restart shell
-      run: exec $SHELL
+      run: curl https://pyenv.run | bash && printf 'export PATH="$HOME/.pyenv/bin:$PATH"\neval "$(pyenv init -)"\neval "$(pyenv virtualenv-init -)"\n' >> ~/.bashrc && exec $SHELL
     - name: Install required Python version
       run: pyenv init && pyenv install -v 3.6.7
     - name: Install dependencies
