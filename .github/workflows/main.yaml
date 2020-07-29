@@ -20,9 +20,6 @@ jobs:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
     - name: Push latest verifier image
       run: docker push livepeer/verifier:latest
-      env:
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
     - name: Build and push verifier-api Docker image
       uses: docker/build-push-action@v1.1.0
       with:
