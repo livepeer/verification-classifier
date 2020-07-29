@@ -75,88 +75,88 @@ This will create and run a Docker image with API exposed on the port 5000.
 
 A sample call to the API is provided below:
 
-*Request (remote assets)*
+####Request (remote assets)
 
 ```
-
- curl localhost:5000/verify -d '{
-                                "source": "https://storage.googleapis.com/livepeer-verifier-renditions/480p/-3MYFnEaYu4.mp4",
-                                "renditions": [
-                                                {
-                                                    "uri": "https://storage.googleapis.com/livepeer-verifier-renditions/144p_black_and_white/-3MYFnEaYu4.mp4"
-                                                },
-                                                {
-                                                    "uri": "https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4",
-                                                    "resolution":{
-                                                        "height":"144",
-                                                        "width":"256"},
-                                                    "frame_rate": "24",
-                                                    "pixels":"1034500"
-                                                }
-                                            ],
-                                "orchestratorID": "foo"
-                                }' -H 'Content-Type: application/json'
-```
-
-*Response (remote assets)*
-
-```
-
-{"orchestrator_id":"foo",
-"results":[
+curl localhost:5000/verify -d '{
+  "source": "https://storage.googleapis.com/livepeer-verifier-renditions/480p/-3MYFnEaYu4.mp4",
+  "renditions": [
     {
-            "video_available":true,
-            "tamper":-1.195989,
-            "uri":"https://storage.googleapis.com/livepeer-verifier-renditions/144p_black_and_white/-3MYFnEaYu4.mp4"
+      "uri": "https://storage.googleapis.com/livepeer-verifier-renditions/144p_black_and_white/-3MYFnEaYu4.mp4"
     },
     {
-            "video_available":true,
-            "frame_rate":false,
-            "pixels":"1034500",
-            "pixels_post_verification":0.09354202835648148,
-            "pixels_pre_verification":127119360.0,
-            "resolution":
-            {
-                "height":"144",
-                "height_post_verification":1.0,
-                "height_pre_verification":1.0,
-                "width":"256",
-                "width_post_verification":1.0,
-                "width_pre_verification":1.0
-            },
-            "tamper":1.219913,
-            "uri":"https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4"
-    }],
-    "source":"https://storage.googleapis.com/livepeer-verifier-renditions/480p/-3MYFnEaYu4.mp4"}
-
+      "uri": "https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4",
+      "resolution": {
+        "height": "144",
+        "width": "256"
+      },
+      "frame_rate": "24",
+      "pixels": "1034500"
+    }
+  ],
+  "orchestratorID": "foo"
+}' -H 'Content-Type: application/json'
 ```
 
-*Request (local assets)*
+####Response (remote assets)
+
+```
+{
+  "orchestrator_id": "foo",
+  "results": [
+    {
+      "video_available": true,
+      "tamper": -1.195989,
+      "uri": "https://storage.googleapis.com/livepeer-verifier-renditions/144p_black_and_white/-3MYFnEaYu4.mp4"
+    },
+    {
+      "video_available": true,
+      "frame_rate": false,
+      "pixels": "1034500",
+      "pixels_post_verification": 0.09354202835648148,
+      "pixels_pre_verification": 127119360,
+      "resolution": {
+        "height": "144",
+        "height_post_verification": 1,
+        "height_pre_verification": 1,
+        "width": "256",
+        "width_post_verification": 1,
+        "width_pre_verification": 1
+      },
+      "tamper": 1.219913,
+      "uri": "https://storage.googleapis.com/livepeer-verifier-renditions/144p/-3MYFnEaYu4.mp4"
+    }
+  ],
+  "source": "https://storage.googleapis.com/livepeer-verifier-renditions/480p/-3MYFnEaYu4.mp4"
+}
+```
+
+####Request (local assets)
 
 ```
 
 curl localhost:5000/verify -d '{
-    "source": "stream/sources/1HWSFYQXa1Q.mp4",
-    "renditions": [
-        {
-            "uri": "stream/144p_black_and_white/1HWSFYQXa1Q.mp4"
-        },
-        {
-            "uri": "stream/144p/1HWSFYQXa1Q.mp4",
-            "resolution":{
-                "height":"144",
-                "width":"256"
-                },
-            "frame_rate": "24",
-            "pixels":"1034500"
-        }
-        ],
-        "orchestratorID": "foo"
-        }' -H 'Content-Type: application/json'
+  "source": "stream/sources/1HWSFYQXa1Q.mp4",
+  "renditions": [
+    {
+      "uri": "stream/144p_black_and_white/1HWSFYQXa1Q.mp4"
+    },
+    {
+      "uri": "stream/144p/1HWSFYQXa1Q.mp4",
+      "resolution": {
+        "height": "144",
+        "width": "256"
+      },
+      "frame_rate": "24",
+      "pixels": "1034500"
+    }
+  ],
+  "orchestratorID": "foo"
+}' -H 'Content-Type: application/json'
 
 ```
 
-*Response (local assets)*
+####Response (local assets)
 ```
 {
   "model": "https://storage.googleapis.com/verification-models/verification.tar.xz",
@@ -197,7 +197,6 @@ curl localhost:5000/verify -d '{
   ],
   "source": "stream/sources/1HWSFYQXa1Q.mp4"
 }
-
 ```
 
 ### Example (upload files in the query)
@@ -210,14 +209,14 @@ Note:
 curl localhost:5000/verify -F 'file1=@../data/renditions/1080p/0fIdY5IAnhY_60.mp4;filename=1080_0fIdY5IAnhY_60.mp4' \
                            -F 'file2=@../data/renditions/720p/0fIdY5IAnhY_60.mp4;filename=720_0fIdY5IAnhY_60.mp4' \
                            -F 'json={
-                                "source": "1080_0fIdY5IAnhY_60.mp4",
-                                "renditions": [
-                                                {
-                                                    "uri": "720_0fIdY5IAnhY_60.mp4"
-                                                }
-                                            ],
-                                "orchestratorID": "foo"
-                                }'
+  "source": "1080_0fIdY5IAnhY_60.mp4",
+  "renditions": [
+    {
+      "uri": "720_0fIdY5IAnhY_60.mp4"
+    }
+  ],
+  "orchestratorID": "foo"
+}'
 ```
 #### Response
 ```
