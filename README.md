@@ -19,10 +19,10 @@ Source video and each rendition video are made accessible through file system.
 ### 2. Pre-verification
 Metadata attributes, such as width, height and framerate, are read from video file headers and compared among source video, renditions and assumed values passed in the API call. Handled by [Verifier](verifier/verifier.py) class.
 ### 3. Frame matching
-The frame matching algorithm goal is to choose closest (by presentation time stamp) frames from source and rendition videos. Once PTS is extracted, the task is trivial, if source and rendition FPS are same. If frame rates doesn't match, the algorithm works as follows: 
-1. An excessive number of frames is picked from source video
-2. Presentation timestamps of rendition video frames are iterated to find closest matching frame for each master frame.
-3. Preset number of best matching frame pairs is picked for further processing.  
+The frame matching algorithm goal is to choose closest by presentation time stamp frame pairs from source and rendition videos. Once PTS is extracted, the task is trivial, if source and rendition FPS are same. If frame rates doesn't match, the algorithm works as follows: 
+1. An excessive number of frames is uniformly sampled from source video. The number is determined as MAX(N_SAMPLES, N_SAMPLES * MAX{SOURCE_FPS/RENDITION_FPS}). This allows to increase probability of finding best matching timestamps in case rendition FPS is lower than source fps. 
+2. Presentation timestamps of rendition video frames are iterated to find closest matching frame for each master frame. If the timestamp difference for a given pair exceeds 1/(2*SOURCE_FPS), the pair is discarded.
+3. Resulting set of frame pairs returned for metrics computation.  
 
 Implemented in [VideoAssetProcessor](scripts/asset_processor/video_asset_processor.py) class. 
 ### 4. Metrics computation
@@ -44,6 +44,7 @@ Each per-frame pair metric is aggregated across frame pairs to get a single valu
 ### 6. Metrics scaling
 The final step is to scale metrics according to video resolution. After that, we have features which could be used with models.
 ### 7. Classification
+The process of determining whether the video is tampered is viewed as a binary classification task. The Positive class or 1 is assigned to tampered videos, while Negative (0) designates untampered renditions, which accurately represent the source video.  
 Once features are extracted for select source-rendition video pair, they are fed to following models:
 - One Class Support Vector Machine  
 This is an anomaly detection model, it was fit to untampered renditions to learn the 'normal' distribution of features and detect outliers. It is characterized by lower number of False Positives, but is somewhat less sensitive to tampered videos. Being unsupervised model, it is expected to generalize well on novel data.
@@ -54,7 +55,7 @@ To make a final prediction, the following rule is applied to classification mode
 - if OCSVM prediction is "Untampered", return "Untampered"
 - otherwise, return CatBoost model prediction
 
-The goal is to reduce the number of False Positives (tamper) to prevent wrongfully penalizing transcoder nodes. OCSVM model is expected to have higher precision (low FP) on novel data. If OCSVM predicts the observation is an inlier (not tampered), we'll go with it, otherwise we'll use supervised model output. 
+The goal is to reduce the number of False Positives to prevent wrongfully penalizing transcoder nodes. OCSVM model is expected to have higher precision (low FP) on novel data. If OCSVM predicts the observation is an inlier, we'll go with it, otherwise we'll use supervised model output. 
 
 # Repository structure
 ## 1. Bulk video data generation: YT8M_Downloader
