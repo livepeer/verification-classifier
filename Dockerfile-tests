@@ -1,0 +1,3 @@
+FROM verifier
+ADD . /verifier
+WORKDIR /verifier
