@@ -86,7 +86,7 @@ def compute_metrics(asset, renditions):
                                           max_samples,
                                           features_list=None)
 
-    metrics_df, _, _ = asset_processor.process()
+    metrics_df, _, _ = asset_processor.video_capture()
 
     for _, row in metrics_df.iterrows():
         line = row.to_dict()

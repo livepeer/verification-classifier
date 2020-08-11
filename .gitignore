@@ -15,11 +15,14 @@ feature_engineering/output/psnr
 feature_engineering/output/ssim
 feature_engineering/output/vmaf
 feature_engineering/cloud_functions/imports
+machine_learning/output/models/*.*
 *-large.*
 *.out
 out.log
 *.log
+*.lock
 *settings.json
 *secrets
 *.csv
 */vimeo/*.txt
+api/logs/
