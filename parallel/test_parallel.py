@@ -11,7 +11,6 @@ import logging
 from scripts.asset_processor import VideoAssetProcessor, VideoCapture
 import timeit
 import pytest
-import cProfile
 
 pd.options.display.width = 0
 pd.set_option('display.max_columns', None)
