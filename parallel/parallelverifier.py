@@ -97,7 +97,7 @@ class ParallelVerifier:
 
             # Create dictionary with passed / failed verification parameters
             if rendition.get('resolution'):
-				rendition['resolution']['height_pre_verification'] = metadata["resolution"]['height'] / float(rendition['resolution']['height'])
+                rendition['resolution']['height_pre_verification'] = metadata["resolution"]['height'] / float(rendition['resolution']['height'])
                 rendition['resolution']['width_pre_verification'] = metadata["resolution"]['width'] / float(rendition['resolution']['width'])
 
             if 'frame_rate' in rendition:
