@@ -11,14 +11,10 @@ import logging
 from parallel.parallelgraber import Sample
 
 from concurrent.futures.thread import ThreadPoolExecutor
-from concurrent.futures import ProcessPoolExecutor
 
 import multiprocessing
 from scipy.spatial import distance
 from scripts.asset_processor.video_metrics import VideoMetrics
-
-from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
-from scripts.asset_processor.video_capture import VideoCapture
 
 class SampleCompare:
     def __init__(self, metrics_list, features_list, do_profiling=False):

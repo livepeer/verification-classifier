@@ -1,17 +1,14 @@
 
-
 import os
 import shutil
 import timeit
 import numpy as np
 import cv2
 from concurrent.futures.thread import ThreadPoolExecutor
-from concurrent.futures import ProcessPoolExecutor
 
 from collections import deque
 import multiprocessing
 
-from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 from scripts.asset_processor.video_capture import VideoCapture
 
 class Sample:

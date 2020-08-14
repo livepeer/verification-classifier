@@ -17,7 +17,6 @@ from catboost import CatBoostClassifier
 from catboost import CatBoostRegressor
 from verifier import file_locker
 
-from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
 from parallel.parallelgraber import ParallelGraber
 from parallel.parallelcompare import SampleCompare
 
