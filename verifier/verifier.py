@@ -127,6 +127,55 @@ class Verifier:
         Function that returns the predicted compliance of a list of renditions
         with respect to a given source file using a specified model.
         """
+        """
+            if usecengine:
+            renditionlist = ""
+            for rendition in renditions:
+                renditionlist = renditionlist + (rendition['uri'] + ',')
+
+            try:
+                #[metatamper, videoalive, audioalive, fps, width, height, audiodiff,
+                # sizeratio, dctdiff, gaussiamse, gaussiandiff, gaussianthreshold, histogramdiff]
+                diffmatrix = extractfts.calc_featurediff(source_uri, renditionlist, self.max_samples)
+
+                for i, rendition in enumerate(renditions):
+                    rendition['audio_dist'] = -1.0
+                    rendition['video_available'] = None
+                    rendition['audio_available'] = None
+                    if diffmatrix[i,1] == 1:
+                        rendition['video_available'] = True
+                    if diffmatrix[i,2] == 1:
+                        rendition['audio_available'] = True
+                        rendition['audio_dist'] = diffmatrix[i,6]
+
+                    rendition['fps'] = diffmatrix[i,3]
+                    rendition['pixels'] = diffmatrix[i,4] * diffmatrix[i,5]
+
+                x_renditions_sl = diffmatrix[:, 7:]
+                x_renditions_ul = diffmatrix[:, 7:]
+
+                x_renditions_ul = self.loaded_scaler.transform(x_renditions_ul)
+                np.set_printoptions(precision=6, suppress=True)
+                # Make predictions for given data
+                start = timeit.default_timer()
+                predictions_df = pd.DataFrame()
+                predictions_df['sl_pred_tamper'] = self.loaded_model_sl.predict(x_renditions_sl)
+                predictions_df['ocsvm_dist'] = self.loaded_model_ul.decision_function(x_renditions_ul)
+                predictions_df['ul_pred_tamper'] = (-self.loaded_model_ul.predict(x_renditions_ul) + 1) / 2
+                predictions_df['meta_pred_tamper'] = predictions_df.apply(self.meta_model, axis=1)
+                prediction_time = timeit.default_timer() - start
+                i = 0
+                for _, rendition in enumerate(renditions):
+                    if rendition['video_available']:
+                        rendition['ocsvm_dist'] = float(predictions_df['ocsvm_dist'].iloc[i])
+                        rendition['tamper_ul'] = int(predictions_df['ul_pred_tamper'].iloc[i])
+                        rendition['tamper_sl'] = int(predictions_df['sl_pred_tamper'].iloc[i])
+                        rendition['tamper'] = int(predictions_df['meta_pred_tamper'].iloc[i])                      
+                        i += 1
+                return renditions
+            except Exception as e:
+                print(e)
+        """
         total_start = timeit.default_timer()
         source_video, source_audio = self.get_video_audio(source_uri)
         if not source_video and not source_audio:
