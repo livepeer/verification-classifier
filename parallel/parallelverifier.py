@@ -1,6 +1,3 @@
-"""
-Class to perform video verification process
-"""
 
 import uuid
 import timeit
@@ -20,12 +17,14 @@ from catboost import CatBoostClassifier
 from catboost import CatBoostRegressor
 from verifier import file_locker
 
-from scripts.asset_processor.video_asset_processor import VideoAssetProcessor
+from parallel.parallelgraber import ParallelGraber
+from parallel.parallelcompare import SampleCompare
+
 
 logger = logging.getLogger()
 
 
-class Verifier:
+class ParallelVerifier:
     def __init__(self, max_samples, model, use_gpu, do_profiling, debug):
         """
         Initialize verifier instance
@@ -111,6 +110,7 @@ class Verifier:
             if rendition.get('pixels'):
                 rendition['pixels_pre_verification'] = float(rendition['pixels']) / metadata['pixels']
 
+
         return rendition
 
     def meta_model(self, row):
@@ -127,55 +127,6 @@ class Verifier:
         Function that returns the predicted compliance of a list of renditions
         with respect to a given source file using a specified model.
         """
-        """
-            if usecengine:
-            renditionlist = ""
-            for rendition in renditions:
-                renditionlist = renditionlist + (rendition['uri'] + ',')
-
-            try:
-                #[metatamper, videoalive, audioalive, fps, width, height, audiodiff,
-                # sizeratio, dctdiff, gaussiamse, gaussiandiff, gaussianthreshold, histogramdiff]
-                diffmatrix = extractfts.calc_featurediff(source_uri, renditionlist, self.max_samples)
-
-                for i, rendition in enumerate(renditions):
-                    rendition['audio_dist'] = -1.0
-                    rendition['video_available'] = None
-                    rendition['audio_available'] = None
-                    if diffmatrix[i,1] == 1:
-                        rendition['video_available'] = True
-                    if diffmatrix[i,2] == 1:
-                        rendition['audio_available'] = True
-                        rendition['audio_dist'] = diffmatrix[i,6]
-
-                    rendition['fps'] = diffmatrix[i,3]
-                    rendition['pixels'] = diffmatrix[i,4] * diffmatrix[i,5]
-
-                x_renditions_sl = diffmatrix[:, 7:]
-                x_renditions_ul = diffmatrix[:, 7:]
-
-                x_renditions_ul = self.loaded_scaler.transform(x_renditions_ul)
-                np.set_printoptions(precision=6, suppress=True)
-                # Make predictions for given data
-                start = timeit.default_timer()
-                predictions_df = pd.DataFrame()
-                predictions_df['sl_pred_tamper'] = self.loaded_model_sl.predict(x_renditions_sl)
-                predictions_df['ocsvm_dist'] = self.loaded_model_ul.decision_function(x_renditions_ul)
-                predictions_df['ul_pred_tamper'] = (-self.loaded_model_ul.predict(x_renditions_ul) + 1) / 2
-                predictions_df['meta_pred_tamper'] = predictions_df.apply(self.meta_model, axis=1)
-                prediction_time = timeit.default_timer() - start
-                i = 0
-                for _, rendition in enumerate(renditions):
-                    if rendition['video_available']:
-                        rendition['ocsvm_dist'] = float(predictions_df['ocsvm_dist'].iloc[i])
-                        rendition['tamper_ul'] = int(predictions_df['ul_pred_tamper'].iloc[i])
-                        rendition['tamper_sl'] = int(predictions_df['sl_pred_tamper'].iloc[i])
-                        rendition['tamper'] = int(predictions_df['meta_pred_tamper'].iloc[i])                      
-                        i += 1
-                return renditions
-            except Exception as e:
-                print(e)
-        """
         total_start = timeit.default_timer()
         source_video, source_audio = self.get_video_audio(source_uri)
         if not source_video and not source_audio:
@@ -188,7 +139,6 @@ class Verifier:
                           'video_available': True,
                           'audio_available': source_audio is not None,
                           'uri': source_uri}
-
                 # read source metadata
                 metadata = self.read_video_metadata(source_video)
                 source.update(metadata)
@@ -209,31 +159,33 @@ class Verifier:
                     if metric not in non_temporal_features:
                         metrics_list.append(metric.split('-')[0])
 
-                # Initialize times for assets processing profiling
+                #----- Frame grabber -----
+                # Frame grabber times
                 start = timeit.default_timer()
 
-                # Instantiate VideoAssetProcessor class
-                asset_processor = VideoAssetProcessor(source,
-                                                      pre_verified_renditions,
-                                                      metrics_list,
-                                                      self.do_profiling,
-                                                      self.max_samples,
-                                                      features,
-                                                      self.debug,
-                                                      self.use_gpu)
+                # Instantiate Frame Grabber class
+                samplegraber = ParallelGraber(self.max_samples, self.use_gpu, self.do_profiling, self.debug)
 
-                # Record time for class initialization
+                samplegraber.addgraber(source_video)
+                for rendition in renditions:
+                    samplegraber.addgraber(rendition['path'])
+                sampledata = samplegraber.captureall()
+
                 initialize_time = timeit.default_timer() - start
 
+                # ----- Feature calculation -----
                 # Register times for asset processing
                 start = timeit.default_timer()
 
+                featureCompare = SampleCompare(metrics_list, features, self.do_profiling)
+
                 # Assemble output dataframe with processed metrics
-                metrics_df, pixels_df, dimensions_df = asset_processor.process()
+                metrics_df, pixels_df, dimensions_df = featureCompare.process(sampledata, renditions, source_video)
 
                 # Record time for processing of assets metrics
                 process_time = timeit.default_timer() - start
 
+                # ----- Inference part -----
                 x_renditions_sl = np.asarray(metrics_df[self.features_sl])
                 x_renditions_ul = np.asarray(metrics_df[self.features_ul])
                 x_renditions_ul = self.loaded_scaler.transform(x_renditions_ul)
@@ -247,7 +199,7 @@ class Verifier:
                 predictions_df = pd.DataFrame()
                 predictions_df['sl_pred_tamper'] = self.loaded_model_sl.predict(x_renditions_sl)
                 predictions_df['ocsvm_dist'] = self.loaded_model_ul.decision_function(x_renditions_ul)
-                predictions_df['ul_pred_tamper'] = (-self.loaded_model_ul.predict(x_renditions_ul) + 1) / 2
+                predictions_df['ul_pred_tamper'] = (-self.loaded_model_ul.predict(x_renditions_ul)+1)/2
                 predictions_df['meta_pred_tamper'] = predictions_df.apply(self.meta_model, axis=1)
                 prediction_time = timeit.default_timer() - start
 
@@ -336,14 +288,14 @@ class Verifier:
             audio_file = '{}_audio.wav'.format(video_file)
             logger.info('Extracting audio track')
             ffmpeg = subprocess.Popen(' '.join(['ffmpeg',
-                                                '-i',
-                                                video_file,
-                                                '-vn',
-                                                '-acodec',
-                                                'pcm_s16le',
-                                                '-loglevel',
-                                                'quiet',
-                                                audio_file]), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+                             '-i',
+                             video_file,
+                             '-vn',
+                             '-acodec',
+                             'pcm_s16le',
+                             '-loglevel',
+                             'quiet',
+                             audio_file]), stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
             stdout, stderr = ffmpeg.communicate()
             if ffmpeg.returncode:
                 logger.error(f'Could not extract audio from video file {stderr}')

@@ -83,7 +83,7 @@ def get_renditions(renditions: str) -> Dict:
 def read_data():
     read_rows = []
     read_ids = []
-    with open(CURRENT_PATH + '/' + 'yt8m_data.csv', newline='') as csv_file:
+    with open(CURRENT_PATH + '/' + 'yt8m_data.csv', encoding='utf-8', newline='') as csv_file:
         reader = csv.reader(csv_file, delimiter=',', quotechar='"')
         next(reader)
         for row in reader:
