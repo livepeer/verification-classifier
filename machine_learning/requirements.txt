@@ -1,7 +1,7 @@
 plotly==3.6.1
 sklearn
 seaborn==0.9.0
-opencv-python==4.0.0.21
+opencv-python==4.2.0.32
 meson==0.50.0
 tensorflow
 Keras==2.2.4
